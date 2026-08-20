@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/session/session-telemetry-otel/README.md
+README.md: 3b4a9c3dff4b53bc47b3d6ad2cf7194afb84972e
+README.zh.md: 3e414b86eab1305395bff16f799e93029a28cba5

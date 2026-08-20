@@ -1,0 +1,116 @@
+# Token Meter
+
+English | [中文](token-meter.zh.md)
+
+`@deepseek-ai/dsh-token-meter` exposes one detached replay snapshot for request pressure and positional surface pricing. `logRevision` is the number of durable events consumed for every field in the measurement.
+
+Source: [`packages/llm/token-meter/src/types.ts`](../../packages/llm/token-meter/src/types.ts)
+
+## Measurement types
+
+```ts type-equiv
+/** Request-pressure totals shared by complete and positional-range measurements. */
+interface TokenMeasurementTotals {
+  /** Number of durable events consumed; equal to the next unread event seq. */
+  readonly logRevision: number
+  /** Provider or heuristic anchor used for this measurement. */
+  readonly baseline: TokenMeasurementBaseline
+  /** Signed repricing of current surface content relative to the baseline anchor. */
+  readonly surfaceDeltaTokens: number
+  /** Non-negative current request-and-response pressure. */
+  readonly totalTokens: number
+  /** Total heuristic tokens across the current surface. */
+  readonly surfaceTokens: number
+}
+```
+
+```ts type-equiv
+/** Detached immutable request-pressure and complete surface snapshot. */
+interface TokenMeasurement extends TokenMeasurementTotals {
+  /** Every current surface node in positional head-to-tail order. */
+  readonly nodes: readonly TokenSurfaceNode[]
+}
+```
+
+```ts type-equiv
+/** Detached totals plus one half-open positional slice of current surface nodes. */
+interface TokenRangeMeasurement extends TokenMeasurementTotals {
+  /** Current-surface position represented by `nodes[0]`. */
+  readonly rangeStart: number
+  /** Selected current surface nodes in positional order. */
+  readonly nodes: readonly TokenSurfaceNode[]
+}
+```
+
+`measure()` returns every positional node; `measureRange(from, to)` returns only the selected half-open slice while preserving the same totals and consumed revision. `baseline.kind === 'usage'` means the latest successful provider call has the same canonical request envelope and its total is no lower than that call's full heuristic anchor. `estimated` means no reusable conservative usage anchor exists, so the service priced the complete envelope and surface with its fixed heuristic. A later successful request replaces the earlier anchor; signed `surfaceDeltaTokens` preserves growth and shrinkage relative to a matching anchor. `totalTokens` remains request-and-response pressure, while `surfaceTokens` is the surface-only heuristic total and equals the sum of every current node price.
+
+## `TokenSurfaceNode`
+
+```ts type-equiv
+/** One token-priced node in the current ordered session surface. */
+interface TokenSurfaceNode {
+  /** Durable sequence number of the surface event. */
+  readonly seq: number
+  /** Heuristic tokens for the exact message projected by this node. */
+  readonly tokens: number
+}
+```
+
+Surface order is authoritative; replacement nodes can have higher durable seqs than later positional nodes. The snapshot is immutable and does not grow when the underlying replay fold advances.
+
+<!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
+
+<a id="cordis-surface"></a>
+
+## Cordis API
+
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+
+<a id="ctxtokenmeter--tokenmeter"></a>
+
+### `ctx.tokenMeter` — `TokenMeter`
+
+Replay owner for one service-wide estimator and isolated per-session folds.
+
+```ts cordis-catalog
+/**
+ * Measure current request pressure and surface through the durable tail.
+ *
+ * Provider usage is reused only when the latest successful call's canonical
+ * request envelope matches `requestHeader` and its total is no lower than
+ * that call's full heuristic anchor; otherwise the complete envelope and
+ * surface are heuristically repriced.
+ *
+ * `requestHeader` affects request pressure only; surface fields always
+ * describe the current session surface. Every call clones those positional
+ * nodes, so measurement is O(surface).
+ *
+ * @param session - session to replay through its current durable tail.
+ * @param requestHeader - optional effective request envelope replacing the latest logged header.
+ * @returns a detached deeply immutable pressure and surface measurement.
+ */
+measure(session: Session, requestHeader?: EpochHeader): TokenMeasurement
+
+/**
+ * Measure full request pressure while copying only one positional surface range.
+ * @param session - session to replay through its current durable tail.
+ * @param from - inclusive current-surface position.
+ * @param to - exclusive current-surface position.
+ * @param requestHeader - optional effective request envelope replacing the latest logged header.
+ * @returns detached totals plus the selected priced nodes.
+ */
+measureRange( session: Session, from: number, to: number, requestHeader?: EpochHeader, ): TokenRangeMeasurement
+
+/**
+ * Heuristically price one model-visible message (instance face of the pure
+ * `estimateMessage` export from `estimate.ts`).
+ * @param message - message to price without mutation.
+ * @returns content and role-framing tokens under the fixed service heuristic.
+ */
+estimateMessage(message: Message): number
+```
+
+Types: [EpochHeader](session.md) · [Message](llm-streaming.md) · [Session](session.md)
+
+Source: [`packages/llm/token-meter/src/index.ts:75`](../../packages/llm/token-meter/src/index.ts)
+<!-- END GENERATED cordis-surface -->
