@@ -20,6 +20,15 @@
 - [@MolecularFullerene](https://github.com/MolecularFullerene) 与提交记录关联的 [@Almanassik-Alarabi](https://github.com/Almanassik-Alarabi)——完善配置校验和 agent-scoped 工具发现（[#27](https://github.com/xiaobright/dsh-anchored-standard/pull/27)、[#29](https://github.com/xiaobright/dsh-anchored-standard/pull/29)）。
 - [@baizhu945](https://github.com/baizhu945)——修复没有 `/bin/bash` 的主机上 persistent shell 无法启动的问题（[#44](https://github.com/xiaobright/dsh-anchored-standard/pull/44)）。
 - [@lunar-me](https://github.com/lunar-me)——审校并修正文档中的英文表达（[#67](https://github.com/xiaobright/dsh-anchored-standard/pull/67)、[#68](https://github.com/xiaobright/dsh-anchored-standard/pull/68)、[#69](https://github.com/xiaobright/dsh-anchored-standard/pull/69)）。
+- [@LHMQ878](https://github.com/LHMQ878)——修复 Windows 下 Git Bash 风格 workdir 导致 bash 工具失败的问题（[#72](https://github.com/xiaobright/dsh-anchored-standard/pull/72)，修复 [#55](https://github.com/xiaobright/dsh-anchored-standard/issues/55)）。
+- [@xxie-xd](https://github.com/xxie-xd)——修复 instruction-hint 只探查 git 根目录、漏掉子目录指令文件的问题（[#59](https://github.com/xiaobright/dsh-anchored-standard/pull/59)）。
+- [@ruler770525](https://github.com/ruler770525)——定位命令式 hint 措辞会把锚定轨迹打回 "let me"（带 session 对照数据），并给出建议式措辞（[#49](https://github.com/xiaobright/dsh-anchored-standard/issues/49)、[#63](https://github.com/xiaobright/dsh-anchored-standard/pull/63)）。
+- [@DuduluTkmttt](https://github.com/DuduluTkmttt)——定位 rc.6 上 dev_tool_search 因注册表作用域变化而失效的问题（[#32](https://github.com/xiaobright/dsh-anchored-standard/issues/32)、[#31](https://github.com/xiaobright/dsh-anchored-standard/pull/31)，修复随 a2e7d6a 落地）。
+- [@HongzhongL](https://github.com/HongzhongL)——贡献 fork-safe 目录控制与 Windows Git Bash 套件（[#34](https://github.com/xiaobright/dsh-anchored-standard/pull/34)；Windows 部分先后经 [#33](https://github.com/xiaobright/dsh-anchored-standard/pull/33)、[#44](https://github.com/xiaobright/dsh-anchored-standard/pull/44)、[#72](https://github.com/xiaobright/dsh-anchored-standard/pull/72) 落地）。
+- [@hongshuxifan321](https://github.com/hongshuxifan321)——复现 instruction-hint 跨重启重复注入与确定性 id 碰撞，给出唯一 id 容错修复、日志清理配方与排障文档（[#76](https://github.com/xiaobright/dsh-anchored-standard/issues/76)、[#79](https://github.com/xiaobright/dsh-anchored-standard/pull/79)）。
+- [@UraraO](https://github.com/UraraO)——修复默认 preset 直接创建的会话跳过轨迹预填充的问题，以 `permission/preset` 作为 born 路径的可靠触发点并堵上 await 后的 agent 竞态（[#77](https://github.com/xiaobright/dsh-anchored-standard/pull/77)）。
+- [@gwL955](https://github.com/gwL955)——以真实会话日志定位 dev_tool_search 全 token AND 匹配导致长查询必然空结果、模型只搜不解锁的双重缺陷，给出模糊打分排序与解锁路径教学的修复及回归测试（[#80](https://github.com/xiaobright/dsh-anchored-standard/pull/80)，在 [#31](https://github.com/xiaobright/dsh-anchored-standard/pull/31)、[#32](https://github.com/xiaobright/dsh-anchored-standard/issues/32) 的基础上推进）。
+- [@mbzmr](https://github.com/mbzmr)——以修复前后的完整 session 导出证据复现极简 persona 下的身份漂移（自称 Claude），验证一行身份句配方不影响任何机械锚定指标，并按 #49/#63 的证据标准将其记录为 README 已知行为（[#81](https://github.com/xiaobright/dsh-anchored-standard/issues/81)、[#82](https://github.com/xiaobright/dsh-anchored-standard/pull/82)）。
 
 ## 研究与独立复现
 
@@ -33,4 +42,4 @@
 
 完整记录可在 [Contributors](https://github.com/xiaobright/dsh-anchored-standard/graphs/contributors)、[Pull Requests](https://github.com/xiaobright/dsh-anchored-standard/pulls?q=is%3Apr) 和 [Issues](https://github.com/xiaobright/dsh-anchored-standard/issues?q=is%3Aissue) 中查阅；实验材料与研究贡献见 [DeepseekCotexplorations](https://github.com/0liveiraaa/DeepseekCotexplorations)。
 
-> 统计截至 2026-08-17：主仓库共有 18 个已合并 PR，其中包括 10 位外部 PR 作者；此外还有通过协作分支、审查合并和研究仓库参与项目的贡献者。GitHub 账号与本地 Git 作者邮箱的映射可能造成贡献计数差异，因此这里以可核验的实际贡献内容为主，而不是按 commit 数量排序。
+> 统计截至 2026-08-26：主仓库共有 25 个已合并 PR，其中包括 17 位外部 PR 作者；此外还有通过协作分支、审查合并和研究仓库参与项目的贡献者。GitHub 账号与本地 Git 作者邮箱的映射可能造成贡献计数差异，因此这里以可核验的实际贡献内容为主，而不是按 commit 数量排序。

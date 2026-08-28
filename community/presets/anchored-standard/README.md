@@ -206,7 +206,7 @@ pnpm run community:install -- --dsh-home /path/to/.dsh
 
 For development-only prefab experiments, use AI-assisted one-command setup. Give your coding agent this repository and ask it to follow the [installation-agent contract](./prefab/AGENT_INSTALL.md). When it reports `INSTALL READY`, start DSH, select **Prefab Anchored Standard**, create a new session in the target workspace, and send the real task prompt. This installs the generic template; the Project2 benchmark template requires an explicit `--template project2` selection and installs under a separate preset id.
 
-Manual copies are development-only: they lack the suite ownership marker and recoverable backups, so the suite installer cannot update them. Clone this repository, then copy the entire `preset` directory into the user preset root under the id `anchored-standard`. Every mode directory in this repository is self-contained: the `zero-anchored-standard/`, `whoami-standard/`, `prefab/`, `eternal-minimal/`, `wire-think-standard/`, and `combo-anchored/` variants install the same way, alone or together, with no other directory required (see their sections below). `prefab/` automatically hydrates newly selected sessions; follow [`prefab/README.md`](./prefab/README.md) ([中文](./prefab/README.zh.md)).
+Manual copies are development-only: they lack the suite ownership marker and recoverable backups, so the suite installer cannot update them. Clone this repository, then copy the entire `preset` directory into the user preset root under the id `anchored-standard`. Every mode directory in this repository is self-contained: the `zero-anchored-standard/`, `whoami-standard/`, `prefab/`, `eternal-minimal/`, `wire-think-standard/`, and `combo-anchored/` variants install the same way, alone or together, with no other directory required (see their sections below). `prefab/` hydrates both sessions switched to it and sessions created with it as the default preset; follow [`prefab/README.md`](./prefab/README.md) ([中文](./prefab/README.zh.md)).
 
 PowerShell:
 
@@ -256,6 +256,11 @@ npm test
 - The tool catalog changes at promotion and again whenever `dev_tool_search` unlocks a new tool; request-prefix cache continuity breaks at those points.
 - The preset has the same trust level as shell access. Review its files before installation.
 - The plugin performs no network requests and adds no telemetry.
+- The Minimal persona is intentionally bare (`You are a helpful software engineer assistant.`, `complete: true`). This byte-pure condition matches the anchor measurements, but it provides no identity anchor and can make the model fall back to training priors on identity questions. Append the official identity sentence to persona `text:` and recreate the session if identity matters; this changes the measured condition, so verify the first-round trajectory when exact anchoring matters ([#81](https://github.com/xiaobright/dsh-anchored-standard/issues/81), [#49](https://github.com/xiaobright/dsh-anchored-standard/issues/49)).
+
+### Duplicate instruction hint after a host restart
+
+`instruction-hint` uses a durable `session.events` scan to avoid reinjection. If the first `agent/pre-step` after a restart runs before the log is materialized, the scan can still see no prior hint. Every injection uses a unique id, so this race costs a few context tokens instead of colliding with the original message and stopping history assembly. Repair old affected logs by deduplicating rows whose `source.kind` is `instruction-hint`.
 
 ## Zero-Anchored Standard (experimental)
 

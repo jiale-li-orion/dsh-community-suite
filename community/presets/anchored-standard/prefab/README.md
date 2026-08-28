@@ -26,7 +26,7 @@ node .\prefab\install.mjs --confirm-dsh-closed
 
 This direct path lacks the suite ownership marker and backup, so the suite installer cannot update it. The Project2-derived benchmark template is for reproduction only and must be selected explicitly; it uses the separate `prefab-anchored-project2` id.
 
-Harness creates a blank session before mounting a selected preset. The bundled `prefab-session-seed.mjs` observes the committed preset selection, crosses the non-reentrant `Session.append` boundary with one microtask, and replays the two model-visible warm-up turns into that same session. It omits thousands of token stream chunks while retaining lifecycle events, messages, tool calls/results, and durable tool unlocks, so the WebUI is not flooded. The seeder also aligns the live Agent's constructor-time turn cursor with the two replayed turns; the first real prompt therefore opens turn 3 instead of duplicating turn 1.
+Harness can mount this preset onto a blank session or create a session whose header already names it as the default preset. The bundled `prefab-session-seed.mjs` observes the committed preset selection in the first case and the first `permission/preset` event in the second, crosses the non-reentrant `Session.append` boundary with one microtask, and replays the two model-visible warm-up turns into that same session. It omits thousands of token stream chunks while retaining lifecycle events, messages, tool calls/results, and durable tool unlocks, so the WebUI is not flooded. The seeder also aligns the live Agent's constructor-time turn cursor with the two replayed turns; the first real prompt therefore opens turn 3 instead of duplicating turn 1.
 
 ## Manual installation (development only)
 
@@ -75,7 +75,7 @@ MCP tools are not bundled into the template: its saved request schemas and tool 
 - `template.jsonl`: the reviewed, bundled session template.
 - `template.jsonl.meta.json`: roll provenance and trajectory summary.
 - `templates/project2-benchmark.jsonl`: explicit opt-in benchmark template.
-- `prefab-session-seed.mjs`: automatic in-place hydration on mode selection.
+- `prefab-session-seed.mjs`: automatic in-place hydration on mode selection or default-preset session creation.
 - `install.mjs`: one-command mode installation.
 - `instantiate.mjs`: legacy offline workspace-specific session instantiation.
 - `roll-runner.mjs` and `roll-prefab.mjs`: optional tooling for producing a replacement template.

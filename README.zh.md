@@ -16,7 +16,7 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 
 - **会话上下文与压缩**：有界长会话读取、packed retention、上下文检查与区间选择、历史召回、按模型容量规划压缩，以及可恢复的摘要审阅；来源为 [leavelet/deepseek-harness](https://github.com/leavelet/deepseek-harness)。
 - **归档会话**：在 Web 设置页列出、预览、释放、删除归档会话并统计容量的 bundle；来源为 [MuWinds/dsh-archived-sessions](https://github.com/MuWinds/dsh-archived-sessions)。
-- **锚定 agent**：7 个可独立安装的 agent 组合，提供受控的首轮工具面、上下文门控、wire-think 路由、压缩感知的阶段提升和 prefab 工作流；来源为 [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
+- **锚定 agent**：7 个可独立安装的 agent 组合，提供受控的首轮工具面、上下文门控、wire-think 路由、压缩感知的阶段提升、默认会话 prefab 播种、跨平台 shell 路径与稳健的指令发现；来源为 [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
 
 完整功能审计与兼容边界见[社区优化](docs/community-optimizations.md)（[中文](docs/community-optimizations.zh.md)）。
 

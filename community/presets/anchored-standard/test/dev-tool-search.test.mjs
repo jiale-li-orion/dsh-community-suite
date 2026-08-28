@@ -95,5 +95,26 @@ test('schemas() is queried with the executing agent as the viewing scope (issue 
   const result = await ctx.tools.registered.execute({ query: 'pwsh' }, { agent })
   assert.equal(calls.length, 1)
   assert.equal(calls[0], agent, 'the executing agent is the viewing scope, so agent-scoped preset tools are visible')
-  assert.match(result.text, /pwsh: Execute a PowerShell command/)
+  assert.match(result.text, /pwsh.*Execute a PowerShell command/)
+})
+
+test('long natural-language query returns the most relevant tools (fuzzy scoring, not AND)', async () => {
+  const { registered } = register([
+    { name: 'web_search', description: 'internet search and web retrieval' },
+    { name: 'write', description: 'write files' },
+    { name: 'str_replace_editor', description: 'viewing, creating and editing files' },
+    { name: 'bash', description: 'run commands' },
+  ])
+  const tool = registered.find((t) => t.name === 'dev_tool_search')
+  const result = await tool.execute({ query: 'file edit write replace script root permissions' }, exec())
+  assert.match(result.text, /write/, 'long query must not return "No tools match" when tools match some tokens')
+  assert.doesNotMatch(result.text, /No tools match/)
+})
+
+test('empty search result teaches the direct unlock path (toolNames)', async () => {
+  const { registered } = register([{ name: 'bash', description: 'run commands' }])
+  const tool = registered.find((t) => t.name === 'dev_tool_search')
+  const result = await tool.execute({ query: 'zzz-nothing' }, exec())
+  assert.match(result.text, /No tools match/)
+  assert.match(result.text, /toolNames/)
 })

@@ -1,4 +1,4 @@
-From e6b41438ca55f2e04e8a225e4e2da3e59bc1c068 Mon Sep 17 00:00:00 2001
+From 29f732a51cb20c73c191460cf8073543fafbd455 Mon Sep 17 00:00:00 2001
 From: jiale li <2946192893@qq.com>
 Date: Wed, 19 Aug 2026 11:46:46 +0800
 Subject: [PATCH] fix: align wire think adapter with DSH rc.7

@@ -26,11 +26,13 @@ xiaobright 集合提供 7 个运行时预设。`anchored-standard` 先使用 Min
 
 rc.7 的 wire-think adapter 支持 low reasoning，拒绝不受支持的 effort 值，保留显式空 system prompt，并报告模型的 `maxOutputTokens`。它的序列化与 replay 行为和官方 rc.7 DeepSeek adapter 一致。
 
+预设维护层会在 Windows 上规范化 Git Bash 工作目录、探测完整的指令文件链，并为每条指令提示分配唯一 id，使主机重启时的竞态不会中断历史组装。开发工具搜索使用模糊 token 评分，并在目录没有匹配项时说明如何通过 `toolNames` 直接解锁。Prefab 播种同时覆盖手动切换预设的会话和创建时已将其设为默认值的会话，包括技能加载完成后才发布 agent 的情况。
+
 安装器将它们发布到 `.agent-presets` 下，并且只有在 `--update` 标识安装器自有目标时才会替换预设。
 
 ## 核验与兼容性
 
-聚焦的 session、persistence、projection、Context、compaction、API proxy、terminal 和 Web 测试均通过。归档会话 bundle 有 8 项通过测试，覆盖生命周期、有界详情、恢复和安全删除。预设包有 207 项通过检查，包含共享文件同步与 rc.7 adapter 行为。安装器有 16 项测试，覆盖仅限 Web 的 bundle 目标、7 个预设标识、自有更新检查、备份行为、pnpm `--` 分隔符回归和不访问 sessions 目录。
+聚焦的 session、persistence、projection、Context、compaction、API proxy、terminal 和 Web 测试均通过。归档会话 bundle 有 8 项通过测试，覆盖生命周期、有界详情、恢复和安全删除。适配后的预设包有 216 项通过的 keyless 检查，包含共享文件同步、维护性回归与 rc.7 adapter 行为。安装器有 16 项测试，覆盖仅限 Web 的 bundle 目标、7 个预设标识、自有更新检查、备份行为、pnpm `--` 分隔符回归和不访问 sessions 目录。
 
 keyless snapshot 有 118 项通过、1 项跳过；显式空密钥 Web lane 有 255 项通过、15 项跳过。验证不发起真实 DeepSeek API 请求。coverage 汇总为 statements 98.36%、branches 97.33%、functions 98.28%、lines 98.64%；移植代码仍低于 rc.7 的逐文件 100% coverage gate。
 

@@ -24,7 +24,7 @@ node .\prefab\install.mjs --confirm-dsh-closed
 
 这条直接路径没有 suite 所有权标记和备份，因此 suite 安装器无法更新它。Project2 派生评测模板只用于复现，必须显式选择；它使用独立的 `prefab-anchored-project2` id。
 
-Harness 会先创建空会话、再挂载所选 preset。模式内的 `prefab-session-seed.mjs` 监听已提交的 preset 选择事件，越过 `Session.append` 的重入边界后，把模板的两轮模型可见历史写入当前会话。它只重放 turn/step、消息和工具调用/结果，不推送数千条 token chunk，因此不会在新会话时冲击 WebUI。插件还会把 live Agent 在构造时缓存的 turn 游标同步到预填充后的第二轮，所以第一条真实提示词从 turn 3 开始，不会重复生成 turn 1。选择操作返回前预填充已经完成。
+Harness 可以把该 preset 挂载到空会话，也可以创建 header 已将其设为默认预设的会话。模式内的 `prefab-session-seed.mjs` 在前一种情况监听已提交的预设选择事件，在后一种情况监听首个 `permission/preset` 事件，越过 `Session.append` 的重入边界后，把模板的两轮模型可见历史写入当前会话。它只重放 turn/step、消息和工具调用/结果，不推送数千条 token chunk，因此不会在新会话时冲击 WebUI。插件还会把 live Agent 在构造时缓存的 turn 游标同步到预填充后的第二轮，所以第一条真实提示词从 turn 3 开始，不会重复生成 turn 1。预填充会在相应事件处理完成前结束。
 
 ## 手工安装（仅限开发）
 
@@ -73,7 +73,7 @@ node .\prefab\install.mjs --confirm-dsh-closed --preset my-prefab-id
 - `template.jsonl`：已经审查并内置的会话模板。
 - `template.jsonl.meta.json`：roll 来源与轨迹摘要。
 - `templates/project2-benchmark.jsonl`：显式 opt-in 的评测模板。
-- `prefab-session-seed.mjs`：选择模式时在当前空会话内自动预填充。
+- `prefab-session-seed.mjs`：选择模式或以该默认预设创建会话时自动原位预填充。
 - `install.mjs`：一条命令完成模式安装。
 - `instantiate.mjs`：兼容用的工作区级离线实例化器。
 - `roll-runner.mjs`、`roll-prefab.mjs`：可选的重 roll 工具。

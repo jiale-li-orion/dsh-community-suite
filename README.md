@@ -16,7 +16,7 @@ The suite is fixed to the official `dsh-v0.1.0-rc.7` base and retains the reposi
 
 - **Session context and compaction** — bounded long-session reads, packed retention, context inspection and range selection, history recall, model-capacity-aware compaction planning, and recoverable summary review, adapted from [leavelet/deepseek-harness](https://github.com/leavelet/deepseek-harness).
 - **Archived sessions** — a Web settings bundle for listing, previewing, restoring, deleting, and measuring archived sessions, adapted from [MuWinds/dsh-archived-sessions](https://github.com/MuWinds/dsh-archived-sessions).
-- **Anchored agents** — seven self-contained agent compositions with controlled first-turn tool exposure, context gates, wire-think routing, compaction-aware promotion, and prefab workflows, adapted from [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard).
+- **Anchored agents** — seven self-contained agent compositions with controlled first-turn tool exposure, context gates, wire-think routing, compaction-aware promotion, default-session prefab seeding, cross-platform shell paths, and resilient instruction discovery, adapted from [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard).
 
 See [Community optimizations](docs/community-optimizations.md) ([中文](docs/community-optimizations.zh.md)) for the feature audit and compatibility boundaries.
 

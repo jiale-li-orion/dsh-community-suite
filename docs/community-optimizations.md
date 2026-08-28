@@ -26,11 +26,13 @@ The xiaobright collection provides seven runtime presets. `anchored-standard` be
 
 The rc.7 wire-think adapter supports low reasoning, rejects unsupported effort values, preserves an explicitly empty system prompt, and reports the model's `maxOutputTokens`. Its serialization and replay behavior match the official rc.7 DeepSeek adapter.
 
+The preset maintenance layer normalizes Git Bash working directories on Windows, probes the full instruction-file chain, and gives each injected instruction hint a unique id so a host-restart race cannot stop history assembly. Development-tool search uses fuzzy token scoring and explains direct `toolNames` unlocks when no catalog match is found. Prefab seeding covers both sessions switched to the preset and sessions created with it as their default, including agents published after skill loading completes.
+
 The installer publishes them under `.agent-presets` and refuses to replace a preset unless `--update` identifies an installer-owned destination.
 
 ## Verification and compatibility
 
-Focused session, persistence, projection, Context, compaction, API proxy, terminal, and Web tests pass. The archived-session bundle has 8 passing tests for lifecycle handling, bounded detail, restore, and safe deletion. The preset package has 207 passing checks, including shared-file synchronization and rc.7 adapter behavior. The installer has 16 tests for the Web-only bundle target, seven preset identifiers, owned-update checks, backup behavior, the pnpm `--` separator regression, and no access to the sessions directory.
+Focused session, persistence, projection, Context, compaction, API proxy, terminal, and Web tests pass. The archived-session bundle has 8 passing tests for lifecycle handling, bounded detail, restore, and safe deletion. The adapted preset package has 216 passing keyless checks, including shared-file synchronization, maintenance regressions, and rc.7 adapter behavior. The installer has 16 tests for the Web-only bundle target, seven preset identifiers, owned-update checks, backup behavior, the pnpm `--` separator regression, and no access to the sessions directory.
 
 Keyless snapshots report 118 passing and 1 skipped; the explicit-empty-key Web lane reports 255 passing and 15 skipped. No verification issues a real DeepSeek API request. The coverage summary is 98.36% statements, 97.33% branches, 98.28% functions, and 98.64% lines; the ported code remains below rc.7's per-file 100% coverage gate.
 

@@ -206,7 +206,7 @@ pnpm run community:install -- --dsh-home /path/to/.dsh
 
 仅为开发 Prefab 实验时，推荐由 AI agent 一键安装：把本仓库交给编程 agent，让它执行 [安装 Agent 操作契约](./prefab/AGENT_INSTALL.md)。Agent 报告 `INSTALL READY` 后，启动 DSH，在目标工作区选择 **Prefab Anchored Standard** 模式并新建会话，然后直接发送真实任务提示词。该命令默认安装通用模板；Project2 评测模板必须显式传入 `--template project2`，并默认使用独立 preset id。
 
-手工复制仅限开发：它们没有 suite 所有权标记和可恢复备份，因此 suite 安装器无法更新它们。克隆本仓库，将整个 `preset` 目录复制到用户 preset 根目录，并将目标目录命名为 `anchored-standard`。仓库中的每个模式目录都是自包含的：`zero-anchored-standard/`、 `whoami-standard/`、`prefab/`、`eternal-minimal/`、`wire-think-standard/`、 `combo-anchored/` 变体以同样方式安装，可只装其中一个、多个或全部，不依赖其他目录（见下文各自的章节）。`prefab/` 选择模式时会自动预填充内置模板；按 [`prefab/README.md`](./prefab/README.md)（[中文](./prefab/README.zh.md)）操作。
+手工复制仅限开发：它们没有 suite 所有权标记和可恢复备份，因此 suite 安装器无法更新它们。克隆本仓库，将整个 `preset` 目录复制到用户 preset 根目录，并将目标目录命名为 `anchored-standard`。仓库中的每个模式目录都是自包含的：`zero-anchored-standard/`、 `whoami-standard/`、`prefab/`、`eternal-minimal/`、`wire-think-standard/`、 `combo-anchored/` 变体以同样方式安装，可只装其中一个、多个或全部，不依赖其他目录（见下文各自的章节）。`prefab/` 会为手动切换到该模式的会话和创建时已将其设为默认预设的会话自动预填充；按 [`prefab/README.md`](./prefab/README.md)（[中文](./prefab/README.zh.md)）操作。
 
 PowerShell：
 
@@ -256,6 +256,11 @@ npm test
 - 工具目录在晋升时变化一次，之后每次 `dev_tool_search` 解锁新工具再变化；前缀缓存连续性在这些点上断开；
 - preset 与 shell 访问具有相同信任等级，安装前应自行审阅文件；
 - 插件不会发起网络请求，也不增加遥测。
+- Minimal persona 有意保持极简（`You are a helpful software engineer assistant.`，`complete: true`）。这一逐字节纯净条件与锚定测量一致，但没有身份锚定，模型在身份问题上可能回落到训练先验。如需固定身份，可在 persona 的 `text:` 后追加官方身份句并重建会话；这会改变被测条件，若在意精确锚定，应自行验证首轮轨迹（[#81](https://github.com/xiaobright/dsh-anchored-standard/issues/81)、[#49](https://github.com/xiaobright/dsh-anchored-standard/issues/49)）。
+
+### 主机重启后重复注入指令提示
+
+`instruction-hint` 通过扫描持久的 `session.events` 避免重复注入。如果重启后的首个 `agent/pre-step` 在日志物化前运行，扫描仍可能看不到旧提示。每次注入使用唯一 id，因此该竞态只会浪费少量上下文 token，不会再因消息 id 冲突而中断历史组装。修复受旧实现影响的日志时，应按 `source.kind` 为 `instruction-hint` 的行去重。
 
 ## Zero-Anchored Standard（实验）
 
