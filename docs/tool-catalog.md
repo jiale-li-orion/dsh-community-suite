@@ -38,6 +38,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-subagent-report` | `report` | `ctx.subagents`, `ctx.systemPrompt`, `a live continuable in-process child Agent` | `tool/call`, `tool/result`, `a user-role message in the direct parent session` | - | Registered per continuable in-process child rather than globally, so this schema is visible only inside such a child and survives its global `toolFilter`. The same contribution installs the child-scoped `tool:report` prompt section, which this catalog does not render. The parent-facing `send_message` tool is installed independently. |
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`, `job_list`, `job_output` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() for background completion notices` | - | The kind-agnostic background-job controller: background bash commands, PTY sends, and subagents are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`. |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
+| `@deepseek-ai/dsh-plugin-catalog-tools` | `plugin_install`, `plugin_search` | `ctx.tools`, `ctx.pluginCatalog`, `ctx.subprocess`, `ctx.approval and a calling Agent (plugin_install only)` | `tool/call`, `tool/result`, `approval/asked`, `approval/decided` | - | The search tool returns catalog data and never mutates anything; the install tool resolves the exact entry a search returned, validates the entry's own target, and runs it only after an approval grant — the catalog command text is never executed and no command is synthesized from fields. |
 | `@deepseek-ai/dsh-tool-workbench` | `workbench_close`, `workbench_open`, `workbench_status` | `ctx.tools`, `ctx.workbench` | `tool/call`, `workbench/changed`, `tool/result` | - | The three tools drive the shared workbench view the browser renders; they write no session state, so their result is a notice naming the committed view. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`, `web_search` | `ctx.tools`, `ctx.web`, `ctx.systemPrompt` | `tool/call`, `tool/result` | - | web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps. |
@@ -1944,6 +1945,59 @@ Record and update a structured task list for the current work. Send the ENTIRE l
 Source: [`packages/todo/tool-todo/src/index.ts`](../packages/todo/tool-todo/src/index.ts)
 
 todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.
+
+<a id="deepseek-aidsh-plugin-catalog-tools"></a>
+
+## `@deepseek-ai/dsh-plugin-catalog-tools`
+
+### `plugin_install`
+
+Install one catalog plugin into this deployment's profile. Takes the exact url a plugin_search result carried; the install target comes from the catalog entry, never from you. Requires user approval, and the running process must be restarted for the new plugin to load.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "Exact entry url from a plugin_search result."
+    }
+  },
+  "required": [
+    "url"
+  ]
+}
+```
+
+Source: [`packages/workbench/tool-plugin-catalog/src/index.ts`](../packages/workbench/tool-plugin-catalog/src/index.ts)
+
+### `plugin_search`
+
+Search the configured plugin catalog for published DSH plugins. Returns each entry's identity, one-line summary, popularity, and the catalog's own install command. Listing is not a security review: installing a plugin runs third-party code with this deployment's permissions.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Case-insensitive substring matched against plugin name, owner, and summaries."
+    },
+    "category": {
+      "type": "string",
+      "description": "Exact catalog category id, e.g. \"tools\" or \"theme\"."
+    },
+    "limit": {
+      "type": "number",
+      "description": "Maximum entries to return (default 10, capped at 50)."
+    }
+  }
+}
+```
+
+Source: [`packages/workbench/tool-plugin-catalog/src/index.ts`](../packages/workbench/tool-plugin-catalog/src/index.ts)
+
+The search tool returns catalog data and never mutates anything; the install tool resolves the exact entry a search returned, validates the entry's own target, and runs it only after an approval grant — the catalog command text is never executed and no command is synthesized from fields.
 
 <a id="deepseek-aidsh-tool-workbench"></a>
 

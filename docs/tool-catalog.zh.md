@@ -40,6 +40,7 @@
 | `@deepseek-ai/dsh-tool-subagent-report` | `report` | `ctx.subagents`、`ctx.systemPrompt`、`a live continuable in-process child Agent` | `tool/call`、`tool/result`、`a user-role message in the direct parent session` | - | 按可继续的进程内子级注册，而非全局注册，因此该 schema 仅在这种子级内部可见，并且不受其全局 `toolFilter` 影响。同一份贡献还会安装子级作用域的 `tool:report` 系统提示词 section，本目录不渲染该 section。面向父级的 `send_message` 工具单独安装。 |
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`、`job_list`、`job_output` | `ctx.tools`、`ctx.jobs`、`ctx.systemPrompt` | `tool/call`、`tool/result`、`user/message via agent.inject() for background completion notices` | - | 与任务种类无关的后台任务控制器：后台 bash 命令、PTY 发送和 subagent 都通过相同的 3 个工具读取、列出和终止。加载该插件会挂接控制器，从而启用生产方的 `ctx.jobs.start()`。 |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`、`owning Agent session` | `tool/call`、`todo/write`、`tool/result` | - | todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。 |
+| `@deepseek-ai/dsh-plugin-catalog-tools` | `plugin_install`、`plugin_search` | `ctx.tools`、`ctx.pluginCatalog`、`ctx.subprocess`、`ctx.approval and a calling Agent (plugin_install only)` | `tool/call`、`tool/result`、`approval/asked`、`approval/decided` | - | 搜索工具只返回目录数据，绝不修改任何东西；安装工具解析某次搜索返回的那条确切条目、校验该条目自带的目标，并且只在获得审批后执行它——目录里的命令文本从不被执行，也不会由字段拼装出命令。 |
 | `@deepseek-ai/dsh-tool-workbench` | `workbench_close`、`workbench_open`、`workbench_status` | `ctx.tools`、`ctx.workbench` | `tool/call`、`workbench/changed`、`tool/result` | - | 这三个工具驱动浏览器渲染的共享工作台视图；它们不写入会话状态，因此结果是点名已提交视图的通知。 |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`、`ctx.workflowEngine`、`ctx.systemPrompt`、`a calling Agent (exec.agent parents the script children)` | `tool/call`、`tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-web` | `web_fetch`、`web_search` | `ctx.tools`、`ctx.web`、`ctx.systemPrompt` | `tool/call`、`tool/result` | - | web_search 和 web_fetch 将提供方选择置于 ctx.web 之后，使模型可见 schema 在更换后端时保持稳定。 |
@@ -1948,6 +1949,61 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
 来源：[`packages/todo/tool-todo/src/index.ts`](../packages/todo/tool-todo/src/index.ts)
 
 todo_write 是会话所有的状态；UI 将最新的 todo/write 事件渲染为检查清单。`allowParallelInProgress` 是没有默认值的必填项，因此本目录明确选择 `true`，对应描述允许同时存在多个 `in_progress` 项。选择 `false` 的部署会获得同一工具，但描述会要求只能有 1 个活动任务。
+
+<a id="deepseek-aidsh-tool-workbench"></a>
+
+<a id="deepseek-aidsh-plugin-catalog-tools"></a>
+
+## `@deepseek-ai/dsh-plugin-catalog-tools`
+
+### `plugin_install`
+
+把一个目录插件安装进本部署的 profile。参数是 plugin_search 结果携带的确切 url；安装目标来自目录条目，绝不来自你。需要用户审批，且必须重启进程新插件才会加载。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "url": {
+      "type": "string",
+      "description": "Exact entry url from a plugin_search result."
+    }
+  },
+  "required": [
+    "url"
+  ]
+}
+```
+
+Source: [`packages/workbench/tool-plugin-catalog/src/index.ts`](../packages/workbench/tool-plugin-catalog/src/index.ts)
+
+### `plugin_search`
+
+在已配置的插件目录里搜索已发布的 DSH 插件。返回每条条目的身份、单行摘要、热度，以及目录自带的安装命令。收录不等于安全审查：安装插件会以本部署的权限运行第三方代码。
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Case-insensitive substring matched against plugin name, owner, and summaries."
+    },
+    "category": {
+      "type": "string",
+      "description": "Exact catalog category id, e.g. \"tools\" or \"theme\"."
+    },
+    "limit": {
+      "type": "number",
+      "description": "Maximum entries to return (default 10, capped at 50)."
+    }
+  }
+}
+```
+
+Source: [`packages/workbench/tool-plugin-catalog/src/index.ts`](../packages/workbench/tool-plugin-catalog/src/index.ts)
+
+搜索工具只返回目录数据，绝不修改任何东西；安装工具解析某次搜索返回的那条确切条目、校验该条目自带的目标，并且只在获得审批后执行它——目录里的命令文本从不被执行，也不会由字段拼装出命令。
 
 <a id="deepseek-aidsh-tool-workbench"></a>
 

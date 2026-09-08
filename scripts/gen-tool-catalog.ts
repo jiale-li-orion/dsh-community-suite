@@ -67,6 +67,7 @@ import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import VmWorkflowEngine from '@deepseek-ai/dsh-workflow-worker-thread'
 import * as ToolRalph from '@deepseek-ai/dsh-tool-ralph'
 import * as ToolWorkflow from '@deepseek-ai/dsh-tool-workflow'
+import * as ToolPluginCatalog from '@deepseek-ai/dsh-plugin-catalog-tools'
 import * as ToolWorkbench from '@deepseek-ai/dsh-tool-workbench'
 import WorkbenchService from '@deepseek-ai/dsh-workbench'
 import { githubSlug } from './verify-md-links.ts'
@@ -549,6 +550,25 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-plugin-catalog-tools',
+    dir: 'tool-plugin-catalog',
+    source: 'packages/workbench/tool-plugin-catalog/src/index.ts',
+    requires: ['ctx.tools', 'ctx.pluginCatalog', 'ctx.subprocess', 'ctx.approval and a calling Agent (plugin_install only)'],
+    writes: ['tool/call', 'tool/result', 'approval/asked', 'approval/decided'],
+    async mount(ctx) {
+      // The catalog and the process seam are stubbed: this catalog documents
+      // schemas, and an install would need a live profile and an answerer.
+      ctx.provide('pluginCatalog', {
+        search: () => Promise.resolve({ total: 0, entries: [] }),
+        get: () => Promise.resolve(undefined),
+      } as never)
+      ctx.provide('subprocess', { spawn: () => { throw new Error('catalog mount does not run installs') } } as never)
+      await ctx.plugin(ToolPluginCatalog)
+    },
+    note:
+      'The search tool returns catalog data and never mutates anything; the install tool resolves the exact entry a search returned, validates the entry\'s own target, and runs it only after an approval grant — the catalog command text is never executed and no command is synthesized from fields.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-workbench',

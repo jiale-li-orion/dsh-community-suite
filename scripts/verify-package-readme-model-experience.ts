@@ -64,6 +64,8 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/client/ui-workbench': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/workbench/workbench': { kind: 'none', reason: 'The service owns browser view state and a fenced directory read; the model-facing projections live in dsh-tool-workbench.' },
   'packages/workbench/workbench-bytes': { kind: 'none', reason: 'The route serves browser bytes for the file viewer; the model-facing projections live in dsh-tool-workbench.' },
+  'packages/workbench/plugin-catalog': { kind: 'none', reason: 'The capability defines the catalog vocabulary; the model-facing tools live in dsh-plugin-catalog-tools.' },
+  'packages/workbench/plugin-catalog-awesome': { kind: 'none', reason: 'The provider only loads and caches an index; the model-facing tools live in dsh-plugin-catalog-tools.' },
   'packages/client/ui-attachment': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/client/ui-primitives': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/client/web-react': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },

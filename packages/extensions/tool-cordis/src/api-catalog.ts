@@ -1002,6 +1002,25 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'pluginCatalog',
+    summary: 'Abstract plugin catalog provider.',
+    description: 'Abstract plugin catalog provider. A provider owns one index\'s transport and validation; consumers see only entries and pages, and `get(url)` resolves the exact entry a search returned so an install never invents a target.',
+    methods: [
+      {
+        signature: 'abstract search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>',
+        description: 'Search the catalog.',
+        parameters: [{ name: 'query', description: 'the filter and page size.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'matching entries in catalog order plus the pre-limit total.',
+      },
+      {
+        signature: 'abstract get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>',
+        description: 'Resolve one entry by its canonical URL.',
+        parameters: [{ name: 'url', description: 'the entry URL a search returned.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'the entry, or undefined when the index has none.',
+      },
+    ],
+  },
+  {
     key: 'sandbox',
     summary: 'Abstract process-sandbox service.',
     description: 'Abstract process-sandbox service. confine must return enforcing argv or fail closed at wrap or runner-execution time; silent unconfined passthrough is forbidden. Functional probes arbitrate multi-runner chains and may be skipped for a sole candidate, whose own refusal remains the fail-closed end.',
@@ -3805,6 +3824,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PermissionSelect',
     declaration: 'export interface PermissionSelect {\n    options: PresetOption[];\n    currentValue: string;\n}',
+  },
+  {
+    name: 'PluginCatalogEntry',
+    declaration: 'export interface PluginCatalogEntry {\n    name: string;\n    owner: string;\n    url: string;\n    category: string;\n    description: string;\n    descriptionZh?: string;\n    npm: string | null;\n    version: string | null;\n    stars: number | null;\n    downloads: number | null;\n    install: string;\n    added: string;\n}',
+  },
+  {
+    name: 'PluginCatalogPage',
+    declaration: 'export interface PluginCatalogPage {\n    total: number;\n    entries: readonly PluginCatalogEntry[];\n}',
+  },
+  {
+    name: 'PluginCatalogQuery',
+    declaration: 'export interface PluginCatalogQuery {\n    query?: string;\n    category?: string;\n    limit?: number;\n}',
   },
   {
     name: 'PostToolDecision',

@@ -379,6 +379,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'One process-global view both the browser and agent tools mutate; every commit emits workbench/changed, and directory listings are fenced to the calling session workspace.',
   },
   {
+    key: 'pluginCatalog',
+    pkg: 'plugin-catalog',
+    title: 'Published plugin catalog',
+    mode: 'seam',
+    implementations: ['plugin-catalog-awesome'],
+    consumers: ['tool-plugin-catalog'],
+    note: 'The Definition owns the entry and query vocabulary; the provider owns index transport, validation, and caching, and the tools resolve an install target only through an entry a search returned.',
+  },
+  {
     key: 'e2b',
     pkg: 'e2b',
     title: 'E2B sandbox lifecycle owner',

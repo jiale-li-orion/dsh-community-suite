@@ -1809,7 +1809,42 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'workbench.panel\', () => ctx.slots.register(\n      { name: \'workbench.panel\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-workbench/src/client/contract/slots.ts:20',
+    source: 'packages/client/ui-workbench/src/client/contract/slots.ts:21',
+  },
+  {
+    key: 'workbench.viewer',
+    kind: 'chain',
+    scope: 'root',
+    summary: 'The viewer for one selected file, declared by the same `workbench` registration as a chain seat: entries register a pure `select(owner)` that elects the media types they render, the shell dispatches through `renderSlotChain`, and an all-declined chain renders the shell\'s fallback.',
+    doc: 'The viewer for one selected file, declared by the same `workbench`\nregistration as a chain seat: entries register a pure `select(owner)`\nthat elects the media types they render, the shell dispatches through\n`renderSlotChain`, and an all-declined chain renders the shell\'s\nfallback. A panel asks for a preview by writing the file into the\nshell\'s selection store, so any panel can reuse the seat.',
+    registerOptions: [
+      {
+        name: 'select',
+        requirement: 'required',
+        type: '(owner) => unknown | null',
+        doc: 'Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component\'s `matched` prop. All-null falls through to the owner\'s fallback.',
+      },
+    ],
+    ownerProps: [
+      '/** Owner share of one workbench viewer dispatch. */\nexport type WorkbenchViewerOwnerProps = WorkbenchFileRef',
+    ],
+    ownerPropsReferences: [
+      'WorkbenchFileRef',
+    ],
+    standardProps: [
+      'useSessions: SnapshotSelectorHook<SessionListState>',
+      'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
+    ],
+    keyDomain: '',
+    hookContext: '',
+    slotInject: '',
+    declaredBy: 'an entry in \'workbench\' (client-ui-workbench), so it exists while that entry is mounted',
+    occupants: [
+      'client-ui-workbench createMediaViewer(family)',
+    ],
+    replaceRisk: 'none',
+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'workbench.viewer\', () => ctx.slots.register(\n      { name: \'workbench.viewer\', select: owner => null },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+    source: 'packages/client/ui-workbench/src/client/contract/slots.ts:30',
   },
 ]
 /* jscpd:ignore-end */

@@ -407,6 +407,17 @@ export interface ConnectionConfig {
    * that is not a bare, canonical authority fails the plugin load.
    */
   trustedHosts?: string[]
+  /**
+   * Which authorities may call the loopback-pinned privileged method set.
+   * `'loopback'` (default) keeps every privileged method loopback-only;
+   * `'trusted'` extends the set to the same `trustedHosts` authorities the
+   * `/api` fence already accepts. A private device fabric — one whose only
+   * peers are the operator's own devices on a VPN such as a Tailscale tailnet —
+   * needs `'trusted'` so a second device can use the configuration plane. This
+   * widens a reachability policy that is explicitly not authentication, so it
+   * is opt-in per deployment.
+   */
+  privilegedAuthority?: 'loopback' | 'trusted'
   /** Maximum buffered JSON body for every `/api` request. */
   maxRequestBodyBytes?: number
 }
@@ -1386,6 +1397,45 @@ export interface PlanModeConfig {
 ```
 
 来源：[`packages/plan/plan-mode/src/index.ts:71`](../packages/plan/plan-mode/src/index.ts)
+
+<a id="deepseek-aidsh-plugin-catalog-awesome"></a>
+
+## `@deepseek-ai/dsh-plugin-catalog-awesome`
+
+```ts config-catalog
+/** Provider config: where the index lives and how it is cached. */
+export interface Config {
+  /** Index URL serving the generated `plugins.json`. */
+  url?: string
+  /** How long a loaded index stays fresh before an `If-None-Match` revalidation. */
+  ttlMs?: number
+  /** Maximum accepted response size in bytes. */
+  maxBytes?: number
+  /** Per-request timeout in milliseconds. */
+  timeoutMs?: number
+}
+```
+
+Source: [`packages/workbench/plugin-catalog-awesome/src/index.ts:34`](../packages/workbench/plugin-catalog-awesome/src/index.ts)
+
+<a id="deepseek-aidsh-plugin-catalog-tools"></a>
+
+## `@deepseek-ai/dsh-plugin-catalog-tools`
+
+需要：`tools` · `pluginCatalog` · `subprocess`
+
+```ts config-catalog
+/** Install config: the profile to target when this build cannot derive it. */
+export interface Config {
+  /**
+   * Profile an install targets. Omitted in an installed deployment, where the
+   * plugin's own module path names the profile; a source launch must set it.
+   */
+  profile?: string
+}
+```
+
+Source: [`packages/workbench/tool-plugin-catalog/src/index.ts:30`](../packages/workbench/tool-plugin-catalog/src/index.ts)
 
 <a id="deepseek-aidsh-pwsh-local"></a>
 
@@ -3157,7 +3207,10 @@ export interface Config {
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — 需要 `tools`（[`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts)）
 - `@deepseek-ai/dsh-tool-cordis` — 需要 `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect`（[`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts)）
 - `@deepseek-ai/dsh-tool-subagent-control` — 需要 `tools` · `subagents`（[`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts)）
+- `@deepseek-ai/dsh-tool-workbench`——需要 `tools` · `workbench`（[`packages/workbench/tool-workbench/src/index.ts`](../packages/workbench/tool-workbench/src/index.ts)）
 - `@deepseek-ai/dsh-user-questions`（[`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts)）
+- `@deepseek-ai/dsh-workbench`——需要 `fs` · `sessions`（[`packages/workbench/workbench/src/index.ts`](../packages/workbench/workbench/src/index.ts)）
+- `@deepseek-ai/dsh-workbench-bytes`——需要 `webServer` · `fs` · `sessions` · `connection`（[`packages/workbench/workbench-bytes/src/index.ts`](../packages/workbench/workbench-bytes/src/index.ts)）
 - `@deepseek-ai/dsh-workspace` — 需要 `storageDomain` · `sessionPersistence`（[`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts)）
 
 ## Seam 包（不可直接加载）
@@ -3171,6 +3224,7 @@ export interface Config {
 - `@deepseek-ai/dsh-fs` — 抽象 `FileSystem`（[`packages/fs/fs/src/index.ts`](../packages/fs/fs/src/index.ts)）
 - `@deepseek-ai/dsh-host-directory-picker` — 抽象 `DirectoryPicker`（[`packages/host/directory-picker/src/index.ts`](../packages/host/directory-picker/src/index.ts)）
 - `@deepseek-ai/dsh-jobs` — 抽象 `JobRegistry`（[`packages/jobs/jobs/src/index.ts`](../packages/jobs/jobs/src/index.ts)）
+- `@deepseek-ai/dsh-plugin-catalog` — 抽象 `PluginCatalog`（[`packages/workbench/plugin-catalog/src/index.ts`](../packages/workbench/plugin-catalog/src/index.ts)）
 - `@deepseek-ai/dsh-sandbox` — 抽象 `SandboxProvider`（[`packages/sandbox/sandbox/src/index.ts`](../packages/sandbox/sandbox/src/index.ts)）
 - `@deepseek-ai/dsh-session-persistence` — 抽象 `SessionPersistence`（[`packages/session/session-persistence/src/index.ts`](../packages/session/session-persistence/src/index.ts)）
 - `@deepseek-ai/dsh-session-query` — 抽象 `SessionQueryEngine`（[`packages/session-query/session-query/src/index.ts`](../packages/session-query/session-query/src/index.ts)）

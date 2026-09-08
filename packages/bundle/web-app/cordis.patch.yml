@@ -244,6 +244,12 @@
     - id: workbench-bytes
       name: '@deepseek-ai/dsh-workbench-bytes'
 
+    # Plugin catalog: the published index behind the catalog tools. A
+    # deployment without outbound HTTP can point the provider at a mirror or
+    # drop this row (the tools then never activate).
+    - id: plugin-catalog-awesome
+      name: '@deepseek-ai/dsh-plugin-catalog-awesome'
+
     # Background jobs: the session-header list over the jobsBySession mirror.
     - id: ui-jobs
       name: '@deepseek-ai/dsh-client-ui-jobs'
