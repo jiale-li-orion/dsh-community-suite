@@ -216,6 +216,6 @@
 
 ## 待办与注意
 
-- 00:46 的两批改动已提交并推送到 `origin/main`（`33b890f`）；工作台 Phase 1 = `0e3d00a`、Phase 2 = `2414fda`，两者均为本地提交，尚未 push。
+- 00:46 的两批改动已提交并推送到 `origin/main`（`33b890f`）；工作台 Phase 1 = `0e3d00a`（`feat(client-ui-layout): declare an optional workbench column`）、Phase 2 = 其后的 `feat(client-ui-workbench): add the workbench panel seat`，两者均为本地提交，尚未 push。
 - 运行中的 harness 要看到工作台，必须**重启**：Phase 2 新增了一条 bundle 行（组合变化），且 client bundle 的 rev 在启动时计算。
 - 后续阶段：host 共享状态服务与推送（ADR-3）、Range 流式路由（ADR-4）、agent 自写扩展与插件目录发现（ADR-5/7）——计划见 `community-audit/SYNTHESIS.md`。
