@@ -1493,7 +1493,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'shell.overlay\', () => ctx.slots.register(\n      { name: \'shell.overlay\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-layout/src/client/index.ts:83',
+    source: 'packages/client/ui-layout/src/client/index.ts:98',
   },
   {
     key: 'sidebar',
@@ -1738,6 +1738,30 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'tool.view.cordis\', () => ctx.slots.register(\n      { name: \'tool.view.cordis\', key: \'<one key the owner dispatches>\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
     source: 'packages/extensions/ui-cordis/src/client/slots.ts:31',
+  },
+  {
+    key: 'workbench',
+    kind: 'single',
+    scope: 'root',
+    summary: 'The workbench column, between the conversation and the details column, shown when the layout opens it.',
+    doc: 'The workbench column, between the conversation and the details column,\nshown when the layout opens it. Optional and additive: absent an\noccupant the column resolves to zero width and renders nothing, so a\ncomposition that registers no workbench behaves exactly as before.\nOCCUPIED by the workbench shell plugin, which declares the panel and\nfile-viewer seats inside it — registering here replaces the whole column\nand takes those seats with it.\n\nThe occupant receives the resolved column geometry; the framework\nsupplies the global `useSessions`/`useWorkspaces` hooks because the\ncolumn is root-scoped — a workbench is workspace state, not session\nstate.',
+    registerOptions: [],
+    ownerProps: [
+      '/**\n * Workbench owner share: the resolved column geometry the occupant renders\n * against. `collapsed` is true exactly when the solver resolved zero width\n * (closed or conceded); the subtree stays mounted either way.\n */\nexport interface WorkbenchOwnerProps {\n  /** True when the column resolved to zero width. */\n  collapsed: boolean\n  /** Rendered column width in px (0 when collapsed). */\n  width: number\n}',
+    ],
+    ownerPropsReferences: [],
+    standardProps: [
+      'useSessions: SnapshotSelectorHook<SessionListState>',
+      'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
+    ],
+    keyDomain: '',
+    hookContext: '',
+    slotInject: '',
+    declaredBy: 'an entry in \'root\' (client-ui-layout), so it exists while that entry is mounted',
+    occupants: [],
+    replaceRisk: 'none',
+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'workbench\', () => ctx.slots.register(\n      { name: \'workbench\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+    source: 'packages/client/ui-layout/src/client/index.ts:87',
   },
 ]
 /* jscpd:ignore-end */

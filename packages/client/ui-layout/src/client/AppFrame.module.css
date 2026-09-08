@@ -42,6 +42,20 @@
   border-left: 1px solid var(--dsw-alias-border-l2);
 }
 
+/* The workbench column sits between the conversation and the details column and
+   paints the same separator, because either neighbour may be closed. */
+.workbenchCol {
+  min-width: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--dsw-alias-border-l2);
+}
+
+/* A zero-width column's border must not paint a 1px seam; the subtree stays
+   mounted so reopening keeps its state. */
+.frame[data-workbench-collapsed] .workbenchCol {
+  border-left: none;
+}
+
 /* The details subtree stays mounted at zero width, so its border must not paint
    a 1px seam. The collapsed sidebar instead retains a bordered compact rail. */
 .frame[data-details-collapsed] .detailsCol {
@@ -49,8 +63,9 @@
 }
 
 /* Drag handles are frame children (columns clip overflow): an 8px hit strip
-   centered on the column border via inline left, above column content. Details
-   adds a visible 12x32 pill at vertical center; sidebar keeps only the hit strip. */
+   centered on the column border via inline left, above column content. The
+   right-hand columns add a visible 12x32 pill at vertical center; sidebar keeps
+   only the hit strip. */
 .handle {
   position: absolute;
   top: 0;
@@ -75,7 +90,8 @@
   }
 }
 
-.handle[data-side='details']::after {
+.handle[data-side='details']::after,
+.handle[data-side='workbench']::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -97,12 +113,17 @@
 
 .detailsCol:hover ~ .handle[data-side='details']::after,
 .handle[data-side='details']:hover::after,
-.handle[data-side='details'][data-dragging='true']::after {
+.handle[data-side='details'][data-dragging='true']::after,
+.workbenchCol:hover ~ .handle[data-side='workbench']::after,
+.handle[data-side='workbench']:hover::after,
+.handle[data-side='workbench'][data-dragging='true']::after {
   opacity: 1;
 }
 
 .handle[data-side='details']:hover::after,
-.handle[data-side='details'][data-dragging='true']::after {
+.handle[data-side='details'][data-dragging='true']::after,
+.handle[data-side='workbench']:hover::after,
+.handle[data-side='workbench'][data-dragging='true']::after {
   background: var(--dsw-alias-button-floating-hover);
   border-color: var(--dsw-alias-border-l3);
 }

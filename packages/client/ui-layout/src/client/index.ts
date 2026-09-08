@@ -1,7 +1,7 @@
 /**
  * Layout plugin, browser half: one register() call contributes AppFrame into
  * the runtime's built-in 'root' slot and, in the same breath, declares the
- * four child slots (declaration = exclusive render authority), seats the
+ * five child slots (declaration = exclusive render authority), seats the
  * layout store (panel geometry), and wires the panel-action service face.
  * ctx.layout is the cross-plugin panel-action contract; navigation state lives
  * with the runtime sessions service. A second effect seats the theme
@@ -71,6 +71,21 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      */
     'details': { kind: 'single'; scope: 'session'; owner: DetailsOwnerProps }
     /**
+     * The workbench column, between the conversation and the details column,
+     * shown when the layout opens it. Optional and additive: absent an
+     * occupant the column resolves to zero width and renders nothing, so a
+     * composition that registers no workbench behaves exactly as before.
+     * OCCUPIED by the workbench shell plugin, which declares the panel and
+     * file-viewer seats inside it — registering here replaces the whole column
+     * and takes those seats with it.
+     *
+     * The occupant receives the resolved column geometry; the framework
+     * supplies the global `useSessions`/`useWorkspaces` hooks because the
+     * column is root-scoped — a workbench is workspace state, not session
+     * state.
+     */
+    'workbench': { kind: 'single'; scope: 'root'; owner: WorkbenchOwnerProps }
+    /**
      * Frame-wide floating layer, above every column and outside their scroll
      * containers. Deliberately generic and unowned by any feature: a badge, a
      * toast stack or a status pill all belong here, and entries order among
@@ -104,6 +119,18 @@ export interface ConvOwnerProps {}
 /** Details owner share: empty — sessionId arrives as a framework-standard prop. */
 export interface DetailsOwnerProps {}
 
+/**
+ * Workbench owner share: the resolved column geometry the occupant renders
+ * against. `collapsed` is true exactly when the solver resolved zero width
+ * (closed or conceded); the subtree stays mounted either way.
+ */
+export interface WorkbenchOwnerProps {
+  /** True when the column resolved to zero width. */
+  collapsed: boolean
+  /** Rendered column width in px (0 when collapsed). */
+  width: number
+}
+
 /** Required services (cordis fiber inject — the loader passes all module exports as an object plugin). */
 export const inject = ['slots', 'theme']
 
@@ -122,6 +149,7 @@ export function apply(ctx: ClientContext): void {
       children: {
         'sidebar': { kind: 'single', scope: 'root' },
         'conversation': { kind: 'single', scope: 'session-maybe' },
+        'workbench': { kind: 'single', scope: 'root' },
         'details': { kind: 'single', scope: 'session' },
         'shell.overlay': { kind: 'list', scope: 'root' },
       },

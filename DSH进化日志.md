@@ -142,8 +142,26 @@
 - 原因：原生路由自 00:22 起已能承载工具结果图片，孪生路由不再需要，去掉后切换器不再出现重复条目。
 - 校验：用仓库源码 schema 解析——`llm-deepseek` 得 4 条（模态不变），`llm-pi-ai` 得 0 条路由（休眠）。运行中的 `pid 585160` 会热重载该文件，无需重启。
 
+### 01:15 · 社区插件审计完成 + 工作台第一步（源码）
+
+**审计**（工作区 `/home/orion/agent-system-learning/community-audit/`，不进仓库）
+
+- 15 个仓库全部浅克隆并逐仓审计，产出 `notes/<repo>.md`（每篇八个固定小节：快照／架构／服务契约／host-client 扩展点／可组合性／复用裁决／风险与性能／证据索引），另有 `notes/_local-baseline.md`（本仓库扩展点基线）、`SYNTHESIS.md`（裁决矩阵、许可约束、跨切模式、增量计划）、`ARCHITECTURE-DECISIONS.md`（ADR-1…8，含回滚方案）。
+- 裁决：`reuse as-is` 仅 1 个（`ZSeven-W/dsh-android`，MIT、零核心补丁）；其余 14 个为 `extract design` 或 `skip`。关键否决依据：`dsh-better-sidebar` HEAD 要求 DSH ≥ 0.1.2-rc.1 且用 `document.body` + 第二个 React root 绕过 slot 契约；`DSHBox`(GPL-3.0) 与 `dsh-android-app`(AGPL-3.0) 与 MIT 套件许可不兼容，只能取设计。
+- 审计结论：缺口不在 host 能力（`fs`/`terminals`/`subprocess`/`jobs`/`attachments`/`webServer` 都在），而在客户端没有任何可挂载多面板的工作台栏位。
+
+**Phase 1 源码**（`packages/client/ui-layout`）
+
+- `columns.ts`：让步链加入 workbench，顺序为「详情栏收缩 → 关闭 → 工作台收缩 → 关闭 → 中心栏兜底」；新增 `WORKBENCH_MIN/MAX/DEFAULT = 320/1200/560`。
+- `stores.ts`：新增 `workbench` 状态与 `setWorkbench/openWorkbench/closeWorkbench`；`index.ts`：SlotMap 与 `children` 声明 `workbench`（single/root）并新增 `WorkbenchOwnerProps { collapsed, width }`；`AppFrame.tsx`：第四条网格轨道 + 拖动手柄；`AppFrame.module.css`：`.workbenchCol` 与胶囊样式；`service.ts`：`openWorkbench/closeWorkbench`。
+- 关键性质：**无注册方时零宽度、不渲染、不画边框**，随附行为不变；零宽度时子树保持挂载。
+- 连带生成物：`packages/extensions/cordis-client-runner/src/client/slot-catalog.ts` 由 `pnpm run gen-client-catalog` 重生成（新增 `workbench` 条目）。
+- 文档：ui-layout README 中英更新（三栏→四栏、五个 owner-share）；新增 Agent Note `.agents/notes/implemented/feature/2026-09-09-workbench-column-slot.{md,zh.md}`。
+- 验证：ui-layout 66 测试通过；`pnpm run test:gui` 277 文件 / 3819 测试通过；`DSH_SNAPSHOT=replay pnpm run test:web` 76 文件 / 255 测试通过（空栏不改动组装后的浏览器）；`lint` 0/0；`typecheck` 绿；`doc-sync` 28 通过 0 失败。
+- 回滚：删除 `workbench` 子声明 + 求解器项 + store 字段 + 网格轨道 + 拖动手柄，并重跑 `gen-client-catalog`。
+
 ## 待办与注意
 
-- 00:32 已重启 harness（`pid 585160`），00:22 的工具结果图片修复已生效。
-- Part B 的源码改动仍未提交（`serialize.ts`、测试、README、两条 Agent Note 与一次归档都在工作区）。
-- `docs/user/develop/basic/*` 里指向 `README.md#run-from-source` 的失效链接待处理（`doc-sync` 目前唯一的失败项）。
+- 00:46 的两批改动已提交并推送到 `origin/main`（`33b890f`）：`a1ffcaa` 原生路由图片输入、`33b890f` README 与失效链接修复。工作台 Phase 1 目前只在工作区。
+- 运行中的 harness 若要看到 Phase 1，需重启（host 侧无改动，但 client bundle 的 rev 由启动时计算；刷新不一定够）。
+- 后续阶段（Phase 2 起）：`ui-workbench` 面板注册服务、host 共享状态服务与推送、Range 流式路由、agent 自写扩展与插件目录发现——计划见 `community-audit/SYNTHESIS.md`。
