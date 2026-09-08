@@ -14,14 +14,16 @@ import type {
   LlmModelInfo,
   LlmProviderInfo,
   LlmResolvedModelInfo,
+  ModelModality,
   ResolvedRetryPolicy,
   StreamChunk,
 } from '@deepseek-ai/dsh-llm'
+import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { AnonymousUserId } from '@deepseek-ai/dsh-anonymous-user-id'
 import { serializeRequest } from './serialize.ts'
-import type { RequestDefaults } from './serialize.ts'
+import type { RequestDefaults, WireImageReader } from './serialize.ts'
 import { parseSse } from './sse.ts'
 import { translate } from './translate.ts'
 import type { WireError } from './types.ts'
@@ -38,6 +40,11 @@ export interface DeepSeekCatalogModel {
   contextWindow?: number
   /** Per-request output cap for this model; omission falls back to the profile's {@link DeepSeekConnectionOptions.maxTokens}. */
   maxTokens?: number
+  /**
+   * Accepted request modalities; omitted means text-only. An entry declaring
+   * `image` is the only way a request on this route may carry image content.
+   */
+  inputModalities?: ModelModality[]
 }
 
 /**
@@ -83,6 +90,13 @@ export interface DeepSeekAdapterOptions {
   resolveApiKey: (connection: DeepSeekConnectionOptions) => Promise<string>
   /** Resolve the harness-home anonymous id shared with telemetry and feedback. */
   resolveUserId: () => AnonymousUserId
+  /**
+   * Resolve the optional durable attachment service at request time. Absent
+   * (or resolving undefined) means this deployment cannot read image bytes,
+   * so a request carrying images for an image-capable model fails before the
+   * wire instead of being sent for the provider to reject.
+   */
+  resolveAttachments?: () => AttachmentStore | undefined
 }
 
 /** Default maximum idle interval while an adapter stream read is outstanding. */
@@ -91,6 +105,8 @@ export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300_000
 export const DEFAULT_CONTEXT_WINDOW = 1_000_000
 /** Default per-request output-token cap. */
 export const DEFAULT_MAX_TOKENS = 256_000
+/** Modalities a catalog entry accepts when it declares none. */
+const DEFAULT_INPUT_MODALITIES: readonly ModelModality[] = ['text']
 const STREAM_IDLE_TIMEOUT_CODE = 'LLM_STREAM_IDLE_TIMEOUT'
 const OFF_REASONING_EFFORT = ReasoningEffortId('off')
 const LOW_REASONING_EFFORT = ReasoningEffortId('low')
@@ -112,7 +128,7 @@ function modelInfo(provider: string, model: DeepSeekCatalogModel): LlmModelInfo 
     id: model.id,
     name: model.name ?? model.id,
     ...model.description === undefined ? {} : { description: model.description },
-    inputModalities: ['text'],
+    inputModalities: [...model.inputModalities ?? DEFAULT_INPUT_MODALITIES],
   }
 }
 
@@ -184,12 +200,12 @@ export class DeepSeekAdapter extends LlmAdapter {
     const contextWindow = configured?.contextWindow
       ?? connection.defaultContextWindow
     return Promise.resolve({
-      // The chat-completions wire route is text-only regardless of catalog
-      // membership, so the uncatalogued fallback declares the same negative
-      // capability — "unknown" here would let the host accept and persist
-      // images the serializer must then reject.
+      // The chat-completions wire route is text-only unless a catalog entry
+      // declares image input, so the uncatalogued fallback declares the same
+      // negative capability — "unknown" here would let the host accept and
+      // persist images the serializer must then reject.
       ...configured === undefined
-        ? { provider, id: model, name: model, inputModalities: ['text' as const] }
+        ? { provider, id: model, name: model, inputModalities: [...DEFAULT_INPUT_MODALITIES] }
         : modelInfo(provider, configured),
       context: { contextWindow },
       maxOutputTokens: configured?.maxTokens ?? connection.maxTokens,
@@ -273,6 +289,35 @@ export class DeepSeekAdapter extends LlmAdapter {
     }
   }
 
+  /**
+   * Build the wire image reader for one request, or undefined when the
+   * selected model declares no image input. The attachment service resolves
+   * per request, so mounting it later starts accepting images without
+   * re-registering the route.
+   * @param connection - the request's frozen connection facts.
+   * @param model - the wire model id this request selects.
+   * @param signal - the request's stable abort signal.
+   * @returns the attachment reader, or undefined when images are unsupported.
+   */
+  private imageReader(
+    connection: DeepSeekConnectionOptions,
+    model: string,
+    signal: AbortSignal,
+  ): WireImageReader | undefined {
+    const configured = connection.models.find(entry => entry.id === model)
+    if (configured?.inputModalities?.includes('image') !== true) return undefined
+    return async (ref) => {
+      const attachments = this.config.resolveAttachments?.()
+      if (attachments === undefined) {
+        throw new LlmError(
+          `DeepSeek model "${model}" accepts images, but no attachment service is mounted`,
+          'UNSUPPORTED_CONTENT',
+        )
+      }
+      return attachments.readImage(ref, signal)
+    }
+  }
+
   private async * request(
     options: GenerateOptions,
     signal: AbortSignal,
@@ -281,7 +326,7 @@ export class DeepSeekAdapter extends LlmAdapter {
     userId: AnonymousUserId,
     onComment: () => void,
   ): AsyncIterable<StreamChunk> {
-    const body = serializeRequest(options, connection.defaults)
+    const body = await serializeRequest(options, connection.defaults, this.imageReader(connection, options.model, signal))
     // Prepared outside the try so the TRANSPORT label below covers exactly the
     // transport boundary, never a serialization failure.
     const payload = JSON.stringify(body)

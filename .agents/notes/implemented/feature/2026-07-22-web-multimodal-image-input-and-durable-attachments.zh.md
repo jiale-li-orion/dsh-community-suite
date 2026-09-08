@@ -8,7 +8,7 @@ Status: implemented
 
 在此变更之前，Web 输入区仅接受文本：`InputBar` 接收字符串草稿，`ConversationController.send()` 创建文本内容，宿主再把该内容转发给 agent（智能体）。用户无法粘贴图片、在发送前查看图片、提交仅含图片的提示词，也无法从历史记录中恢复已发送图片。
 
-这不只是输入区功能缺失。核心层需要持久图片内容块，提供方需要明确处理模态，会话日志则必须重建模型可见的全部内容。[此前移除图片块的决策](../../implemented/simplification/2026-07-04-drop-image-content-block.md)否决了可能静默丢失图片或将其展平的不完整设计。浏览器对象 URL、本地路径、提供方 URL 或 base64 数据都不能成为规范会话内容。
+这不只是输入区功能缺失。核心层需要持久图片内容块，提供方需要明确处理模态，会话日志则必须重建模型可见的全部内容。[此前移除图片块的决策](../../archived/simplification/2026-07-04-drop-image-content-block.md)否决了可能静默丢失图片或将其展平的不完整设计。浏览器对象 URL、本地路径、提供方 URL 或 base64 数据都不能成为规范会话内容。
 
 [Web 客户端架构](../../implemented/architecture/2026-07-19-gui-web-client-architecture.md)要求组件保持纯粹，并将每个会话的输入区状态放在 `ctx.conversation` 中；[GUI 分层与 RPC 协议](../../implemented/architecture/2026-07-19-gui-layering-and-rpc-protocol.md)则要求持久事件成为实时渲染与历史回放的共同真源。因此，图片接收、持久化、提供方转换和渲染需要遵循同一个明确的生命周期。
 

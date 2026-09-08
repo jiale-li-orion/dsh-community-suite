@@ -33,11 +33,12 @@ harness LLM（大语言模型）seam 的 DeepSeek chat-completions 适配器：�
       - id: private-reasoner
         description: Company-hosted reasoning model
         contextWindow: 512000
+        inputModalities: [text, image] # optional; omission means text-only
 ```
 
-该插件注册唯一提供方路由 `deepseek-official`，同时注册解析后的 `retryPolicy`。请求使用 `provider: deepseek-official` 选择该路由；其 `model` 会作为协议 `model` 字符串原样传递，因此更改 DeepSeek 模型不需要生命周期时注册。省略 `models` 会公布 `deepseek-v4-flash`（名称为 `DeepSeek-V4-Flash`）和 `deepseek-v4-pro`（名称为 `DeepSeek-V4-Pro`），两者的上下文窗口均为 1,000,000 token；显式列表会替换这些默认值，`models: []` 则不公布任何模型。Catalog 配置项通过 `ctx.llm.listModels('deepseek-official')` 公开给 ACP（Agent Client Protocol）编辑器和 Web 选择器等客户端，但仍只提供建议：未列出模型 id 仍原样传递。省略配置项 name 默认为其 id。
+该插件注册唯一提供方路由 `deepseek-official`，同时注册解析后的 `retryPolicy`。请求使用 `provider: deepseek-official` 选择该路由；其 `model` 会作为协议 `model` 字符串原样传递，因此更改 DeepSeek 模型不需要生命周期时注册。省略 `models` 会公布 `deepseek-v4-flash`（名称为 `DeepSeek-V4-Flash`）和 `deepseek-v4-pro`（名称为 `DeepSeek-V4-Pro`），两者的上下文窗口均为 1,000,000 token；显式列表会替换这些默认值，`models: []` 则不公布任何模型。Catalog 配置项通过 `ctx.llm.listModels('deepseek-official')` 公开给 ACP（Agent Client Protocol）编辑器和 Web 选择器等客户端，但仍只提供建议：未列出模型 id 仍原样传递。省略配置项 name 默认为其 id。配置项的 `inputModalities` 是唯一会被请求路径强制执行的建议字段：省略表示 `[text]`，空列表会在加载时被拒绝，且只有声明了 `image` 的配置项才能让用户图片到达协议；其他模型会以 `UNSUPPORTED_CONTENT` 让请求失败，而不会把它发出去。
 
-`contextWindow` 对每个已配置模型都可选，不会通过建议 catalog 公开。`ctx.llm.resolveModelInfo('deepseek-official', model).context` 先返回精确模型值，再对不含容量的配置项或未列出原样传递 id 返回 `defaultContextWindow`。适配器默认值为 1,000,000；因此，压力敏感插件可以获得由部署决定的容量，不会将模型 selector 视为权威。为 `deepseek-official` 注册另一个适配器会抛出 `LlmError('DUPLICATE_ADAPTER')`。
+`contextWindow` 与按模型的 `maxTokens` 对每个已配置模型都可选，且与 `inputModalities` 不同，不会通过建议 catalog 公开。`ctx.llm.resolveModelInfo('deepseek-official', model).context` 先返回精确模型值，再对不含容量的配置项或未列出原样传递 id 返回 `defaultContextWindow`。适配器默认值为 1,000,000；因此，压力敏感插件可以获得由部署决定的容量，不会将模型 selector 视为权威。为 `deepseek-official` 注册另一个适配器会抛出 `LlmError('DUPLICATE_ADAPTER')`。
 
 `maxTokens` 是适配器为对话请求配置的输出上限，默认值为 256,000。Catalog 配置项可以自带 `maxTokens`，它对该模型胜出；不含该上限的配置项以及任何未列出原样传递 id 都解析为 profile 值，因此新增按模型的上限只改变一个模型，而非整条路由。确切模型解析会把胜出值同时公开为供容量敏感消费方使用的 `maxOutputTokens` 和供请求默认填充使用的 `defaultMaxTokens`；`LlmRuntime` 会在 agent loop（智能体循环）写入 `request/header` 前，将后者填入 `GenerateOptions.maxTokens`，从而仍可根据持久记录重建协议请求。显式的请求值或 `AgentOptions.maxTokens` 值优先，并会序列化为 `max_tokens`。适配器不会根据 `contextWindow` 自动调低该请求预算；上下文或提供方输出上限较小的部署必须配置与其相容的 `maxTokens`。
 
@@ -67,6 +68,7 @@ DeepSeek 请求身份独立于应用归因。凭据解析成功后，每个提�
 ## 协议格式说明
 
 - 只支持流式输出（`stream_options.include_usage` 始终开启）。`usage` 可能附着在 finish 分片上，也可能作为尾随的纯 usage 分片到达；转换器会将两者都延迟到 `[DONE]`，因此 `usage` 始终位于 `finish` 之前，`finish` 之后不会出现任何内容。
+- 携带图片的用户消息会序列化为有序的 `text`／`image_url` 分片，每张图片是从附件服务读取的 `data:` URL；纯文本用户消息保持裸字符串形式，因此其协议字节不变。`role: 'tool'` 消息只承载文本，因此工具结果里的图片会跟随该轮工具消息、以一条以 `Attached image(s) from tool result:` 开头的 user 消息发出；只有图片没有文本的结果会以 `(see attached image)` 通过协议发送。system 或 assistant 角色上的图片会被拒绝——这些位置在协议上没有表示形式。
 - 适配器持有的 `off` 推理强度映射为 `thinking: {type: 'disabled'}`，绝不会以 `reasoning_effort: 'off'` 通过协议发送。
 - 第一个思考模式分片携带 `reasoning_content: ""`，系统会处理它（不会产生多余 reasoning 块）。
 - **推理回传规则**：对携带工具调用的 assistant 轮次，会将 `reasoning_content` 序列化回历史（思考模式 API 必需）；对不含工具调用的轮次，它会被丢弃（不会使用，可节省 token）。
@@ -82,7 +84,7 @@ DeepSeek 请求身份独立于应用归因。凭据解析成功后，每个提�
 
 #### 模型看到的内容
 
-所选 DeepSeek 模型会收到 harness 系统提示词、消息历史、工具 schema、stop sequence 和调用配置，不含适配器撰写的提示词文本。当之前的 assistant 轮次包含工具调用时，会按要求回传其推理内容；不含工具调用的轮次会省略推理。
+所选 DeepSeek 模型会收到 harness 系统提示词、消息历史、工具 schema、stop sequence 和调用配置，不含适配器撰写的提示词文本。当该 Catalog 配置项声明了 `image` 时，用户消息中的图片会以有序的 `image_url` `data:` URL 分片到达模型，工具结果的图片则跟随其工具消息、由同一条 user 消息承载。当之前的 assistant 轮次包含工具调用时，会按要求回传其推理内容；不含工具调用的轮次会省略推理。
 
 #### Token 影响
 
@@ -111,4 +113,4 @@ loop 保留的响应块会追加到下一个请求，并保留其较早可复用
 - **settings 的 `models` 列表会整体替换组合列表**：settings 层按字段合并，而数组是单个字段；按条目合并 catalog 需要带键的形状。
 - **未映射 `tool_choice`**：它不属于核心词汇（MVP 取舍，与 pi-ai twin 共享）。
 - **请求使用原始 `fetch`，而非 `@cordisjs/plugin-http`**：没有共享 proxy／拦截配置；采用暂缓到第二个适配器需要该功能时（`TODO(http)`）。
-- **序列化会将 user 与工具结果内容展平为文本块**：会跳过插件添加的块类型，空工具输出会以字面 `(no output)` 通过协议发送。
+- **序列化会跳过插件添加的块类型**：未知的 declaration-merged 块不会贡献任何内容，没有文本的工具结果会以字面 `(no output)` 或 `(see attached image)` 通过协议发送。

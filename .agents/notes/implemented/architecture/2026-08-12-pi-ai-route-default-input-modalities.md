@@ -24,7 +24,7 @@ The assumption was justified in the source as the adapter's real capability rath
 
 **No configuration surface edits `input`.** It joins `compat`, `reasoningEfforts`, `thinkingBudgets`, and `headers` as a settings-document field, and the model-list editor stays a hand-written form over id, name, and the two capacities. This costs nothing durable because that card was already built to carry fields it does not edit: its row patch spreads the stored row before applying changes, and adoption keeps an existing row over a rediscovered candidate, so a hand-written `input` survives both.
 
-The DeepSeek chat-completions adapter is untouched. Its `['text']` is a fact about its serializer, not a missing declaration, and it keeps refusing before the send.
+The DeepSeek chat-completions adapter declares modalities from its own catalog entry rather than from this chain ([DeepSeek catalog input modalities](../feature/2026-09-08-llm-deepseek-catalog-input-modalities.md)): its `['text']` default is a fact about the endpoint, and an entry that declares no `image` keeps refusing before the send.
 
 ## Alternatives considered
 

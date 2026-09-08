@@ -35,10 +35,29 @@ export interface WireSystemMessage {
   content: string
 }
 
-/** User-role message: a single string of user input. */
+/** One text part of multimodal user content. */
+export interface WireTextPart {
+  type: 'text'
+  text: string
+}
+
+/** One image part; `url` is a `data:` URL carrying the encoded bytes. */
+export interface WireImagePart {
+  type: 'image_url'
+  image_url: { url: string }
+}
+
+/**
+ * User content: a bare string for text-only turns, ordered parts when the
+ * message carries images. The string form is preserved so a text-only turn's
+ * wire bytes stay byte-identical to a request built before image support.
+ */
+export type WireUserContent = string | (WireTextPart | WireImagePart)[]
+
+/** User-role message: text, or ordered text/image parts when images are present. */
 export interface WireUserMessage {
   role: 'user'
-  content: string
+  content: WireUserContent
 }
 
 /** Tool-role message: the result of one tool call, keyed by its call id. */

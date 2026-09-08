@@ -24,7 +24,7 @@ Harness 把缺失的模态当作否定能力，并有三个准入点在构造任
 
 **没有任何配置界面编辑 `input`。** 它和 `compat`、`reasoningEfforts`、`thinkingBudgets`、`headers` 一样是 settings 文档字段，而模型列表编辑器仍是一张只覆盖 id、名称和两个容量的手写表单。这不会带来持久代价，因为那张卡片本来就是按“承载自己并不编辑的字段”建造的：它的行 patch 会先展开已存储的行再应用改动，而采纳候选时已有行优先于重新发现的候选，因此手写的 `input` 在两条路径上都能存活。
 
-DeepSeek chat-completions 适配器保持不动。它的 `['text']` 是关于其序列化器的事实，而不是一处缺失的声明，它继续在发送前拒绝。
+DeepSeek chat-completions 适配器的模态来自它自己的 catalog 配置项，而非这条链（[DeepSeek catalog 输入模态](../feature/2026-09-08-llm-deepseek-catalog-input-modalities.md)）：其 `['text']` 默认值是关于端点的事实，未声明 `image` 的配置项继续在发送前拒绝。
 
 ## 备选方案
 

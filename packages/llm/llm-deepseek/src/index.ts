@@ -86,6 +86,10 @@ const catalogModel: z<DeepSeekCatalogModel> = z.object({
   description: z.string(),
   contextWindow: z.number().step(1).min(1),
   maxTokens: z.number().step(1).min(1),
+  // An explicit default, unlike a bare `z.array`: schemastery materializes
+  // `[]` for an absent array, which would otherwise read as "accepts nothing"
+  // and reject every default entry at load.
+  inputModalities: z.array(z.union(['text', 'image'])).default(['text']),
 })
 
 export const Config: z<Config> = z.object({
@@ -134,6 +138,11 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
         `llm-deepseek: catalog model "${model.id}" maxTokens must be a positive integer`,
       )
     }
+    if (model.inputModalities !== undefined && model.inputModalities.length === 0) {
+      throw new Error(
+        `llm-deepseek: catalog model "${model.id}" inputModalities must name at least one modality`,
+      )
+    }
     if (seen.has(model.id)) throw new Error(`llm-deepseek: duplicate catalog model "${model.id}"`)
     seen.add(model.id)
     return {
@@ -142,6 +151,7 @@ function resolveModels(models: readonly DeepSeekCatalogModel[] | undefined): Dee
       ...model.description === undefined ? {} : { description: model.description },
       ...model.contextWindow === undefined ? {} : { contextWindow: model.contextWindow },
       ...model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens },
+      ...model.inputModalities === undefined ? {} : { inputModalities: [...model.inputModalities] },
     }
   })
 }
@@ -247,7 +257,15 @@ export function apply(ctx: Context, config: Config): void {
 
   let userId: AnonymousUserId | undefined
   const resolveUserId = (): AnonymousUserId => userId ??= getOrCreateAnonymousUserId()
-  const adapter = new DeepSeekAdapter({ options, resolveApiKey, resolveUserId })
+  const adapter = new DeepSeekAdapter({
+    options,
+    resolveApiKey,
+    resolveUserId,
+    // Optional seam: a deployment without durable image storage keeps serving
+    // text, and a request carrying images for an image-capable model fails
+    // before the wire instead of being sent for the provider to reject.
+    resolveAttachments: () => ctx.get('attachments'),
+  })
   ctx.llm.registerConfigurableProviders([
     { provider: PROVIDER, displayName: 'DeepSeek', settingsNs: NS, settingsPath: [] },
   ])

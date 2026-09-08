@@ -124,6 +124,18 @@ describe('request-level dynamic configuration', () => {
     ])
   })
 
+  it('applies a live settings catalog declaring image modalities', async () => {
+    const dir = await home()
+    const { ctx } = await boot(dir, { baseURL: 'http://127.0.0.1:1' })
+
+    await ctx.settings.update(NS, {
+      models: [{ id: 'vision-model', inputModalities: ['text', 'image'] }],
+    })
+    await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
+      { provider: 'deepseek-official', id: 'vision-model', name: 'vision-model', inputModalities: ['text', 'image'] },
+    ])
+  })
+
   it('re-registers the route in place when the captured retry policy changes, without an empty-registry window', async () => {
     const dir = await home()
     const { ctx } = await boot(dir, { baseURL: 'http://127.0.0.1:1' })

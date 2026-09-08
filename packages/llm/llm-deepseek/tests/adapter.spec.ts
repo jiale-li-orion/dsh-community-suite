@@ -3,6 +3,12 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
+import { AttachmentStore, AttachmentId } from '@deepseek-ai/dsh-attachment'
+import type {
+  ImageAttachmentLimits,
+  ImageAttachmentRef,
+  StoredImageAttachment,
+} from '@deepseek-ai/dsh-attachment'
 import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import LlmRuntime, { createUserMessage,
   CONTEXT_WINDOW_EXCEEDED_CODE,
@@ -23,6 +29,42 @@ import type { Behavior } from './mock-server.ts'
 
 const TEST_USER_ID = '00000000-0000-4000-8000-000000000001' as AnonymousUserId
 let testHome: string
+
+const IMAGE_REF: ImageAttachmentRef = {
+  attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
+  mediaType: 'image/png',
+  bytes: 3,
+  width: 1,
+  height: 1,
+}
+
+/** Attachment service stand-in whose bytes `[1,2,3]` encode to `AQID`. */
+class FakeAttachments extends AttachmentStore {
+  override readonly imageLimits: ImageAttachmentLimits = {
+    maxImageBytes: 1_000_000,
+    maxImagesPerMessage: 4,
+    maxMessageImageBytes: 4_000_000,
+    maxImagePixels: 4_000_000,
+    mediaTypes: ['image/png'],
+  }
+
+  override validateImage(): Promise<void> {
+    return Promise.resolve()
+  }
+
+  override saveImage(): Promise<ImageAttachmentRef> {
+    throw new Error('FakeAttachments.saveImage is not used by the llm-deepseek tests')
+  }
+
+  override readImage(ref: ImageAttachmentRef): Promise<StoredImageAttachment> {
+    return Promise.resolve({ ref, data: new Uint8Array([1, 2, 3]) })
+  }
+}
+
+const IMAGE_MESSAGE = createUserMessage({
+  content: [{ type: 'image', attachment: IMAGE_REF }],
+  source: { kind: 'plugin', plugin: 'test' },
+})
 
 beforeEach(() => {
   testHome = mkdtempSync(join(tmpdir(), 'dsh-llm-deepseek-'))
@@ -792,6 +834,66 @@ describe('plugin registration and config', () => {
         context: { contextWindow: 1_000_000 },
         defaultMaxTokens: 256_000,
       })
+  })
+
+  it('advertises declared input modalities for a catalog model', async () => {
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(LlmDeepSeek, {
+      baseURL: 'http://127.0.0.1:1',
+      models: [{ id: 'vision-model', inputModalities: ['text', 'image'] }],
+    })
+    await expect(ctx.llm.listModels('deepseek-official')).resolves.toEqual([
+      { provider: 'deepseek-official', id: 'vision-model', name: 'vision-model', inputModalities: ['text', 'image'] },
+    ])
+    await expect(ctx.llm.resolveModelInfo('deepseek-official', 'vision-model'))
+      .resolves.toMatchObject({ inputModalities: ['text', 'image'] })
+  })
+
+  it('rejects an empty input-modality list at the resolver boundary', () => {
+    expect(() => resolveAdapterOptions({ models: [{ id: 'm', inputModalities: [] }] }))
+      .toThrow(/inputModalities must name at least one modality/)
+  })
+
+  it('sends user images as image_url parts when the model declares image input', async () => {
+    const server = await mockServer([{ kind: 'sse', events: textEvents }])
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(FakeAttachments)
+    await ctx.plugin(LlmDeepSeek, {
+      baseURL: server.url,
+      models: [{ id: 'vision-model', inputModalities: ['text', 'image'] }],
+    })
+    const result = await assemble(ctx, { model: 'vision-model', messages: [IMAGE_MESSAGE] })
+    expect(result.finish).toEqual({ kind: 'stop' })
+    expect(server.requests[0]).toMatchObject({
+      model: 'vision-model',
+      messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AQID' } }] }],
+    })
+  })
+
+  it('fails an image request when the model declares images but no attachment service is mounted', async () => {
+    const server = await mockServer([{ kind: 'sse', events: textEvents }])
+    const ctx = await harness(server.url, {
+      models: [{ id: 'vision-model', inputModalities: ['text', 'image'] }],
+    })
+    const result = await assemble(ctx, { model: 'vision-model', messages: [IMAGE_MESSAGE] })
+    expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'UNSUPPORTED_CONTENT' } })
+    if (result.finish.kind !== 'error') throw new Error('expected an error finish')
+    expect(result.finish.failure.message).toMatch(/no attachment service is mounted/)
+    expect(server.requests).toHaveLength(0)
+  })
+
+  it('rejects images for a model that declares no image input', async () => {
+    const server = await mockServer([{ kind: 'sse', events: textEvents }])
+    const ctx = await harness(server.url)
+    const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [IMAGE_MESSAGE] })
+    expect(result.finish).toMatchObject({
+      kind: 'error',
+      failure: { code: 'UNSUPPORTED_CONTENT' },
+    })
+    expect(server.requests).toHaveLength(0)
   })
 
   it('uses exact model capacity before the adapter-wide default', async () => {
