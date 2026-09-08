@@ -62,6 +62,9 @@ const EXPECTED_TOOLS = [
   'todo_write',
   'update_goal',
   'web_search',
+  'workbench_close',
+  'workbench_open',
+  'workbench_status',
   'workflow',
   'write',
 ]

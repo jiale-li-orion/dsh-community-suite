@@ -16,6 +16,14 @@ export const zh = {
   'empty.title': '工作台还没有面板',
   'empty.hint': '安装提供工作台面板的插件后，它们会出现在这里。',
   'close': '关闭',
+  'files.title': '文件',
+  'files.parent': '返回上级',
+  'files.empty': '这个目录是空的。',
+  'files.error': '读取目录失败：{message}',
+  'files.root': '工作区根目录',
+  'viewer.close': '关闭预览',
+  'viewer.unsupported': '这个文件没有可用的预览。',
+  'viewer.media': '{name} 预览',
 }
 
 /** Workbench dictionary keys. */
@@ -29,4 +37,12 @@ export const en: Record<WorkbenchKey, string> = {
   'empty.title': 'No workbench panels yet',
   'empty.hint': 'Plugins that contribute workbench panels appear here once installed.',
   'close': 'Close',
+  'files.title': 'Files',
+  'files.parent': 'Go up',
+  'files.empty': 'This directory is empty.',
+  'files.error': 'Could not read the directory: {message}',
+  'files.root': 'Workspace root',
+  'viewer.close': 'Close preview',
+  'viewer.unsupported': 'No preview is available for this file.',
+  'viewer.media': 'Preview of {name}',
 }

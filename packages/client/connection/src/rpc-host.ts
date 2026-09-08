@@ -20,6 +20,7 @@ import type {
   ConnectionRpcHandlerOptions,
   HostConnectionHandle,
   HostConnectionRpc,
+  TrustedRequestHeaders,
 } from './rpc.ts'
 
 const INVALID_REQUEST_RPC_ID = RpcId('invalid-request')
@@ -60,6 +61,15 @@ export class HostConnectionService extends Service implements HostConnectionHand
       intercept: (channel, matches, handler, options) =>
         this.registerInterceptor(owner, channel, matches, handler, options),
     }
+  }
+
+  /**
+   * Whether one request may be answered by a browser-facing Host route.
+   * @param request - the incoming request; only its headers are read.
+   * @returns true when the request passes this deployment's trust fence.
+   */
+  isTrustedRequest(request: TrustedRequestHeaders): boolean {
+    return isTrustedApiRequest(request, this.trustedHosts)
   }
 
   /**

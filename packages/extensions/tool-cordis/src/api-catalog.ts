@@ -2229,6 +2229,50 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'workbench',
+    summary: 'The shared workbench service.',
+    description: 'The shared workbench service. A single mutable view plus the fenced listing the file panel reads; every commit is one assignment and one event, so there is no second state to keep synchronized.',
+    methods: [
+      {
+        signature: '@Remote(\'state\') state(): WorkbenchView',
+        description: 'Read the current view.',
+        parameters: [],
+        returns: 'a detached copy of the committed view.',
+      },
+      {
+        signature: '@Remote(\'open\') open(panelId: string | null): WorkbenchView',
+        description: 'Open the workbench, optionally selecting a panel.',
+        parameters: [{ name: 'panelId', description: 'panel id to select, or null to keep the current selection.' }],
+        returns: 'the committed view.',
+      },
+      {
+        signature: '@Remote(\'close\') close(): WorkbenchView',
+        description: 'Close the workbench. The selection is kept, so reopening returns to it.',
+        parameters: [],
+        returns: 'the committed view.',
+      },
+      {
+        signature: '@Remote(\'select\') select(panelId: string): WorkbenchView',
+        description: 'Select a panel and open the workbench.',
+        parameters: [{ name: 'panelId', description: 'panel id to select.' }],
+        returns: 'the committed view.',
+      },
+      {
+        signature: '@Remote(\'toggle\') toggle(): WorkbenchView',
+        description: 'Toggle the workbench column: open with the current selection, or close.',
+        parameters: [],
+        returns: 'the committed view.',
+      },
+      {
+        signature: '@Remote(\'listDir\') async listDir(sessionId: SessionId, path: string | null): Promise<WorkbenchListing>',
+        description: 'List one directory inside the session\'s recorded working directory. The fence is the session\'s own `cwd`, resolved through the `fs` capability, so the panel sees exactly the tree the agent operates in.',
+        parameters: [{ name: 'sessionId', description: 'session whose recorded working directory fences the listing.' }, { name: 'path', description: 'absolute or relative path to list; null lists the workspace root.' }],
+        returns: 'the fenced listing.',
+        throws: ['WorkbenchFenceError when the session records no cwd or the path escapes it.'],
+      },
+    ],
+  },
+  {
     key: 'workflowEngine',
     summary: 'Workflow Service Definition contract.',
     description: 'Workflow Service Definition contract. Invalid requests throw before publication; a live run is holder-owned, its result never rejects, cancellation and disposal are bounded, and disposal waits for child cleanup within that bound. Lifecycle listener failures are contained, and `workflow/end` fires exactly once as the result settles.',
@@ -2693,6 +2737,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Observe the frozen, lossless-JSON final outcome.',
     description: 'Observe the frozen, lossless-JSON final outcome. Listener failures are contained. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): keyed by `exec.agent`.',
     parameters: [{ name: 'exec', description: 'the execution object that traversed the pipeline.' }, { name: 'result', description: 'a deep-frozen snapshot of the final returned result.' }],
+  },
+  {
+    name: 'workbench/changed',
+    mode: 'emit',
+    signature: '\'workbench/changed\'(view: WorkbenchView): void',
+    summary: 'The shared workbench view changed.',
+    description: 'The shared workbench view changed. Emitted on every commit — a browser gesture, an agent tool call, or a Remote call — so a client can apply the committed value instead of deriving its own.',
+    parameters: [{ name: 'view', description: 'the committed view state.' }],
   },
   {
     name: 'workflow/agent-end',
@@ -4897,6 +4949,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WebUpgradeRoute',
     declaration: 'export interface WebUpgradeRoute {\n    path: string;\n    handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>;\n}',
+  },
+  {
+    name: 'WorkbenchDirEntry',
+    declaration: 'export interface WorkbenchDirEntry {\n    name: string;\n    type: \'file\' | \'directory\' | \'other\';\n    path: string;\n    size?: number;\n    mediaType?: string;\n}',
+  },
+  {
+    name: 'WorkbenchListing',
+    declaration: 'export interface WorkbenchListing {\n    root: string;\n    path: string;\n    fileRoute: string;\n    entries: readonly WorkbenchDirEntry[];\n}',
+  },
+  {
+    name: 'WorkbenchView',
+    declaration: 'export interface WorkbenchView {\n    open: boolean;\n    active: string | null;\n}',
   },
   {
     name: 'WorkflowAgentEndInfo',

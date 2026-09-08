@@ -1,86 +1,143 @@
 /**
- * WorkbenchController: the cross-plugin face behind `ctx.workbench`. Panel
- * membership lives in the slot registry and the selection lives in the shell
- * entry's store; this face exposes only the transitions other plugins and
- * commands may trigger, and it is wired by the shell registration's inject
- * hook (the same assembly pattern ui-layout uses for `ctx.layout`).
+ * WorkbenchController: the browser-side face of the shared workbench. It owns
+ * no view state of its own — the host service is the single authority — and
+ * projects the committed view onto the shell's selection store and ui-layout's
+ * column geometry. Every gesture routes through a Remote call and returns to
+ * this same projection through the `workbench/changed` push, so a human click
+ * and an agent tool call land on one state.
  */
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
+import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import type { WorkbenchView } from '@deepseek-ai/dsh-workbench/types'
+import type { WorkbenchFileRef } from './contract/slots.ts'
 import type { createWorkbenchStore } from './stores.ts'
 
 /** The workbench store's bound action set (framework-baked, draft params peeled). */
 export type WorkbenchActions = BoundActions<ReturnType<typeof createWorkbenchStore>>
 
-/** The layout transitions the workbench face delegates to (ui-layout's `ctx.layout`). */
+/** The layout transitions a committed view projects onto (ui-layout's `ctx.layout`). */
 export interface WorkbenchLayoutFace {
   /** Open the workbench column (no-op when already open). */
   openWorkbench(): void
   /** Close the workbench column. */
   closeWorkbench(): void
-  /** Toggle the workbench column. */
-  toggleWorkbench(): void
 }
 
-/** The outward workbench face (`ctx.workbench`): open/close/toggle the column. */
+/** The generated Remote namespace this controller drives. */
+export interface WorkbenchRemoteFace {
+  state(): Promise<RemoteResult<WorkbenchView>>
+  open(panelId: string | null): Promise<RemoteResult<WorkbenchView>>
+  close(): Promise<RemoteResult<WorkbenchView>>
+  select(panelId: string): Promise<RemoteResult<WorkbenchView>>
+  toggle(): Promise<RemoteResult<WorkbenchView>>
+}
+
+/** The outward workbench face (`ctx.workbench`). */
 export interface IWorkbench {
   /**
    * Open the workbench column, selecting a panel when one is named.
-   * @param panelId - panel id to select; an unknown id still selects (the
-   * shell falls back to the first panel while no such panel is registered).
+   * @param panelId - panel id to select; omitted keeps the host's selection.
+   * @returns a promise settling after the committed view was applied.
    */
-  open(panelId?: string): void
+  open(panelId?: string): Promise<void>
   /** Close the workbench column. */
-  close(): void
-  /** Toggle the workbench column (open with the current selection, or close). */
-  toggle(): void
+  close(): Promise<void>
+  /** Toggle the workbench column. */
+  toggle(): Promise<void>
+  /**
+   * Show one file in the viewer chain, opening the column.
+   * @param file - the file a panel selected, including its byte URL.
+   */
+  preview(file: WorkbenchFileRef): void
+  /** Close the viewer chain without changing the selected panel. */
+  closeFile(): void
 }
 
 /** Cross-plugin workbench face (`ctx.workbench`). */
 export class WorkbenchController implements IWorkbench {
   #actions: WorkbenchActions | undefined
+  #pending: WorkbenchView | undefined
   #layout: WorkbenchLayoutFace
+  #remote: WorkbenchRemoteFace
 
   /**
-   * @param layout - the layout face the column transitions delegate to.
+   * @param layout - the layout face a committed view projects onto.
+   * @param remote - the generated workbench Remote namespace.
    */
-  constructor(layout: WorkbenchLayoutFace) {
+  constructor(layout: WorkbenchLayoutFace, remote: WorkbenchRemoteFace) {
     this.#layout = layout
+    this.#remote = remote
   }
 
   /**
    * Adopt the shell entry's bound store actions. Called from the registration's
-   * inject hook (a sanctioned assembly side effect), so the face is live from
-   * the entry's first render; a re-register overwrites the stale set.
+   * inject hook (a sanctioned assembly side effect); a view that arrived before
+   * the shell mounted is applied here, so no push is lost.
    * @param actions - bound actions of the entry's workbench store instance.
    */
   attachActions(actions: WorkbenchActions): void {
     this.#actions = actions
+    if (this.#pending !== undefined) {
+      const view = this.#pending
+      this.#pending = undefined
+      this.applyView(view)
+    }
+  }
+
+  /**
+   * Project one committed host view onto the selection store and the column.
+   * @param view - the committed view.
+   */
+  applyView(view: WorkbenchView): void {
+    if (this.#actions === undefined) {
+      this.#pending = view
+      return
+    }
+    if (view.open) this.#layout.openWorkbench()
+    else this.#layout.closeWorkbench()
+    if (view.active === null) this.#actions.clear()
+    else this.#actions.select(view.active)
   }
 
   /**
    * Open the workbench column, selecting a panel when one is named.
-   * @param panelId - panel id to select; omitted keeps the current selection.
+   * @param panelId - panel id to select; omitted keeps the host's selection.
    */
-  open(panelId?: string): void {
-    if (panelId !== undefined) this.#require().select(panelId)
-    this.#layout.openWorkbench()
+  async open(panelId?: string): Promise<void> {
+    await this.#commit(this.#remote.open(panelId ?? null))
   }
 
   /** Close the workbench column. */
-  close(): void {
-    this.#layout.closeWorkbench()
+  async close(): Promise<void> {
+    await this.#commit(this.#remote.close())
   }
 
   /** Toggle the workbench column. */
-  toggle(): void {
-    this.#layout.toggleWorkbench()
+  async toggle(): Promise<void> {
+    await this.#commit(this.#remote.toggle())
   }
 
-  #require(): WorkbenchActions {
-    // Callers are UI gestures or commands, which cannot fire before the shell
-    // entry rendered (the inject hook runs in its first render) — reaching
-    // this unwired is a boot-order bug, not a race to tolerate.
-    if (this.#actions === undefined) throw new Error('workbench: panel actions not wired (shell entry not mounted)')
-    return this.#actions
+  /**
+   * Show one file in the viewer chain, opening the column.
+   * @param file - the file a panel selected, including its byte URL.
+   */
+  preview(file: WorkbenchFileRef): void {
+    // The selection is browser-local (which file this window is looking at),
+    // so it never crosses the Remote boundary; only the column's open state
+    // and the panel choice are shared with the host and the agent.
+    this.#actions?.preview(file)
+    this.#layout.openWorkbench()
+  }
+
+  /** Close the viewer chain without changing the selected panel. */
+  closeFile(): void {
+    this.#actions?.closeFile()
+  }
+
+  async #commit(call: Promise<RemoteResult<WorkbenchView>>): Promise<void> {
+    const result = await call
+    // A failed Remote call leaves the previous view in place: the host never
+    // committed, so projecting a synthetic value would invent state.
+    if (result.ok) this.applyView(result.value)
   }
 }

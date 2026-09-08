@@ -372,6 +372,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Folds revisioned objective state from the session log and keeps live continuation activation process-local.',
   },
   {
+    key: 'workbench',
+    pkg: 'workbench',
+    title: 'Shared workbench view state',
+    mode: 'core',
+    note: 'One process-global view both the browser and agent tools mutate; every commit emits workbench/changed, and directory listings are fenced to the calling session workspace.',
+  },
+  {
     key: 'e2b',
     pkg: 'e2b',
     title: 'E2B sandbox lifecycle owner',

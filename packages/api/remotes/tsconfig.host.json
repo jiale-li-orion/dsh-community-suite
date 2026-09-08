@@ -54,6 +54,9 @@
     },
     {
       "path": "../../typert/protocol"
+    },
+    {
+      "path": "../../workbench/workbench"
     }
   ]
 }

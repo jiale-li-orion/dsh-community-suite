@@ -233,6 +233,17 @@
     - id: ui-subagent
       name: '@deepseek-ai/dsh-client-ui-subagent'
 
+    # Shared workbench state: one service the browser and the agent mutate.
+    # The model-facing view controls are AGENT-plane rows in the shipped
+    # presets, because the global layer holds no tool.
+    - id: workbench
+      name: '@deepseek-ai/dsh-workbench'
+
+    # Byte route for the workbench viewer: fenced Range/streaming reads over
+    # the same workspace fence the file panel lists through.
+    - id: workbench-bytes
+      name: '@deepseek-ai/dsh-workbench-bytes'
+
     # Background jobs: the session-header list over the jobsBySession mirror.
     - id: ui-jobs
       name: '@deepseek-ai/dsh-client-ui-jobs'

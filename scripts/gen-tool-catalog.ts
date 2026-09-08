@@ -67,6 +67,8 @@ import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import VmWorkflowEngine from '@deepseek-ai/dsh-workflow-worker-thread'
 import * as ToolRalph from '@deepseek-ai/dsh-tool-ralph'
 import * as ToolWorkflow from '@deepseek-ai/dsh-tool-workflow'
+import * as ToolWorkbench from '@deepseek-ai/dsh-tool-workbench'
+import WorkbenchService from '@deepseek-ai/dsh-workbench'
 import { githubSlug } from './verify-md-links.ts'
 
 /** Attachment seam marker that makes the attachments-conditional `read_image` schema harvestable. */
@@ -547,6 +549,21 @@ const TOOL_PACKAGES: ToolPackage[] = [
     },
     note:
       'todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-workbench',
+    dir: 'tool-workbench',
+    source: 'packages/workbench/tool-workbench/src/index.ts',
+    requires: ['ctx.tools', 'ctx.workbench'],
+    writes: ['tool/call', 'workbench/changed', 'tool/result'],
+    async mount(ctx) {
+      await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
+      ctx.provide('sessions', { get: () => undefined })
+      await ctx.plugin(WorkbenchService)
+      await ctx.plugin(ToolWorkbench)
+    },
+    note:
+      'The three tools drive the shared workbench view the browser renders; they write no session state, so their result is a notice naming the committed view.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-workflow',

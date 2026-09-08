@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 /**
  * WorkbenchShell presentation behavior: the empty state, the tab strip derived
- * from the panel observable, keyed dispatch of exactly the selected panel, and
- * the header close/toggle gestures. Props are fed directly as the four shares
- * (the framework derives them in production).
+ * from the panel observable, keyed dispatch of exactly the selected panel, the
+ * header close/toggle gestures, and the viewer chain for a previewed file.
+ * Props are fed directly as the four shares (the framework derives them in
+ * production).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -11,40 +12,58 @@ import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { WorkbenchShell } from '../src/client/WorkbenchShell.tsx'
 import type { WorkbenchShellProps } from '../src/client/WorkbenchShell.tsx'
-import type { WorkbenchPanelTab } from '../src/client/contract/slots.ts'
+import type { WorkbenchFileRef, WorkbenchPanelTab } from '../src/client/contract/slots.ts'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(() => { cleanup() })
 
 const t = makeTranslate(zh)
 
+const FILE: WorkbenchFileRef = {
+  name: 'photo.png',
+  path: '/w/photo.png',
+  url: '/workbench/file?sessionId=s&path=%2Fw%2Fphoto.png',
+  mediaType: 'image/png',
+}
+
 /**
  * Build the four-share props over real snapshot stores.
  * @param tabs - panel tabs the observable publishes.
  * @param selected - initial store selection.
- * @returns composed props, the recorded select action, and the dispatch recorder.
+ * @param file - initial previewed file.
+ * @returns composed props plus the recorders a test asserts on.
  */
-function props(tabs: readonly WorkbenchPanelTab[], selected: string | null = null): {
+function props(
+  tabs: readonly WorkbenchPanelTab[],
+  selected: string | null = null,
+  file: WorkbenchFileRef | null = null,
+): {
   props: WorkbenchShellProps
   select: ReturnType<typeof vi.fn>
   renderSlot: ReturnType<typeof vi.fn>
+  renderSlotChain: ReturnType<typeof vi.fn>
 } {
   const panels = createSnapshotStore<readonly WorkbenchPanelTab[]>(tabs)
   const select = vi.fn()
   const renderSlot = vi.fn(() => null)
+  const renderSlotChain = vi.fn(() => <span data-testid="chain" />)
   return {
     props: {
       collapsed: false,
       width: 560,
-      useStore: (read: (s: { active: string | null }) => unknown) => read({ active: selected }),
-      actions: { select, clear: vi.fn() },
+      useStore: (read: (s: { active: string | null; file: WorkbenchFileRef | null }) => unknown) =>
+        read({ active: selected, file }),
+      actions: { select, clear: vi.fn(), preview: vi.fn(), closeFile: vi.fn() },
       usePanels: (read: (s: readonly WorkbenchPanelTab[]) => unknown) => read(panels.getSnapshot()),
       renderSlot,
+      renderSlotChain,
       toggle: vi.fn(),
+      closeFile: vi.fn(),
       t,
     } as unknown as WorkbenchShellProps,
     select,
     renderSlot,
+    renderSlotChain,
   }
 }
 
@@ -101,5 +120,34 @@ describe('WorkbenchShell', () => {
     const { props: shellProps, renderSlot } = props([{ id: 'files', label: '文件', order: 10 }], 'gone')
     render(<WorkbenchShell {...shellProps} />)
     expect(renderSlot).toHaveBeenCalledWith('workbench.panel', { width: 560 }, { only: 'files' })
+  })
+
+  it('renders no viewer section until a file is previewed', () => {
+    const { props: shellProps, renderSlotChain } = props(TWO_PANELS)
+    render(<WorkbenchShell {...shellProps} />)
+    expect(renderSlotChain).not.toHaveBeenCalled()
+    expect(screen.queryByRole('region')).toBeNull()
+  })
+
+  it('dispatches the viewer chain for the previewed file and closes it', () => {
+    const { props: shellProps, renderSlotChain } = props(TWO_PANELS, 'files', FILE)
+    render(<WorkbenchShell {...shellProps} />)
+    const [key, owner, opts] = renderSlotChain.mock.calls[0] as [string, WorkbenchFileRef, { fallback: React.ReactNode }]
+    expect(key).toBe('workbench.viewer')
+    expect(owner).toEqual(FILE)
+    expect(opts.fallback).toBeTruthy()
+    expect(screen.getByRole('region', { name: FILE.name })).toBeTruthy()
+    expect(screen.getByTitle(FILE.path)).toBeTruthy()
+    fireEvent.click(screen.getByTitle(zh['viewer.close']))
+    expect(shellProps.closeFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back to the no-preview notice when every viewer declines', () => {
+    const { props: shellProps, renderSlotChain } = props(TWO_PANELS, 'files', FILE)
+    renderSlotChain.mockReturnValue(null)
+    render(<WorkbenchShell {...shellProps} />)
+    const fallback = (renderSlotChain.mock.calls[0]?.[2] as { fallback: React.ReactNode }).fallback
+    const { container } = render(<>{fallback}</>)
+    expect(container.textContent).toBe(zh['viewer.unsupported'])
   })
 })
