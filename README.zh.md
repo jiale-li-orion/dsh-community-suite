@@ -12,43 +12,76 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 
 本套件固定采用官方 `dsh-v0.1.0-rc.7` 基线，并保留仓库的 `pnpm@11.22.0` 工具链选择。DeepSeek Harness 仍处于开发者预览阶段，可能出现破坏兼容性的变更；此快照中的社区模块仅支持已记录的基线。
 
+## 近期更新
+
+- **2026-09-09 — 工具结果的图片进入模型上下文。** 工具结果里的图片现在跟随其 `role: tool` 消息、由一条 user 消息承载，因此 `read_image` 的输出以及任何含有它的历史在原生路由上都能继续使用。见[工具结果图片 note](.agents/notes/implemented/feature/2026-09-09-llm-deepseek-tool-result-images.md)。
+- **2026-09-08 — 按模型声明输入模态。** `llm-deepseek` 的每个 catalog 配置项自行声明 `inputModalities`；省略表示 `[text]`，只有声明了 `image` 的配置项才会把用户图片送到协议上。见[输入模态 note](.agents/notes/implemented/feature/2026-09-08-llm-deepseek-catalog-input-modalities.md)。
+- **2026-09-08 — 运行说明重构**为「环境要求 / 首次启动 / 后续启动与更新」三节。
+
 ## 已整合的优化
 
 - **会话上下文与压缩**：有界长会话读取、packed retention、上下文检查与区间选择、历史召回、按模型容量规划压缩，以及可恢复的摘要审阅；来源为 [leavelet/deepseek-harness](https://github.com/leavelet/deepseek-harness)。
 - **归档会话**：在 Web 设置页列出、预览、释放、删除归档会话并统计容量的 bundle；来源为 [MuWinds/dsh-archived-sessions](https://github.com/MuWinds/dsh-archived-sessions)。
 - **锚定 agent**：7 个可独立安装的 agent 组合，提供受控的首轮工具面、上下文门控、wire-think 路由、压缩感知的阶段提升、默认会话 prefab 播种、跨平台 shell 路径与稳健的指令发现；来源为 [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
+- **DeepSeek 图片输入**：内置的 `llm-deepseek` 适配器按模型声明输入模态，并把用户上传的图片与工具产生的图片都以 `image_url` data URL 送到模型。
 
 完整功能审计与兼容边界见[社区优化](docs/community-optimizations.md)（[中文](docs/community-optimizations.zh.md)）。
 
 ## 运行
 
-### 从源码运行
+### 环境要求
 
-安装 Node.js，克隆本仓库并构建 Harness：
+安装 Node.js `^22.19.0` 或 `>=24.0.0`，并安装 pnpm 11.22：
+
+```sh
+npm install --global pnpm@11.22.0
+```
+
+### 首次启动
+
+克隆仓库、安装依赖、运行不使用真实 API 的社区检查，并构建 Harness：
 
 ```sh
 git clone https://github.com/jiale-li-orion/dsh-community-suite.git
 cd dsh-community-suite
 pnpm install --frozen-lockfile
+pnpm run community:check
 pnpm run build
 ```
 
-先运行不使用真实 API 的社区检查，再将 bundle 和预设安装到指定 DSH home：
+选择 DSH home，安装社区模块并启动 Web UI：
 
 ```sh
-pnpm run community:check
-pnpm run community:install -- --dsh-home /path/to/.dsh
+export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
+pnpm run community:install -- --dsh-home "$DSH_HOME"
+pnpm dsh web
 ```
 
 安装器只把归档会话 bundle 添加到 `web` profile，并在 `.agent-presets` 下安装以下 preset id：`anchored-standard`、`prefab-anchored-standard`、`combo-anchored-standard`、`eternal-minimal`、`whoami-standard`、`wire-think-standard` 与 `zero-anchored-standard`。安装器会拒绝覆盖不属于本套件的目标，在使用 `--update` 更新自有安装项前创建备份，并且不会访问会话目录。
 
-使用同一个 DSH home 启动 Web UI：
+Web UI 默认地址为 `http://127.0.0.1:3080`。使用 DSH 时请保持该终端运行。
+
+### 后续启动与更新
+
+使用同一个 DSH home 再次启动已经安装的 checkout：
 
 ```sh
-DSH_HOME=/path/to/.dsh pnpm dsh web
+cd dsh-community-suite
+export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
+pnpm dsh web
 ```
 
-Web UI 默认地址为 `http://127.0.0.1:3080`。详见 [Web UI 指南](docs/user/guide/index.md)（[中文](docs/user/guide/index.zh.md)）。
+拉取套件更新后，刷新依赖、重新构建，并且只更新属于本套件的安装项：
+
+```sh
+git pull --ff-only
+pnpm install --frozen-lockfile
+pnpm run community:check
+pnpm run build
+pnpm run community:install -- --dsh-home "$DSH_HOME" --update
+```
+
+profile 与界面说明详见 [Web UI 指南](docs/user/guide/index.md)（[中文](docs/user/guide/index.zh.md)）。
 
 ### 官方 npm 发行版
 
