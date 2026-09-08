@@ -992,6 +992,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'conversation.session.header\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-workbench WorkbenchToggle id \'workbench-toggle\'',
       'session-log-export SessionLogDownloadHeaderAction id \'session-log-download\'',
     ],
     replaceRisk: 'none',
@@ -1758,10 +1759,55 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     hookContext: '',
     slotInject: '',
     declaredBy: 'an entry in \'root\' (client-ui-layout), so it exists while that entry is mounted',
-    occupants: [],
-    replaceRisk: 'none',
+    occupants: [
+      'client-ui-workbench WorkbenchShell',
+    ],
+    replaceRisk: 'shadows-shipped-ui',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'workbench\', () => ctx.slots.register(\n      { name: \'workbench\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
     source: 'packages/client/ui-layout/src/client/index.ts:87',
+  },
+  {
+    key: 'workbench.panel',
+    kind: 'list',
+    scope: 'root',
+    summary: 'One workbench panel body.',
+    doc: 'One workbench panel body. Declared by this package\'s `workbench`\nregistration as a list seat whose entries carry the tab identity: a\npanel registers with `{ name: \'workbench.panel\', id: \'<panel id>\',\norder, label }`, and the shell dispatches only the selected one with\n`{ only: <panel id> }`, so a panel component mounts only while it is\nselected.',
+    registerOptions: [
+      {
+        name: 'id',
+        requirement: 'required',
+        type: 'string',
+        doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.',
+      },
+      {
+        name: 'order',
+        requirement: 'optional',
+        type: 'number',
+        doc: 'Position among the entries, ascending (default 0).',
+      },
+      {
+        name: 'label',
+        requirement: 'optional',
+        type: 'string | (() => string)',
+        doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
+      },
+    ],
+    ownerProps: [
+      '/** Owner share of one workbench panel dispatch. */\nexport interface WorkbenchPanelOwnerProps {\n  /** Rendered workbench column width in px, so a panel can adapt to a narrow column. */\n  width: number\n}',
+    ],
+    ownerPropsReferences: [],
+    standardProps: [
+      'useSessions: SnapshotSelectorHook<SessionListState>',
+      'useWorkspaces: SnapshotSelectorHook<import(\'./workspaces/service.ts\').WorkspaceListState>',
+    ],
+    keyDomain: '',
+    hookContext: '',
+    slotInject: '',
+    declaredBy: 'an entry in \'workbench\' (client-ui-workbench), so it exists while that entry is mounted',
+    occupants: [],
+    replaceRisk: 'none',
+    example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'workbench.panel\', () => ctx.slots.register(\n      { name: \'workbench.panel\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
+    source: 'packages/client/ui-workbench/src/client/contract/slots.ts:20',
   },
 ]
 /* jscpd:ignore-end */

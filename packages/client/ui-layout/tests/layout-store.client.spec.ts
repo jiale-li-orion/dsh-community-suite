@@ -107,6 +107,17 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().workbench).toBe(0)
   })
 
+  it('toggleWorkbench flips closed <-> contract default (drag width forgotten)', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.toggleWorkbench()
+    expect(store.getSnapshot().workbench).toBe(WORKBENCH_DEFAULT)
+    actions.setWorkbench(900)
+    actions.toggleWorkbench()
+    expect(store.getSnapshot().workbench).toBe(0)
+    actions.toggleWorkbench()
+    expect(store.getSnapshot().workbench).toBe(WORKBENCH_DEFAULT)
+  })
+
   it('does not persist panel geometry', () => {
     const first = createLayoutStore().create()
     first.actions.setSidebar(400)

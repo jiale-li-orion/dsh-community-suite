@@ -27,6 +27,8 @@ export interface ILayout {
   openWorkbench(): void
   /** Close the workbench column. */
   closeWorkbench(): void
+  /** Toggle the workbench column (closed ⟷ contract default width). */
+  toggleWorkbench(): void
   /** Open the details panel (no-op when already open). */
   openDetails(): void
   /** Close the details panel. */
@@ -61,6 +63,11 @@ export class LayoutController implements ILayout {
   /** Close the workbench column. */
   closeWorkbench(): void {
     this.#require().closeWorkbench()
+  }
+
+  /** Toggle the workbench column (closed ⟷ contract default width). */
+  toggleWorkbench(): void {
+    this.#require().toggleWorkbench()
   }
 
   /** Open the details panel (no-op when already open). */

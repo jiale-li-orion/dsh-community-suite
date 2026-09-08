@@ -160,8 +160,62 @@
 - 验证：ui-layout 66 测试通过；`pnpm run test:gui` 277 文件 / 3819 测试通过；`DSH_SNAPSHOT=replay pnpm run test:web` 76 文件 / 255 测试通过（空栏不改动组装后的浏览器）；`lint` 0/0；`typecheck` 绿；`doc-sync` 28 通过 0 失败。
 - 回滚：删除 `workbench` 子声明 + 求解器项 + store 字段 + 网格轨道 + 拖动手柄，并重跑 `gen-client-catalog`。
 
+### 01:35 · Phase 2：`ui-workbench` 面板座位与 `ctx.workbench`
+
+- 新包 `packages/client/ui-workbench`：占用 Phase 1 的 `workbench` 栏，声明 `workbench.panel`（list/root）座位，注册 `conversation.session.header.utilities` 里的开关（id `workbench-toggle`），并发布客户端服务 `ctx.workbench`。
+- 面板契约：**面板就是一条 slot 注册**（`ctx.slots.inject('workbench.panel', () => ctx.slots.register({ name, id, order, label }, Component))`），没有并行注册表；`id` 是派发键，外壳用 `renderSlot('workbench.panel', { width }, { only: <id> })` 只挂载被选中的面板，未注册的选择回退到第一个标签。
+- 数据流：外壳把账本投影成 `SnapshotStore<readonly WorkbenchPanelTab[]>`（`ctx.slots.entries` + `subscribe`），经 inject 的 `hooks` 隔间绑定为 `usePanels`；选择存在外壳 entry 的 store 里；`ctx.workbench` 只暴露 `open(panelId?)/close()/toggle()` 三个切换，控制器由注册项 inject 钩子接线（与 `ctx.layout` 同构）。
+- `ui-layout` 补 `toggleWorkbench`（store 动作 + `ctx.layout` 方法），让头部开关成为真正的开关。
+- 头部开关（`conversation.session.header.utilities`，id `workbench-toggle`，order `-10`）排在会话自身工具之前，保持「会话日志导出」在头部右边缘的几何契约；**收起的栏返回 null**，不进无障碍树（组件仍挂载，选择存活）。
+- 装配：`tsconfig.base.json` paths、`tsconfig.client.json` 工程引用、`packages/bundle/web-app/{package.json,cordis.patch.yml}` 各加一条；`pnpm install` 更新 lockfile；`gen-client-catalog` 与 `gen-config-catalog` 重新生成；`gen-cordis-catalog` 的 `SERVICE_WALK_EXEMPTIONS` 与 `verify-package-readme-model-experience` 的 `SENTENCE_MODEL_EXPERIENCE` 各加一条。
+- 文档：包 README 中英；新增 Agent Note `.agents/notes/implemented/feature/2026-09-09-workbench-panel-seat.{md,zh.md}`。
+- 验证：新包 18 测试 + ui-layout 67 测试通过；`test:gui` 279 文件 / 3837 测试通过；`lint` 0/0；`typecheck` 绿；`hygiene` 全绿（knip 抓出未用的 `clsx` 依赖已删）；`doc-sync` 28 通过 0 失败（含 `doc-typecheck` 的 opt-out 比例、cordis/config catalog、README Model Experience、翻译配对）；`DSH_SNAPSHOT=refresh` 更新 46 个 aria golden（新增 `button "Workbench"` 等），随后 replay 全绿。
+- 回滚：删掉该 bundle 行与包目录，重跑 `pnpm install` 与两个 catalog 生成器。
+
+### 01:30–01:40 · 桌面快捷方式：双击 → WSL 里起 `dsh web` + 自动开浏览器
+
+- 位置（**全在 Windows 桌面，不进本仓库**）：`C:\Users\29461\Desktop\DSH Web.lnk`、`Desktop\dsh-web\{launch.cmd,dsh-web.sh,README.md}`。
+- `launch.cmd` 执行 `wsl.exe -d Ubuntu --cd "~" -- bash -lic "exec bash /mnt/c/.../dsh-web.sh %*"`；`-lic` 是硬要求——`dsh` 在 `~/.local/bin`、node 来自 nvm，二者只在登录 shell 的 PATH 里（实测 `bash -lic 'command -v dsh'` → `/home/orion/.local/bin/dsh`）。
+- 生命周期契约：控制台窗口即持有者。`dsh-web.sh` 前台跑 `dsh web`、后台起"等端口"子进程；关浏览器不影响 dsh，关窗口/`Ctrl+C` → SIGHUP → trap → TERM(最多 6s) → KILL。
+- 开浏览器：轮询 `127.0.0.1:$PORT`（bash `/dev/tcp`）连通后再 `cmd.exe /c start`，避免打开一个打不开的页面；端口取自 `--port/--port=N` 或 `DSH_WEB_PORT`，默认 3080。端口已被占用时走"已在监听"分支：不起第二个实例，只开浏览器并提示按任意键。
+- 实测（真实窗口路径，`launch.cmd --port 3099`）：源码版 15s 起来，Windows 侧 `Invoke-WebRequest http://127.0.0.1:3099/` = **200**，msedge 自动打开（进程启动时间对得上）；`taskkill /PID <cmd> /T /F` 模拟关窗后端口 2s 内释放、launcher 与 node 进程归零、3080 上运行中的会话不受影响。`Invoke-Item` 双击快捷方式同样正常拉起。
+- 事实校验：Windows 进程**不继承** WSL 的环境变量（`export DSH_PROBE_VAR=hello; cmd.exe /c echo %DSH_PROBE_VAR%` 原样输出 `%DSH_PROBE_VAR%`），所以从快捷方式起的 dsh 不会继承当前 agent 会话身份；脚本仍显式 `unset DSH_SESSION_ID/DSH_SESSION_JSONL/DSH_SHELL/DSH_WEB_URL`，以防从 dsh 工具 shell 里调用。
+- WSL2 localhost 转发使 Windows 浏览器可直接访问 WSL 内监听 `127.0.0.1` 的服务（实测 200）。
+
+### 01:52 · 快捷方式图标：会话附图 → 七尺寸 `.ico`
+
+- 源图：会话附件 `~/.dsh/attachments/v1/objects/2f/2fd67ca6…`（1254×1254 PNG，四角纯黑 `(0,0,0)`）。
+- 直接当图标会是个黑方块，故从**图像边框做四连通洪水填充**抠掉与边框连通的近黑区域（`L<16`，实测 191934/1572516 像素），再 1.2px 羽化 alpha：圆角外的黑变透明，而方块**内部**的深色屏幕不会被打穿（纯亮度阈值一定会打穿）。
+- `make-icon.py` 产出 `dsh-web.ico`（16/24/32/48/64/128/256）与 `dsh-tile.png`（透明版全尺寸，供启动块用）。
+- 验证：PIL 读回七个尺寸；`[System.Drawing.Icon]::ExtractAssociatedIcon` 渲染 32×32 成功（证明 Windows 侧能加载）；`ie4uinit.exe -show` 刷图标缓存。
+
+### 01:56 · 启动目录改为 `~`：工作区是每会话自选
+
+- `launch.cmd` 的 `WORKDIR` 从桌面改为 `~`。依据本仓库源码：`packages/client/ui-directory-picker-browse`、`WorkspaceRuntime`，会话创建接口 `create({ workspaceId?, cwd? })`（`packages/client/runtime/src/client/sessions/service.ts`）——工作区按会话选，启动目录只是新会话的默认值。
+- 附带：API key 来自 `~/.bashrc` 的 export，`-lic` 进来就有，不依赖 `.env`。
+
+### 02:00 · 开始菜单入口；"固定到开始屏幕"无法脚本化
+
+- 建了 `%APPDATA%\Microsoft\Windows\Start Menu\Programs\DSH Web.lnk`（同一目标/图标），`Get-StartApps` 已收录 `DSH Web`（`Win` → 输入 `dsh` 可搜到）。
+- **自动化固定失败，证据**：`Shell.Application` 动词枚举（桌面版与开始菜单版快捷方式）都没有"固定到开始屏幕"；直接调 `pintostartscreen`/`startpin`/`PinToStartScreen` 三个规范名后，开始菜单布局文件 `start2.bin` 的 size/mtime/md5 **完全不变**；`HKCR\lnkfile\shell` 下也没有该动词注册项。Win11 新版右键菜单不暴露给 `Shell.Application`，任务栏固定同样被系统禁止。
+- 所以"固定 + 调整大小→大"必须手动点 3 步；且 Win11 磁贴最大是"大"=2×2 格，而桌面图标尺寸是**全局单值**（`HKCU\Software\Microsoft\Windows\Shell\Bags\1\Desktop\IconSize` 当前 39px，上限 256），单个图标无法单独放大——这就是本机没有"单个桌面图标变大"路径的原因。
+
+### 02:05–02:20 · `DshTile.exe`：桌面大启动块（鼠标可缩放）
+
+- 位置：`Desktop\dsh-web\{DshTile.cs,DshTile.exe,dsh-tile.png,tile.ini,tile-stop.cmd}`；用系统自带 `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /reference:System.Drawing.dll` 编译，**零依赖零安装**，26KB。注意该 csc 是 C# 5 编译器（无字符串插值/表达式体/`nameof`/空条件运算符）。
+- 交互：左键单击启动 `launch.cmd`；拖动图面移动（存 `tile.ini`）；拖右下角**缩放把手**自由缩放 128–1600px；图面滚轮步进缩放；右键菜单（启动/尺寸预设/重置尺寸/打开文件夹/退出）。
+- 三个实测坑：
+  1. **WinForms + `UpdateLayeredWindow` = 纯黑方块**：Form 创建句柄后重排/重绘会冲掉图层表面（日志：首次 `ok=True`，随后 WM_PAINT 里 `ok=False, winerr=87`）。改为**裸 Win32**（`CreateWindowEx` + 自建消息循环 + 32bpp 预乘 alpha DIB）后正常。
+  2. **缩放把手拖不动**：图层窗口里 alpha=0 的像素**穿透点击**，而原图圆角正好透明，把手最初画在窗口最右下角 → 点击落到桌面。改为**实心圆角小方块**画在图面内部不透明区，命中区跟随把手（实测 `mouse down … resize=True` → `resized to 400`）。
+  3. **"嵌桌面"模式可见性不稳**：`SetParent` 到 `Progman` 能被点，但壁纸轮换时会被 WorkerW 盖住（时有时无）。默认改为**顶层窗口 + 每秒 `SetWindowPos(HWND_BOTTOM)`**，实测可见且可点击（`mouse down … resize=False` → `launched`）；嵌入模式保留为 `--embed`。
+- 窗口性质：逐像素 alpha；`WS_EX_NOACTIVATE` + `MA_NOACTIVATE` 不抢焦点；无任务栏按钮；吞 `SC_MINIMIZE`，`Win+D` 不隐藏它。
+- 诊断：`--diagnose` 打印桌面层级（本机：`Progman 0x10164 → SHELLDLL_DefView → SysListView32`）；`--reset` 重置位置；`--size N` 指定尺寸。
+- 两个被纠正的误判：**Progman 是存在的**——PowerShell 里 `$null` 会 marshaling 成空串，`FindWindow('Progman', $null)` 因此一直返回 0（C# 传真 NULL 才命中）；真实虚拟屏是 **5120×1800 @125%**，早期截图是 0.8× 缩放，按截图算的像素坐标都偏了。
+- 验证：合成点击 → `launched`；合成拖把手 → `resized to 400`；滚轮 → 520→609；用户实操已缩放到 1191px 并拖动使用。
+- 开机自启：`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\DSH Web tile.lnk`；`tile-stop.cmd` 是菜单之外的备用关闭方式。
+
 ## 待办与注意
 
-- 00:46 的两批改动已提交并推送到 `origin/main`（`33b890f`）：`a1ffcaa` 原生路由图片输入、`33b890f` README 与失效链接修复。工作台 Phase 1 目前只在工作区。
-- 运行中的 harness 若要看到 Phase 1，需重启（host 侧无改动，但 client bundle 的 rev 由启动时计算；刷新不一定够）。
-- 后续阶段（Phase 2 起）：`ui-workbench` 面板注册服务、host 共享状态服务与推送、Range 流式路由、agent 自写扩展与插件目录发现——计划见 `community-audit/SYNTHESIS.md`。
+- 00:46 的两批改动已提交并推送到 `origin/main`（`33b890f`）；工作台 Phase 1 = `0e3d00a`、Phase 2 = `2414fda`，两者均为本地提交，尚未 push。
+- 运行中的 harness 要看到工作台，必须**重启**：Phase 2 新增了一条 bundle 行（组合变化），且 client bundle 的 rev 在启动时计算。
+- 后续阶段：host 共享状态服务与推送（ADR-3）、Range 流式路由（ADR-4）、agent 自写扩展与插件目录发现（ADR-5/7）——计划见 `community-audit/SYNTHESIS.md`。

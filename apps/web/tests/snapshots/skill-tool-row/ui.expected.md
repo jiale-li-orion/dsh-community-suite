@@ -1,6 +1,7 @@
 - banner:
   - navigation "Session hierarchy":
     - button "Load the snapshot-skill skill with" [disabled]
+  - button "Workbench"
   - button "Session log":
     - text: Session log
     - img

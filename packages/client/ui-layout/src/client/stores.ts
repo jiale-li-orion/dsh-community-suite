@@ -41,6 +41,7 @@ type LayoutActions = {
   setNarrow: (draft: LayoutState, narrow: boolean) => void
   openWorkbench: (draft: LayoutState) => void
   closeWorkbench: (draft: LayoutState) => void
+  toggleWorkbench: (draft: LayoutState) => void
   openDetails: (draft: LayoutState) => void
   closeDetails: (draft: LayoutState) => void
 }
@@ -83,6 +84,7 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       },
       openWorkbench: (d) => { if (d.workbench === 0) d.workbench = WORKBENCH_DEFAULT },
       closeWorkbench: (d) => { d.workbench = 0 },
+      toggleWorkbench: (d) => { d.workbench = d.workbench === 0 ? WORKBENCH_DEFAULT : 0 },
       openDetails: (d) => { if (d.details === 0) d.details = DETAILS_DEFAULT },
       closeDetails: (d) => { d.details = 0 },
     },

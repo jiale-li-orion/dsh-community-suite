@@ -3,6 +3,7 @@
     - 'button "Plan a small change: add" [disabled]'
   - img
   - text: Standard mode
+  - button "Workbench"
   - button "Session log":
     - text: Session log
     - img

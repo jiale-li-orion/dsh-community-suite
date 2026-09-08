@@ -237,6 +237,13 @@
     - id: ui-jobs
       name: '@deepseek-ai/dsh-client-ui-jobs'
 
+    # Workbench column: the panel host that occupies ui-layout's optional
+    # `workbench` column and declares the `workbench.panel` seat. Other
+    # plugins contribute panels through that seat; the column renders nothing
+    # until one does.
+    - id: ui-workbench
+      name: '@deepseek-ai/dsh-client-ui-workbench'
+
     # Goal surface: GoalBar in the input dock over the goal session projection.
     - id: ui-goal
       name: '@deepseek-ai/dsh-client-ui-goal'

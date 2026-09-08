@@ -1,6 +1,7 @@
 - banner:
   - navigation "Session hierarchy":
     - button "Context management verification" [disabled]
+  - button "Workbench"
   - button "Session log":
     - text: Session log
     - img

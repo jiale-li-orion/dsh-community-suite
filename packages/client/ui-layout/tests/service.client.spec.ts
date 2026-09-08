@@ -17,6 +17,7 @@ function fakePanels(): PanelActions {
     setNarrow: vi.fn(),
     openWorkbench: vi.fn(),
     closeWorkbench: vi.fn(),
+    toggleWorkbench: vi.fn(),
     openDetails: vi.fn(),
     closeDetails: vi.fn(),
   }
@@ -31,12 +32,14 @@ describe('LayoutController', () => {
     service.toggleSidebar()
     service.openWorkbench()
     service.closeWorkbench()
+    service.toggleWorkbench()
     service.openDetails()
     service.closeDetails()
 
     expect(panels.toggleSidebar).toHaveBeenCalledTimes(1)
     expect(panels.openWorkbench).toHaveBeenCalledTimes(1)
     expect(panels.closeWorkbench).toHaveBeenCalledTimes(1)
+    expect(panels.toggleWorkbench).toHaveBeenCalledTimes(1)
     expect(panels.openDetails).toHaveBeenCalledTimes(1)
     expect(panels.closeDetails).toHaveBeenCalledTimes(1)
     expect(panels.setSidebar).not.toHaveBeenCalled()
@@ -49,6 +52,7 @@ describe('LayoutController', () => {
     expect(() => { service.toggleSidebar() }).toThrow(/panel actions not wired/)
     expect(() => { service.openWorkbench() }).toThrow(/panel actions not wired/)
     expect(() => { service.closeWorkbench() }).toThrow(/panel actions not wired/)
+    expect(() => { service.toggleWorkbench() }).toThrow(/panel actions not wired/)
     expect(() => { service.openDetails() }).toThrow(/panel actions not wired/)
     expect(() => { service.closeDetails() }).toThrow(/panel actions not wired/)
   })

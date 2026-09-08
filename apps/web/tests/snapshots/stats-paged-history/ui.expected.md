@@ -1,6 +1,7 @@
 - banner:
   - navigation "Session hierarchy":
     - button "{{workspace}}" [disabled]
+  - button "Workbench"
   - button "Session log":
     - text: Session log
     - img

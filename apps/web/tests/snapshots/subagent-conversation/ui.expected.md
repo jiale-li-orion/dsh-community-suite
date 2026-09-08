@@ -8,6 +8,7 @@
   - button "1 subagent":
     - text: 1 subagent
     - img
+  - button "Workbench"
   - button "Session log":
     - text: Session log
     - img

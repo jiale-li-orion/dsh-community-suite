@@ -3,6 +3,7 @@
     - button "Use the bash tool to" [disabled]
   - img
   - text: Standard mode
+  - button "Workbench"
   - button "Session log":
     - text: Session log
     - img
