@@ -294,6 +294,39 @@
 - 未做（需管理员）：登录触发的计划任务不受 Explorer 排队影响且可配重试——`schtasks /create /tn "DSH Web tile" /tr "C:\Users\29461\Desktop\dsh-web\start-tile.vbs" /sc onlogon /f`；普通权限实测报"拒绝访问"。
 - 工具坑：从 WSL 经 interop 调 `Start-Process -RedirectStandardOutput/-RedirectStandardError` 会**挂住不返回**（两次实测都在超时被杀），改用 `pythonw` 无重定向或把日志写进脚本即可。
 
+### 20:05–20:30 · 桌面启动块加第 4 套皮肤（JPEG 白底抠图）
+
+- 新皮肤 `skins/4-box.png`：附件是 JPEG 1086×1381、纯白底 (251,251,251)。`make-skins.py` 的 `SOURCES` 加第四项并新增 `cut_light` 模式——从边框四连通洪水填充亮度 ≥232 的区域置透明 + 1.2px 羽化，背景与雨丝一起去掉，而裙子／袜子／纸箱这些**内部**白色保留；再裁到内容框 + 1.5% 留白 → 1086×1356，比例 0.801。
+- 验证：重启后 `skins loaded=4 current=4-box.png aspect=0.801`；`size=961` 时窗口 770×961（宽 = 高 × 比例）。用**物理坐标**截图与「皮肤缩放到窗口」的参考图对比，逐像素一致，右上角换肤箭头与右下角缩放把手都在。
+- **排查坑（重要）**：同一台机器上，非 DPI-aware 的 PowerShell 截出来是 1536×960（DIP），DPI-aware 的截出来是 1920×1200（物理）；**对分层窗口（ULW）而言，非 aware 截图的缩放与偏移和窗口矩形对不上**，会让人误判成"渲染偏了/放大了"（我一度以为是 1.25× 缩放 + 偏移）。结论：验证 ULW 窗口必须先用 `SetProcessDPIAware()` 再截图，并按物理矩形裁切。本次也确认当前只有一块 1920×1200@125% 的屏（此前 4096×1440 的虚拟屏是双屏时的尺寸）。
+- 中途把 `tile.ini` 覆盖成了旧的位置/尺寸，已按用户当时的取值恢复；诊断用的临时日志行已移除并重建。
+
+### 21:00–21:40 · Phase 6：插件市场面板（ADR-9）
+
+- **安装抽成一份能力**：新包 `packages/workbench/plugin-install`（`@deepseek-ai/dsh-plugin-install`）发布 `ctx.pluginInstall.install(url)`——解析目录条目 → `parseInstallTarget` 校验条目自带目标 → 从本构建模块路径推导 profile → `ctx.subprocess.spawn` 传 argv 数组。`install-target.ts`／`profile.ts` 从 tool 包**移动**到该包，工具包改为「解析条目 → `ctx.approval` → 调能力」。
+- **目录获得 Remote 面**：`AwesomePluginCatalog` 改为**直接**继承 `TypertRemoteService`（生成器要求 @Remote 方法所在类直接继承它，抽象中间类不认）并给 `search`/`get` 标 `@Remote`；`plugin-catalog` 保持无传输的契约（`PluginCatalog` 从抽象类改为 interface + Context 键 + 带 code 的错误）。浏览器因此经 host 缓存搜索，而不是自己抓 3 MB 索引。
+- **marketplace 面板**：`ui-workbench` 新增 `workbench.panel` 注册（id `marketplace`，order 20）——搜索框、结果行（名称/owner/摘要/分类·star·下载量/安装命令）、**两步确认**（安装 → 确认安装）后调 `pluginInstall.install`。面板只发 URL，**从不接触命令**；人的点击就是同意，agent 路径才额外走 `ctx.approval`——这正是被否掉的社区路由所缺的 `/api` 栅栏语义。
+- 装配：`tsconfig` 三处 + `/types` 路径、web-app 加 `plugin-install` host 行、`api/remotes` 挂两个新 remote、`gen-cordis-catalog`/`gen-config-catalog`/`gen-client-catalog`/`gen-doc-graphs`/`gen-tool-catalog` 全部重生成（含中英两侧同步与配对重录，978 对全绿）、ADR-9 + 实现状态表、Agent Note 三件套、根 README 与子系统页更新。
+- 验证：`packages/workbench/*` + `ui-workbench` 15 文件 / 132 测试通过、新包范围 per-file 覆盖率四项 100%；`lint` 0/0、`typecheck` 两面 0、`test:gui` 284 文件 / 3879 通过、`hygiene` 全绿、`doc-sync` 28/28。
+- **需要重启**：新增了 host 行（组合变化）且目录 provider 多了 Remote 面，运行中的进程不会热加载。
+
+### 21:40–22:10 · Phase 7：壁纸面板（ADR-10）
+
+- **背景是一条声明的框架座位**：`ui-layout` 新增 `shell.background` 列表槽位——全幅、可穿透点击、渲染在栏位之前的一层，栏位被抬到它之上（`.backgroundLayer` + 各栏 `position:relative; z-index:1`）。`shell.overlay` 不能用（它按设计画在所有栏位之上）；主题 token 也不能用（目录类型是 `CSS color` 且带校验）。
+- **壁纸 = 面板 + 那一条条目**：`ui-workbench` 注册 `wallpaper` 面板（order 30，经**同一道受围栏保护的列举**列出会话工作区的图片）与一条 `shell.background` 条目（图片 + 遮罩）。选择存在插件持有的快照 store 里，经 `ctx.wallpaper` 暴露；面板写、背景条目经 inject `hooks` 隔间读，两个注册互不伸手。
+- 选择是**浏览器本地**并持久化在带命名空间的键下；会话已消失的 URL 加载失败时图层自行隐藏（不留坏背景）。不进入 host、agent 与会话日志——「喜欢哪张图」不是会话状态。
+- 验证：`ui-workbench` 9 文件 / 71 测试、`ui-layout` + `ui-workbench` + workbench 包共 23 文件 / 213 测试通过，`ui-workbench` 范围 per-file 覆盖率四项 100%；`lint` 0/0、`typecheck` 两面 0、`gen-client-catalog` 重生成；ADR-10 + 实现状态表 + Agent Note 三件套 + 子系统页与根 README 中英更新。
+
+### 22:00–22:30 · 启动阻塞修复（codex）+ 可靠性门禁（ADR-11）
+
+- **codex 修的两个启动阻塞**（工作树里，已并入本次提交）：
+  1. `plugin-catalog-awesome` / `plugin-install` 的**生成 Remote 代码依赖 zod，但两个包都没声明它**——bundler 于是把它留成外部 `require("zod")`，而浏览器模块表只有 seed/static/已注册 bundle 三种来源，插件页直接进 "Failed to load plugins"（服务端还活着，所以重启也不修）。补 `zod` 依赖后 bundler 内联，产物里不再有该外部引用。
+  2. **Remote 方法名与客户端 namespace 服务自己的成员重名**：`@Remote('install')` 撞上 `RemoteNamespaceService.prototype.install`（私有方法也在 prototype 上），挂载被拒。改名为 `installPlugin` 并同步面板调用；Host 语义不变。
+- **新增门禁 1：`pnpm run verify-client-bundles`（已接进 `pnpm run build`）**——构建后逐个执行 41 个客户端 bundle 的注册信封（vm 里跑顶层 `__ModuleLoader__.load`，不执行 factory），断言：只注册一次且 id 等于包名；每个字面量 `require("<spec>")` 必须是平台 seed 词、shell static 或已注册的插件 bundle（允许 `/client` 后缀）。zod 那类「未声明依赖被外置」会在这里当场失败，不必等到重启看页面。附带 `scripts/verify-client-bundles.spec.ts` 用合成 bundle 证明四种拒绝路径（未知外部、id 不符、信封抛错、零注册）。
+- **新增门禁 2：生成器静态拒绝保留名**——`@deepseek-ai/dsh-typert-protocol` 导出 `REMOTE_RESERVED_NAMES`（namespace 服务自答的名字），gateway 的运行时检查改用它（行为不变），typert 生成器在解析 `@Remote` 时对**显式名与裸方法名**都做检查并给出教学式报错（建议改成 `installPlugin`）。两个 fixture 测试分别覆盖两种形态。
+- **门禁 2 自身踩的坑（值得记住）**：生成器最初直接 import 这个新常量，`build:lib:host` 当场炸——`tsdown.config.ts` 从**已构建的** `packages/typert/generator/lib/types/tsdown-plugin.js` 加载生成器，它再 import protocol 的**已构建** `lib/index.js`，而那份产物正是本次构建要产出的东西；新导出在旧产物里不存在，构建死在自举上。修法：生成器**自持一份副本**（`analyzer.ts` 的 `RESERVED_REMOTE_NAMES`），并加一条等价断言（测试经 tsconfig `paths` 解析到源码，不碰构建产物），漂移即红。规则沉淀：**构建期工具不得依赖工作区包的运行期产物**——这类常量要么自持副本 + 漂移测试，要么放进构建期可读的源。
+- 验证：`verify-client-bundles` 41/41 通过、`scripts/verify-client-bundles.spec.ts` 5 测试、`remote-model.spec.ts` 41 测试（含漂移断言）、`build:lib:host` 绿、`typecheck` 两面 0、`lint` 0/0。
+
 ## 待办与注意
 
 - 工作台五阶段全部落地并本地提交：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；`origin/main` 仍停在 `33b890f`（未 push）。
