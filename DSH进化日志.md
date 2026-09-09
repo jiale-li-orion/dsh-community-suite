@@ -323,9 +323,16 @@
   1. `plugin-catalog-awesome` / `plugin-install` 的**生成 Remote 代码依赖 zod，但两个包都没声明它**——bundler 于是把它留成外部 `require("zod")`，而浏览器模块表只有 seed/static/已注册 bundle 三种来源，插件页直接进 "Failed to load plugins"（服务端还活着，所以重启也不修）。补 `zod` 依赖后 bundler 内联，产物里不再有该外部引用。
   2. **Remote 方法名与客户端 namespace 服务自己的成员重名**：`@Remote('install')` 撞上 `RemoteNamespaceService.prototype.install`（私有方法也在 prototype 上），挂载被拒。改名为 `installPlugin` 并同步面板调用；Host 语义不变。
 - **新增门禁 1：`pnpm run verify-client-bundles`（已接进 `pnpm run build`）**——构建后逐个执行 41 个客户端 bundle 的注册信封（vm 里跑顶层 `__ModuleLoader__.load`，不执行 factory），断言：只注册一次且 id 等于包名；每个字面量 `require("<spec>")` 必须是平台 seed 词、shell static 或已注册的插件 bundle（允许 `/client` 后缀）；**每条 `dsh.client.inject` 图边也必须落在模块表里**（后者当场抓出 `ui-workbench` 里两条指向 host-only 包的边——`plugin-catalog-awesome` / `plugin-install` 没有客户端 bundle，客户端图没有这行可等；真正提供服务的 `api-remotes` 早就在列表里，已删除）。zod 那类「未声明依赖被外置」会在这里当场失败，不必等到重启看页面。附带 `scripts/verify-client-bundles.spec.ts` 用合成 bundle 证明五条拒绝路径（未知外部、图边无对应行、id 不符、信封抛错、零注册）。
-- **新增门禁 2：生成器静态拒绝保留名**——`@deepseek-ai/dsh-typert-protocol` 导出 `REMOTE_RESERVED_NAMES`（namespace 服务自答的名字），gateway 的运行时检查改用它（行为不变），typert 生成器在解析 `@Remote` 时对**显式名与裸方法名**都做检查并给出教学式报错（建议改成 `installPlugin`）。两个 fixture 测试分别覆盖两种形态。
-- **门禁 2 自身踩的坑（值得记住）**：生成器最初直接 import 这个新常量，`build:lib:host` 当场炸——`tsdown.config.ts` 从**已构建的** `packages/typert/generator/lib/types/tsdown-plugin.js` 加载生成器，它再 import protocol 的**已构建** `lib/index.js`，而那份产物正是本次构建要产出的东西；新导出在旧产物里不存在，构建死在自举上。修法：生成器**自持一份副本**（`analyzer.ts` 的 `RESERVED_REMOTE_NAMES`），并加一条等价断言（测试经 tsconfig `paths` 解析到源码，不碰构建产物），漂移即红。规则沉淀：**构建期工具不得依赖工作区包的运行期产物**——这类常量要么自持副本 + 漂移测试，要么放进构建期可读的源。
-- 验证：`verify-client-bundles` 41/41 通过、`scripts/verify-client-bundles.spec.ts` 5 测试、`remote-model.spec.ts` 41 测试（含漂移断言）、`build:lib:host` 绿、`typecheck` 两面 0、`lint` 0/0。
+- **新增门禁 2：生成器静态拒绝保留名**——typert 生成器在解析 `@Remote` 时对**显式名与裸方法名**都做检查并给出教学式报错（建议改成 `installPlugin`）；两个 fixture 测试分别覆盖两种形态。运行权威仍是 gateway：它在 namespace 挂载时按该服务自身的 prototype 与实例成员拒绝重名。
+- **门禁 2 踩的两个坑（值得记住）**：① 最初让分析器 import 一个新增的共享常量，`build:lib:host` 当场炸——`tsdown.config.ts` 从**已构建的** `packages/typert/generator/lib/types/tsdown-plugin.js` 加载生成器，它再 import 那个包的**已构建** `lib/index.js`，而那份产物正是本次构建要产出的东西；新导出在旧产物里不存在，构建死在自举上。② 改成让 gateway 客户端 import 该常量后，`test:web` 里的**客户端 bundle 纯净门禁**把它拦下：客户端 bundle 不允许对另一个插件的模块做值导入。结论：**保留名清单只能由分析器自持**（host 面生成器不能 import client 面模块，也不能 import 自己正在产出的产物），gateway 的挂载期检查保持原样即运行权威。
+- 验证：`verify-client-bundles` 41/41 通过、`scripts/verify-client-bundles.spec.ts` 7 测试、`remote-model.spec.ts` 40 测试、`build:lib:host` 与 `build:lib:client` 均绿、`typecheck` 两面 0、`lint` 0/0。
+
+### 22:30–23:05 · 壁纸面板目录导航；壁纸真的能看见了
+
+- **面板可进目录**：`wallpaper` 面板原来只列工作区根目录（本仓库图片都在 `assets/`，所以打开就是空态）。现在与文件面板共用新内部模块 `listing.ts` 的两个纯函数——`parentPath(path, root)`（按 host 分隔符裁一层，越界夹回 root）与 `selectWallpaperEntries(entries)`（分目录/图片）——面板列出子目录与图片，可进入、可「返回上级」，空态文案改为「这个目录里没有图片」。
+- **顺手修掉文件面板的一个小错**：「返回上级」原来一律跳回根目录（`setPath(listing.root)`），从 `assets/foo/` 按它并不「向上」。两个面板现在都走同一个 `parentPath`，`file-panel.client.spec.tsx` 增加了一个两层的用例（`/w/src/deep` → `/w/src`）。
+- **发现并修掉壁纸「设了却看不见」**：实机测量（隐藏图层前后逐像素对比）显示只有 0.17% 的像素变化——`ui-conversation` 的根节点自己画了 `--dsw-alias-bg-base`（白色），把框架里的 `shell.background` 图层整个盖住了；框架本身已经画了同一个底色，所以会话列根节点的那行背景是多余的。删掉后（无壁纸时像素完全不变），换一张彩色探针图实测：会话区均值 R 从 249.8 降到 222.0，壁纸在遮罩下清晰可见且文字仍可读。
+- 验证：`ui-workbench` + `ui-conversation` 38 文件 / 510 测试、`ui-workbench` 范围 per-file 覆盖率含新文件 `listing.ts` 100%、`test:gui` 287 文件 / 3902 通过、`DSH_SNAPSHOT=replay pnpm run test:web` 绿、`lint` 0/0、`verify-client-bundles` 41/41、`doc-sync` 28/28；实机在 3080 上点进 `assets/` 设置图片并截图确认。
 
 ## 待办与注意
 
