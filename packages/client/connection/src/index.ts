@@ -57,12 +57,24 @@ export interface ConnectionConfig {
    * that is not a bare, canonical authority fails the plugin load.
    */
   trustedHosts?: string[]
+  /**
+   * Which authorities may call the loopback-pinned privileged method set.
+   * `'loopback'` (default) keeps every privileged method loopback-only;
+   * `'trusted'` extends the set to the same `trustedHosts` authorities the
+   * `/api` fence already accepts. A private device fabric — one whose only
+   * peers are the operator's own devices on a VPN such as a Tailscale tailnet —
+   * needs `'trusted'` so a second device can use the configuration plane. This
+   * widens a reachability policy that is explicitly not authentication, so it
+   * is opt-in per deployment.
+   */
+  privilegedAuthority?: 'loopback' | 'trusted'
   /** Maximum buffered JSON body for every `/api` request. */
   maxRequestBodyBytes?: number
 }
 
 export const Config: z<ConnectionConfig> = z.object({
   trustedHosts: z.array(String).default([]),
+  privilegedAuthority: z.union(['loopback', 'trusted'] as const).default('loopback'),
   maxRequestBodyBytes: z.natural().min(1).default(DEFAULT_MAX_REQUEST_BODY_BYTES),
 })
 
@@ -75,8 +87,11 @@ export const Config: z<ConnectionConfig> = z.object({
  * environment-variable name is configured and where from, which is
  * reconnaissance no anonymous caller should have. `trustedHosts` is a
  * DNS-rebinding fence, explicitly not authentication, so the whole
- * configuration plane stays loopback-same-origin until a real authentication
- * layer exists. `llm.discoverModels` belongs to that plane on both counts: it
+ * configuration plane stays loopback-same-origin by default and follows a
+ * declared authority only when the deployment opts in with
+ * `privilegedAuthority: 'trusted'` — a fabric whose peers are the operator's
+ * own devices, never an open network.
+ * `llm.discoverModels` belongs to that plane on both counts: it
  * carries a draft credential, and it makes the HOST issue a GET to a URL the
  * caller chose and reports back the status or the parsed body — an anonymous
  * LAN caller would have a probe for whatever the host can reach and the
@@ -130,6 +145,9 @@ const PRIVILEGED_METHODS = new Set([
 export function apply(ctx: Context, config?: ConnectionConfig): void {
   // The Loader resolves schema defaults; hand-built test contexts may pass none.
   const trustedHosts = config?.trustedHosts ?? []
+  // Privileged methods follow the declared authorities only when the deployment
+  // opts in; the default keeps them loopback-only.
+  const privilegedHosts = config?.privilegedAuthority === 'trusted' ? trustedHosts : []
   const maxRequestBodyBytes = config?.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES
   // Config boundary: a malformed entry fails the load loudly here rather than
   // silently authorizing its hostname prefix at request time.
@@ -144,7 +162,7 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
         : undefined
       if (method !== undefined
         && PRIVILEGED_METHODS.has(method)
-        && !isTrustedApiRequest(request, [])) {
+        && !isTrustedApiRequest(request, privilegedHosts)) {
         return new Response('forbidden', { status: 403 })
       }
       if (request.method === 'GET' && (pathname === MUX_EVENTS_PATH || pathname === HOST_EVENTS_PATH)) {

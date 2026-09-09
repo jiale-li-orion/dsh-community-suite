@@ -74,7 +74,10 @@ function fakeResponse(): { response: ServerResponse; state: { status?: number; b
   return { response, state }
 }
 
-async function mounted(config?: { trustedHosts?: string[] }): Promise<{
+async function mounted(config?: {
+  trustedHosts?: string[]
+  privilegedAuthority?: 'loopback' | 'trusted'
+}): Promise<{
   routes: WebRoute[]
   upgrades: WebUpgradeRoute[]
   dispose: () => Promise<void>
@@ -189,6 +192,39 @@ describe('connection node half', () => {
     const read = fakeResponse()
     await routes[0]!.handler(fakeRequest({ host: 'harness.example' }), read.response)
     expect(read.state.status).not.toBe(403)
+    await dispose()
+  })
+
+  it('follows declared authorities for privileged methods under privilegedAuthority: trusted', async () => {
+    const { routes, dispose } = await mounted({
+      trustedHosts: ['harness.example'],
+      privilegedAuthority: 'trusted',
+    })
+    // The opt-in hands the same set the default pins to loopback over to the
+    // declared authorities; the carrier's empty proxy answers non-403, which
+    // proves the privileged gate let the request through.
+    for (const method of [
+      'host.pickDirectory', 'host.openPath',
+      'settings.describe', 'settings.openDocument', 'settings.update', 'settings.replace', 'settings.mutate',
+      'credentials.describe', 'credentials.set', 'credentials.unset',
+      'llm.discoverModels',
+      'agentPreset.read', 'agentPreset.copy', 'agentPreset.openDocument', 'agentPreset.remove',
+    ]) {
+      const allowed = fakeResponse()
+      await routes[0]!.handler(
+        fakeRequest({ host: 'harness.example' }, `${API_PATH}/${method}`),
+        allowed.response,
+      )
+      expect(allowed.state.status).not.toBe(403)
+    }
+    // The opt-in widens the privileged set to declared authorities only: an
+    // authority the deployment never declared still fails the fence outright.
+    const stranger = fakeResponse()
+    await routes[0]!.handler(
+      fakeRequest({ host: 'stranger.example' }, `${API_PATH}/settings.describe`),
+      stranger.response,
+    )
+    expect(stranger.state.status).toBe(403)
     await dispose()
   })
 
