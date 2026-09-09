@@ -8,8 +8,8 @@
  * declared, so the bundler leaves it external — loads the plugin page into
  * "Failed to load plugins" with the server still up, which is exactly the
  * failure a rebuild and restart would not fix. This gate executes each built
- * bundle's registration envelope, then checks every literal `require` against
- * the table before anything is served.
+ * bundle's registration envelope, then checks every literal `require` and every
+ * declared graph edge against the table before anything is served.
  * @module scripts/verify-client-bundles
  */
 
@@ -52,6 +52,8 @@ export interface ClientBundle {
   readonly path: string
   /** The bundle source. */
   readonly source: string
+  /** Declared `dsh.client.inject` graph edges (package names). */
+  readonly inject: readonly string[]
 }
 
 /** One violation found in a bundle. */
@@ -69,6 +71,7 @@ const REQUIRE = /\brequire\("([^"]+)"\)/g
 interface Manifest {
   readonly name?: string
   readonly exports?: Record<string, unknown>
+  readonly dsh?: { readonly client?: { readonly inject?: unknown } }
 }
 
 /**
@@ -109,7 +112,16 @@ function discover(): ClientBundle[] {
     if (!target.endsWith('/lib/client.js')) continue
     const bundlePath = manifestPath.slice(0, -'/package.json'.length) + '/' + target.replace(/^\.\//, '')
     if (!existsSync(resolve(root, bundlePath))) continue
-    bundles.push({ id: manifest.name, path: bundlePath, source: readFileSync(resolve(root, bundlePath), 'utf8') })
+    const declared = manifest.dsh?.client?.inject
+    if (declared !== undefined && (!Array.isArray(declared) || declared.some(edge => typeof edge !== 'string'))) {
+      throw new Error(`verify-client-bundles: ${manifestPath} dsh.client.inject must be a string array`)
+    }
+    bundles.push({
+      id: manifest.name,
+      path: bundlePath,
+      source: readFileSync(resolve(root, bundlePath), 'utf8'),
+      inject: (declared ?? []) as readonly string[],
+    })
   }
   return bundles.sort((left, right) => left.path.localeCompare(right.path))
 }
@@ -154,6 +166,14 @@ export function checkBundles(bundles: readonly ClientBundle[], table: ReadonlySe
     if (handoff.id !== bundle.id) {
       violations.push({ path: bundle.path, message: `registers id ${JSON.stringify(handoff.id)}, expected the package name ${JSON.stringify(bundle.id)}` })
     }
+    for (const edge of bundle.inject) {
+      if (table.has(edge)) continue
+      violations.push({
+        path: bundle.path,
+        message: `dsh.client.inject names ${JSON.stringify(edge)}, which is neither a registered client bundle nor a platform seed module — `
+          + 'the client graph has no such row to wait on (inject service names in code, and depend on the package that provides them)',
+      })
+    }
     for (const match of bundle.source.matchAll(REQUIRE)) {
       const specifier = match[1]
       // The loader's own template `require(`${spec}`)` is not a literal edge.
@@ -185,7 +205,7 @@ function main(): void {
     for (const violation of violations) console.error(`  ${violation.path}: ${violation.message}`)
     process.exit(1)
   }
-  console.log(`verify-client-bundles: ${String(bundles.length)} bundle(s) register under their package name and require only module-table words`)
+  console.log(`verify-client-bundles: ${String(bundles.length)} bundle(s) register under their package name and reference only module-table words`)
 }
 
 if (process.argv[1]?.endsWith('verify-client-bundles.ts') === true) main()

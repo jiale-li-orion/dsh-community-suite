@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-09-09-build-time-reliability-gates.md
-2026-09-09-build-time-reliability-gates.md: 47733895b894f42f4bb99c82bca6158e74ec6f0b
-2026-09-09-build-time-reliability-gates.zh.md: f94857b7d17adc49b28337e13ae11389d85f173e
+2026-09-09-build-time-reliability-gates.md: 902cf73a5c3058d50727c3fa8ea3b1b42fc7fefe
+2026-09-09-build-time-reliability-gates.zh.md: ce0a6fa8dfe9b27c7b71850ff01d50947cf02b55

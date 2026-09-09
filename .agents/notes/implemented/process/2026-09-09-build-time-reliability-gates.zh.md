@@ -19,7 +19,9 @@ Status: implemented
 
 **Typert 分析器拒绝 namespace 服务自答的 Remote 名。** `@deepseek-ai/dsh-typert-protocol` 导出 `REMOTE_RESERVED_NAMES`；客户端 gateway 用它做挂载期检查，分析器则对**显式 `@Remote('name')`** 和**裸方法名本身保留**两种形态都让生成失败，并给出建议加后缀改名的诊断（`install` → `installPlugin`）。
 
-已有的[纯净门禁](2026-07-23-client-plugin-loading-model.md)在构建期判断插件的*源码* import 是否落在平台清单内；这一步判断的是*产出*的信封是否能在运行期模块表里解析，因此「bundler 在没有任何源码层违规的情况下把依赖外置」也会被抓到。
+**同一步还检查每条声明的图边。** 每个 `dsh.client.inject` 条目必须是已注册的客户端 bundle 或平台 seed 模块。指向 host-only 包的边今天只是惰性元数据，但它声称了一个客户端图永远不会有的一行；真正提供该服务的包才是该写在这里的东西。
+
+已有的[纯净门禁](../architecture/2026-07-23-client-plugin-loading-model.md)在构建期判断插件的*源码* import 是否落在平台清单内；这一步判断的是*产出*的信封是否能在运行期模块表里解析，因此「bundler 在没有任何源码层违规的情况下把依赖外置」也会被抓到。
 
 **分析器自持一份该清单的副本。** `tsdown.config.ts` 从生成器**上一次构建**的 `lib/types/tsdown-plugin.js` 加载它，而它经 `lib/` 产物解析工作区 import。因此在构建期 import 一个「由本次构建引入的常量」会死锁：必须导出该常量的产物，正是本次构建要产出的东西。副本由 `packages/typert/generator/tests/remote-model.spec.ts` 里的等价断言守护——测试经 tsconfig `paths` 把两侧都解析到源码，不一致即红。
 
@@ -37,4 +39,4 @@ Status: implemented
 
 ## 测试
 
-`scripts/verify-client-bundles.spec.ts` 用合成 bundle 驱动检查器，证明四条拒绝路径：未知外部、注册 id 不符、信封抛错、零注册。`packages/typert/generator/tests/remote-model.spec.ts` 覆盖显式保留名、裸保留方法名，以及清单等价。`pnpm run build:lib:host` 是「生成器不再 import 工作区产物」的集成证明。
+`scripts/verify-client-bundles.spec.ts` 用合成 bundle 驱动检查器，证明五条拒绝路径：未知外部、图边指向不存在的行、注册 id 不符、信封抛错、零注册。`packages/typert/generator/tests/remote-model.spec.ts` 覆盖显式保留名、裸保留方法名，以及清单等价。`pnpm run build:lib:host` 是「生成器不再 import 工作区产物」的集成证明。

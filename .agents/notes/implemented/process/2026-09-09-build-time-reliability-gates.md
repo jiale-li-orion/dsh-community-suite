@@ -19,7 +19,9 @@ The common property is that both are decidable from built artifacts and source, 
 
 **The Typert analyzer rejects a Remote name that the namespace service answers itself.** `@deepseek-ai/dsh-typert-protocol` exports `REMOTE_RESERVED_NAMES`; the Client gateway uses it for its mount-time check, and the analyzer fails generation for both an explicit `@Remote('name')` and a bare method whose own name is reserved, with a diagnostic that suggests the suffix rename (`install` → `installPlugin`).
 
-The existing [purity gate](2026-07-23-client-plugin-loading-model.md) judges a plugin's *source* imports against the platform list at build time; this step judges the *emitted* envelope against the runtime table, so a dependency the bundler externalizes without any source-level violation is still caught.
+**The same step checks every declared graph edge.** Each `dsh.client.inject` entry must name a registered client bundle or a platform seed module. An edge naming a host-only package is inert metadata today, but it claims a row the client graph will never have, and the package that actually provides the service is what the entry should name.
+
+The existing [purity gate](../architecture/2026-07-23-client-plugin-loading-model.md) judges a plugin's *source* imports against the platform list at build time; this step judges the *emitted* envelope against the runtime table, so a dependency the bundler externalizes without any source-level violation is still caught.
 
 **The analyzer keeps its own copy of that list.** `tsdown.config.ts` loads the generator from its previously built `lib/types/tsdown-plugin.js`, which resolves workspace imports through built `lib/` artifacts. A build-time import of a constant the same build introduces therefore deadlocks: the artifact that must export it is the artifact being produced. The copy is guarded by an equality test in `packages/typert/generator/tests/remote-model.spec.ts`, which resolves both sides through tsconfig `paths` to source and fails when they diverge.
 
@@ -37,4 +39,4 @@ The existing [purity gate](2026-07-23-client-plugin-loading-model.md) judges a p
 
 ## Testing
 
-`scripts/verify-client-bundles.spec.ts` drives the checker with synthetic bundles and proves four rejection paths: an unknown external, a wrong registration id, a throwing envelope, and a bundle that registers nothing. `packages/typert/generator/tests/remote-model.spec.ts` covers an explicit reserved name, a bare reserved method name, and the list equality. `pnpm run build:lib:host` is the integration proof that the generator no longer imports a workspace artifact.
+`scripts/verify-client-bundles.spec.ts` drives the checker with synthetic bundles and proves five rejection paths: an unknown external, a graph edge naming no row, a wrong registration id, a throwing envelope, and a bundle that registers nothing. `packages/typert/generator/tests/remote-model.spec.ts` covers an explicit reserved name, a bare reserved method name, and the list equality. `pnpm run build:lib:host` is the integration proof that the generator no longer imports a workspace artifact.

@@ -36,9 +36,7 @@
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-plugin-catalog-awesome",
-        "@deepseek-ai/dsh-plugin-install"
+        "@deepseek-ai/dsh-client-ui-layout"
       ],
       "platform": "web"
     }
