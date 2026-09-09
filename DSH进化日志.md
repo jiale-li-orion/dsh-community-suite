@@ -210,12 +210,96 @@
   3. **"嵌桌面"模式可见性不稳**：`SetParent` 到 `Progman` 能被点，但壁纸轮换时会被 WorkerW 盖住（时有时无）。默认改为**顶层窗口 + 每秒 `SetWindowPos(HWND_BOTTOM)`**，实测可见且可点击（`mouse down … resize=False` → `launched`）；嵌入模式保留为 `--embed`。
 - 窗口性质：逐像素 alpha；`WS_EX_NOACTIVATE` + `MA_NOACTIVATE` 不抢焦点；无任务栏按钮；吞 `SC_MINIMIZE`，`Win+D` 不隐藏它。
 - 诊断：`--diagnose` 打印桌面层级（本机：`Progman 0x10164 → SHELLDLL_DefView → SysListView32`）；`--reset` 重置位置；`--size N` 指定尺寸。
-- 两个被纠正的误判：**Progman 是存在的**——PowerShell 里 `$null` 会 marshaling 成空串，`FindWindow('Progman', $null)` 因此一直返回 0（C# 传真 NULL 才命中）；真实虚拟屏是 **5120×1800 @125%**，早期截图是 0.8× 缩放，按截图算的像素坐标都偏了。
+- 两个被纠正的误判：**Progman 是存在的**——PowerShell 里 `$null` 会 marshaling 成空串，`FindWindow('Progman', $null)` 因此一直返回 0（C# 传真 NULL 才命中）；坐标空间见 02:30 那条的"坐标坑"（125% 缩放下 DIP 与物理像素差 1.25 倍，早期按截图缩放换算的像素坐标全偏了）。
 - 验证：合成点击 → `launched`；合成拖把手 → `resized to 400`；滚轮 → 520→609；用户实操已缩放到 1191px 并拖动使用。
 - 开机自启：`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\DSH Web tile.lnk`；`tile-stop.cmd` 是菜单之外的备用关闭方式。
 
+### 02:30–03:00 · 桌面启动块支持换皮肤（含两张非方形图）
+
+- 位置：`Desktop\dsh-web\{DshTile.cs,DshTile.exe,make-skins.py,skins\1-original.png,2-heart.png,3-hands.png,tile.ini}`。
+- 皮肤即 `skins/` 里的图片，按文件名排序循环；`tile.ini` 新增 `skin=` 记住当前皮肤。
+- **非方形**：窗口不再假定正方形——`size` 语义改为**高度**，宽度 = `round(size × 图片宽高比)`。实测三套在 `size=420` 时分别为 420×420（原图）、290×420（`2-heart`，比例 0.691）、300×420（`3-hands`，比例 0.714）。
+- 两张新图本身已是 RGBA 透明背景（四角 `alpha=0`，透明占比 51.7% / 46.2%），不需要抠图；`make-skins.py` 只做「按 `alpha>8` 裁到内容框 + 1.5% 留白」：1159×1357 → 932×1349、1086×1448 → 1010×1415。
+- 换肤交互：右上角一个**实心圆盘 + 顺时针圆弧箭头**按钮（几何绘制，不依赖字体），点一下切下一套；右键菜单新增「皮肤」子菜单可直接点名。按钮必须实心——图层窗口里 alpha=0 的像素穿透点击，浮在透明区上会点不到。
+- 验证（合成鼠标 + 截图）：三次点击日志依次 `skin -> 2-heart.png (310x448)`、`skin -> 3-hands.png (320x448)`、`skin -> 1-original.png (448x448)`；`size=420` 时窗口实测 420×420 / 290×420 / 300×420，`tile.ini` 的 `skin=` 同步落盘。
+- 坐标坑（记录以免再踩）：这台机器 125% 缩放。**非 DPI-aware 的 PowerShell** 里 `GetWindowRect` 返回 DIP（= 物理 × 0.8），`SetCursorPos` 也按 DIP 解释；而 DPI-aware 的启动块日志是物理像素，所以合成点击要用 `物理 ÷ 1.25`（否则点到旁边的浏览器上）。另外 `CopyFromScreen` 截出来的是**物理像素 1:1**——用任务栏标定：任务栏 DIP 是 y 912..960，在截图里出现在 y 1140..1200。早期把截图当 0.8× 缩放来裁剪，全偏了。
+
+### 03:05–03:55 · Phase 3：共享工作台状态（host 服务 + 推送 + 文件面板）
+
+- 新 host 服务包 `packages/workbench/workbench`（`@deepseek-ai/dsh-workbench`）：`WorkbenchService extends TypertRemoteService`，`static inject = ['fs','sessions']`，只持有一个 `WorkbenchView = { open, active }`。`@Remote` 方法 `state/open/close/select/toggle/listDir`；每次提交（`open`/`close`/`select`/`toggle` 都走同一个 `commit`）更新字段并 `emit('workbench/changed', 提交后的副本)`，没有第二份状态需要同步。
+- **单一权威**：浏览器手势与 agent 工具调用写同一个值。客户端不再自己推导开关/选择，只把 host 推送投影到 ui-layout 的栏与选择 store；刷新页面时先读一次 `state()`，早于外壳挂载到达的视图排队等 `attachActions`（不丢推送）。
+- **推送通道**：`workbench/changed` 加入 `packages/api/remotes/src/remote-events.ts` 的 `API_REMOTE_FORWARDED_EVENTS`，客户端用 `ctx.remote.$on` 订阅；事件在 `src/types.ts` 里用声明合并定义（`@mode emit`），`api/remotes` 与 `host/apiproxy` 各加 `import type {} from '@deepseek-ai/dsh-workbench/types'` 与工程引用。
+- 工具包 `packages/workbench/tool-workbench`（`@deepseek-ai/dsh-tool-workbench`）：`workbench_open`（可选 `panel`）、`workbench_close`、`workbench_status`，`inject = ['tools','workbench']`，返回面向模型的短通知（`Workbench opened on panel "files".` 等）+ `{text,open,active?}`，每次调用一张 generic 卡片；**工具不碰浏览器**，只写服务。
+- 文件面板：`workbench.panel` 的 list 座位里注册内置面板 `files`（order 10）。读取走 `listDir(sessionId, path)`，用**会话记录的 cwd** 作栅栏（`ctx.fs.resolve` + `contains` + `listDir`），越界抛 `WorkbenchFenceError`（code `WORKBENCH_OUTSIDE_WORKSPACE`）；面板显示根目录名/上级行/尺寸（B·KB·MB），目录可点进去，`other` 类型行禁用。
+- 不变式：`workbench/workbench/src/invariant.ts` 断言每次 `workbench/changed` 的载荷等于服务当前持有的状态——这是两端唯一的投影，陈旧载荷会让它们静默分叉，因此必须 fail loud（已用"发出不匹配载荷"的用例覆盖）。
+- 装配：`tsconfig.base.json` paths、`tsconfig.host.json` 工程引用、`packages/api/remotes` 与 `packages/host/apiproxy` 依赖、`packages/bundle/web-app/{package.json,cordis.patch.yml}` 两条行（`workbench`、`tool-workbench`，排在 `ui-jobs` 前）；`gen-cordis-catalog`/`gen-doc-graphs`/`gen-tool-catalog` 加登记，新增 `docs/subsystems/workbench.md(.zh)` 子系统页并重生成四个 catalog；Agent Note `.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.{md,zh.md,i18n.yaml}`。
+- 两个坑：**cordis 会代理服务实例**，所以 host 服务的私有字段必须用 TS `private` 而非 JS `#view`（`#` 字段在代理对象上读不到）；**list 座位注册强制 `options.id`**，因此投影里 `id ?? ''` 的兜底分支不可达，按仓库既有先例加 `/* v8 ignore next -- list-slot registration requires options.id */`。
+- 验证：`packages/workbench/*` + `packages/client/ui-workbench` 共 7 个测试文件 / 52 测试通过，且按新包范围跑的 per-file 覆盖率**四项均 100%**（补了 FilePanel、WorkbenchToggle、store、投影/注入/列表失败等用例）；`test:gui` 279 文件 / 3840 测试通过；`typecheck` 0；`lint` 0/0；`hygiene` 全绿（knip 抓出多余 `dsh-tools` 依赖已删、constraints 抓出 tool-workbench 的 `files` 列表多一项已改）；`doc-sync` 28/28。
+- 回滚：删两条 bundle 行与两个包目录，撤掉 tsconfig 引用/catalog/文档登记，重跑 `pnpm install`。
+
+### 03:30–04:30 · 手机通过 Tailscale 访问 dsh web
+
+- 目标：手机（`100.93.98.104`）用浏览器访问电脑（`100.77.160.68`）上的 dsh web。三层缺一不可，逐层实测。
+- **第 1 层 · 可达性**：`dsh web` 只绑 `127.0.0.1`（`--host 0.0.0.0` 被 `packages/bundle/web-app/src/startup.ts` 明确拒绝），手机够不着。实测：WSL 里监听 `0.0.0.0:3081`，从 Windows 走 Tailscale IP **连不上**（超时）；同一端口改由 **Windows 侧**监听就通。原因：WSL 是 mirrored 网络模式（`%USERPROFILE%\.wslconfig` 的 `networkingMode=mirrored`），Linux 监听器只经 **loopback 中继**被 Windows 看到，而 Tailscale 的包落在 **Windows 网络栈**。故新增 `win-tcp-forward.py`（Windows Python + asyncio 的 TCP 转发）`0.0.0.0:3081 → 127.0.0.1:3080`，开机自启 `shell:startup\DSH Web forward.lnk`，停止用 `forward-stop.cmd`。
+- **防火墙无需改动**：`Tailscale-In` 入站规则是「任意端口 / 任意程序 / Domain+Private」，而 `Get-NetConnectionProfile` 显示 Tailscale 网卡是 **Private**（WLAN 是 Public，所以局域网方向仍被挡）。
+- **第 2 层 · Host 围栏**：`packages/client/connection/src/api-request-trust.ts` 对每个 `/api` 请求要求 Host 是 loopback 或 `trustedHosts` 权威名（实测 `Host: evil.com` → 403、`Host: 100.77.160.68:3080` → 403）。在 `~/.dsh/profiles/web/cordis.patch.yml` 里**追加**：`trustedHosts: !!js [...ctx.webStartup.trustedHosts, 'node.tail0d75db.ts.net', '100.77.160.68']`（该行 config 是整体替换，故 `printUrl`/`surfaceContext` 一并重述）。dsh 的 `watchUserPatches` 热加载——**当前会话没重启就生效了**。
+- **第 3 层 · 浏览器**：电脑上的系统代理（Clash `127.0.0.1:7897`，`ProxyOverride` 不含 `100.*` / `*.ts.net`）会把 tailnet 地址也代理掉，本机自测必须用 `curl.exe --noproxy '*'`，否则看到的是假 502 / 假超时（这个坑花了几轮才定位，一度误判成防火墙）。
+- 验证（全部绕过代理）：`http://node.tail0d75db.ts.net:3081/` → **200**、`http://100.77.160.68:3081/` → **200**、tailnet Host 的 `/api/health` → 404（围栏放行）、`Host: evil.com` → 403（拒绝）；`127.0.0.1:3080` 上运行中的会话全程不受影响。
+- **Tailscale Serve 其实是可用的（重要更正）**：先前几轮测出 `tailscale serve --bg --http=…` 对本机任何后端都 502，并据此判定 Serve 不可用——**错**。真因仍是系统代理 Clash：`Invoke-WebRequest` 走代理 → Clash 回 502。用 `curl.exe --noproxy '*'` 复测，`tailscale serve --bg --http=3082 http://127.0.0.1:3080` → `http://node.tail0d75db.ts.net:3082/` 返回 **200**（`serve → WSL loopback` 这条路本身没问题）。教训：在这台机器上任何涉及 `*.ts.net` / `100.*` 的 HTTP 探测都必须先 `--noproxy '*'`，否则得到的是代理的错误。
+- HTTPS 证书仍拿不到：`tailscale cert node.tail0d75db.ts.net` → `500 your Tailscale account does not support getting TLS certs`（需在管理台 DNS 页开启 HTTPS Certificates）。手机端现象：浏览器把 `http://…:3081/` 升级成 HTTPS 后报 **-107（Chromium ERR_SSL_PROTOCOL_ERROR）**——注意 SSL 错误说明 TCP 已连通，只是用 TLS 打了明文端口，即网络链路本来就通。
+- 已知限制：HTTP 非 secure context，`crypto.randomUUID()`（`ui-conversation` 加附件路径）与 `JsonTree.tsx` 的 `navigator.clipboard.writeText` 在手机上会失效；`ui-primitives/clipboard.ts` 自身有降级，不受影响。开启 Tailscale HTTPS 后改用 `tailscale serve --bg --https=443 http://127.0.0.1:3080` 可一次性解决（该路径已验证后端可达）。
+
+### 04:30–05:15 · `privilegedAuthority`：让手机也能用被钉在回环的特权方法集
+
+- 现象：手机能打开 GUI、列会话/工作区、正常聊天，但设置面板、凭据、preset 名单、"添加工作区"全不可用。根因在 `packages/client/connection/src/index.ts`：`PRIVILEGED_METHODS`（`host.pickDirectory`/`host.openPath`、`settings.*`、`credentials.*`、`agentPreset.read/copy/remove/openDocument`、`llm.discoverModels`）是**以空信任表**过 `/api` 栅栏的——无论 `trustedHosts` 写了什么，非回环一律 403。实测（curl 直接打 RPC）：手机权威 `100.77.160.68:3081` 下 `settings.describe`/`credentials.describe` → 403，而 `workspace.list`/`session.list` → 200。
+- 改动（方案 A，按仓库规范落地）：新增配置 `privilegedAuthority: 'loopback' | 'trusted'`（默认 `'loopback'`，行为逐字不变）；`apply` 解析成 `privilegedHosts`，特权判断由 `isTrustedApiRequest(request, [])` 改为 `isTrustedApiRequest(request, privilegedHosts)`。测试新增「`'trusted'` 下 15 个特权方法可达载体、未声明权威仍 403」；README 中英正文 + Known Limitations、Agent Note 三件套（`.agents/notes/implemented/feature/2026-09-09-privileged-authority-opt-in.*`）、`gen-config-catalog` 与翻译配对记录同步。
+- 部署侧：`~/.dsh/profiles/web/cordis.patch.yml` 新增 `connection` 行（重述 `trustedHosts` + `privilegedAuthority: trusted`）。
+- 验证（第二实例 3099：新代码 + 打过补丁的 profile）：`settings.describe` 用 `Host: 100.77.160.68:3099` → **200**（同一请求在旧代码/主实例 3080 上是 403）；未声明权威 → 403；`npx vitest run packages/client/connection` 108/108；`verify-config-catalog`、`verify-translation-pairing`（971 对）全绿；`typecheck` 里 `client/connection` 报错 0。
+- **坑（记录）**：`!!js` 在 include 的 YAML 方言里是 **scalar** 标签（`vendor/include/src/index.ts` 的 `JsExpr` 声明 `kind: 'scalar'`），因此 `!!js [...]` 会被当成 flow sequence 并报 `unknown tag !<tag:yaml.org,2002:js>`，启动直接失败；必须写成带引号的标量：`!!js "[...ctx.webRuntime.trustedHosts, 'x']"`（求值实现是 `eval` + `with (ctx)`）。热重载失败时旧补丁仍在生效，容易误判"改过了"。
+- 并发注意：另一会话在 `rpc.ts`/`rpc-host.ts` 加了路由级的 `isTrustedRequest`（用完整 `trustedHosts`），与本次特权判断不重叠，按要求未改动这两个文件；其新包 `workbench-bytes` 我仅在中文配置目录补了一行条目以保持配对门绿。
+
+### 04:35–05:05 · Phase 4：字节路由与查看器（ADR-4）
+
+- 新 host 包 `packages/workbench/workbench-bytes`：一条 `webServer` 前缀 `/workbench/file?sessionId=&path=`。请求先过**浏览器信任栅栏**——给 `HostConnectionService` 新增公开方法 `isTrustedRequest(request)`（`rpc.ts` 里定义 `TrustedRequestHeaders` 结构类型，`rpc-host.ts` 实现，复用部署的 `trustedHosts`，避免第二个配置项或第二份策略）；再过**工作区栅栏** `fenceSessionPath`（与面板列目录同一个，已从服务里抽到 `workbench/workbench/src/fence.ts` 共享）。之后才 `createReadStream(processPath)`，整文件不读入内存。
+- Range 是纯函数 `parseRange(header, size)` → `full`／`partial`／`unsatisfiable`：`206` 带 `content-range`、`416` 带 `bytes */<size>`、`HEAD` 只回头部；畸形、多范围、未知单位按 RFC 9110 忽略并返回完整表示。`/workbench/file` 这个路径常量只有一处（`workbench/workbench/src/protocol.ts`），经 `WorkbenchListing.fileRoute` 报给客户端，客户端不复制字面量。
+- **媒体类型只有一个家**：`contentTypeForPath` 与工作台领域同包，`listDir` 给每个文件条目打上 `mediaType`；字节路由用它当 `Content-Type`，查看器链用它路由，浏览器不再从文件名反推类型。
+- 查看器是**链式座位**：`workbench` 这条注册在 `workbench.panel` 之外再声明 `workbench.viewer`（chain），`ui-workbench` 为 `image/*`／`audio/*`／`video/*` 各注册一条纯选择器，没有条目认领的类型落到外壳的「无预览」提示。面板通过注入的控制器把文件写进外壳 store 请求预览（**预览选择留在浏览器本地**，只有栏开关与面板选择归 host）；`WorkbenchDirEntry.mediaType` 缺省时回退 `application/octet-stream`。
+- 验证：新增 3 个测试文件（range 矩阵、真实 HTTP 路由矩阵、查看器选择器与元素）并补进已有 4 个 spec，`packages/workbench/*` + `packages/client/ui-workbench` 共 10 文件 / 86 测试通过，按新包范围的 per-file 覆盖率四项 100%；`packages/client/connection` 108/108（含新 `isTrustedRequest` 用例）。**组装态抓到真 bug**：`ui-workbench` 原先只 inject `remote`，而浏览器里 namespace 是独立服务 `remote.workbench` 且与其它 entry 并发 apply，启动即报 `cannot get property "remote.workbench" without inject`、整页只显示 "Failed to load plugins"——补上 `remote.workbench` 到 inject 后 `[class*="frame"]` 正常渲染（`data-workbench-collapsed="true"`）。另：`connection` 的 host 面必须引用 `client/connection/tsconfig.host.json`，而 `rpc.ts` 在两个面编译，不能 import `node:http` 类型。
+- 回滚：删 bundle 行与包目录，撤掉 tsconfig/catalog/文档登记。
+
+### 05:05–05:35 · Phase 5：插件目录与审批式安装（ADR-7）
+
+- 三个新包，按「能力 seam = Definition／Provider／Consumer」拆：`plugin-catalog`（Definition：`PluginCatalogEntry`／`Query`／`Page` + 抽象 `ctx.pluginCatalog.search/get`）、`plugin-catalog-awesome`（Provider：抓 `awesome-dsh-plugin` 的 CC0 `plugins.json`，一次校验成词表，按 TTL 缓存 + `If-None-Match` 复验，304 就刷新时间戳）、`tool-plugin-catalog`（Consumer：`plugin_search`／`plugin_install`）。
+- **发现是数据，不是页面**：没有路由、没有槽位、没有镜像；provider 对非 2xx、不可达、超 `maxBytes`（声明长度与分块两种）、非法 JSON、缺 `plugins` 数组、条目缺字段一律带 code 明确失败，绝不提供残缺索引；`stars`／`downloads` 的 `null` 表示「未知」，工具省略字段而不是打印 0。
+- **安装是经审批的 argv**：只接受搜索结果里的 URL → 解析条目 → `parseInstallTarget` 只认 `dsh plugin [--profile <name>] add <target>` 且目标只能是 npm 规格或 `github:owner/repo[#subpath]`（拒绝 `..` 与 shell 元字符）→ `ctx.approval.request({agent, callId, reason, signal})` 只有 `allowed-once` 才继续 → `ctx.subprocess.spawn` 传 argv 数组。**命令文本从不执行，也不由字段拼装**；profile 取自本次构建的模块路径（`$DSH_HOME/profiles/<name>/node_modules/…`），索引无权指定；源码启动推导不出时明确失败并要求 `profile` 配置键。
+- 装配：`tsconfig` 三处、`gen-doc-graphs` 的 `SERVICE_ROLES` 加 `pluginCatalog`（seam）、新增子系统页 `docs/subsystems/plugin-catalog.md(.zh)` 并登记 `SERVICE_PAGE`／README／`website/docs.ts`（站点页数 45→46）、`gen-tool-catalog` 挂载登记、`gen-config-catalog`、web-app bundle 加 provider 行（工具按平面规则进 **preset**，不进 host 组合——`shipped-composition.e2e.ts` 断言过全局层工具为空）、`apps/cli` 依赖、`EXPECTED_TOOLS` 加两个工具名；Agent Note 三件套。
+- 验证：3 个测试文件 / 32 测试通过、per-file 覆盖率四项 100%（provider 用真实 HTTP server 覆盖搜索/TTL/复验/共享在飞请求/全部拒绝路径；工具用真实注册表 + 真实审批服务 + 记录式目录与进程通道，并钉住目标校验矩阵）。四个生成目录的中英侧已同步并重录配对（975 对全绿）。
+- **真索引实盘**：用 provider 直接打 `https://awesome-dsh-plugin.com/plugins.json` → 3,408 条、`search({query:'workbench'})` 55 条、条目字段与 `install` 全部解析通过（与审计快照一致），证明校验器对真实载荷成立。
+
+### 05:35–05:50 · Phase 3–5 收口：门禁、组装态与实机验证
+
+- 提交：Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`（全部本地、显式路径提交，未含另一会话的连接包文件与日志）。
+- 门禁：`doc-sync` **28/28**、`hygiene` 全绿、`lint` 0/0、`typecheck` 两面 0、`test:gui` 283 文件 / 3870 通过；新包按范围覆盖率四项 100%（`packages/workbench/*` + `ui-workbench` 共 10 文件 / 86 测试；目录三包 32 测试）。
+- **组装态**：`DSH_SNAPSHOT=replay` web 车道第一遍报 `steering.e2e.ts` 的 `mid-steer` golden 不匹配（问题 composer 比 golden 记录时早一步替换了输入框），**原样重跑即 76 文件 / 255 测试全绿**——判定为既有竞态（测试注释本身就写明「fills 必须落在第一个 replay 窗口内」），非本次回归；已在门禁记录里注明。
+- **实机**：重启后的 3080（05:19:48）经 agent-browser 实测——会话头出现 `Workbench` 按钮；开栏后「文件」面板列出会话工作区、可进 `assets/`、显示大小与「Go up」；点 `community-wechat-official-account.png` 由查看器渲染出图片（Phase 4 的 Range 路由 + `workbench.viewer` 端到端可用）。`pluginInventory/list` 显示六个新行全部 `phase=active`。字节路由探针 `/workbench/file?...` 返回 403 且消息为会话围栏文案（已注册而非回退）。
+- **踩坑**：客户端可见改动写完必须 `pnpm run build:lib:client`——我只跑了 host 构建，导致 `/plugins/.../ui-workbench/client.js` 仍是旧包（无查看器），浏览器刷新也看不到变化；服务器按请求从磁盘读 bundle 并重算 rev，所以补构建后**无需重启**，刷新即可。另一个坑是空白「New Session」页没有会话头，`Workbench` 开关只在打开会话后出现。
+- 架构决策：`community-audit/ARCHITECTURE-DECISIONS.md` 新增「Implementation status」表，逐条 ADR 标注落地包/提交/回滚方式（ADR-5 按用户决定 deferred）；`SYNTHESIS.md` 的 Pending 清空。
+
+### 14:20–14:45 · 提交 `privilegedAuthority`；桌面启动块开机自启加固
+
+- 提交：`06f1e4e feat(client-connection): let a deployment opt the privileged method set into trusted authorities`（显式路径，pre-commit 四钩子全过：翻译配对 / lint / 空白 / vendor manifest）。提交后复跑：`doc-sync` **28/28**、`typecheck` 0、`lint` 0/0、`npx vitest run packages/client/connection` **108/108**。**未 push**。
+- 现象：开机后桌面启动块"看不见"。诊断（进程启动时间对比）：开机 `11:56:28` → Explorer 起来（即真正登录）`14:22:52` → 转发器 `14:27:50` → 启动块 `14:28:07`。结论：自启**确实执行了，但比登录晚约 5 分钟**——`shell:startup` 的项由 Explorer 排队，本机 Run 键里已有百度网盘/夸克/360/Edge/QQ/元宝/千问等一堆启动程序把队列挤满。
+- 加固：新增 `start-tile.vbs`（隐藏窗口）+ `start-tile.cmd`——先轮询等 Explorer 就绪（最多 3 分钟）→ 再等 4 秒让桌面与壁纸宿主起来 → 才启动启动块，每一步写 `tile-startup.log`。四条自启路径并存，`DshTile.exe` 的互斥量保证不会开出第二个：`HKCU\Environment\UserInitMprLogonScript`（最先，Explorer 之前）、`HKCU\...\Run\DSHWebTile`、`shell:startup\DSH Web tile.lnk`（三条都指向 vbs），以及转发器的 `HKCU\...\Run\DSHWebForward` + `shell:startup\DSH Web forward.lnk`。等待 Explorer 这步同时消除了另一个隐患：桌面没准备好就建窗口，容易落到壁纸下面看不见。
+- 两个附带修复：① 转发器曾出现**两个进程**（一个占端口、一个空转不退出）→ `win-tcp-forward.py` 加单实例保护（端口被占就记一行日志并静默退出）并新增 `win-forward.log`（实测 `[14:39:33] listening ('0.0.0.0', 3081) -> 127.0.0.1:3080`）；② `UserInitMprLogonScript` 里直接写 `.vbs` 路径不可靠（userinit 不走文件关联），已改为 `wscript.exe //nologo "…\start-tile.vbs"`。
+- 未做（需管理员）：登录触发的计划任务不受 Explorer 排队影响且可配重试——`schtasks /create /tn "DSH Web tile" /tr "C:\Users\29461\Desktop\dsh-web\start-tile.vbs" /sc onlogon /f`；普通权限实测报"拒绝访问"。
+- 工具坑：从 WSL 经 interop 调 `Start-Process -RedirectStandardOutput/-RedirectStandardError` 会**挂住不返回**（两次实测都在超时被杀），改用 `pythonw` 无重定向或把日志写进脚本即可。
+
 ## 待办与注意
 
-- 00:46 的两批改动已提交并推送到 `origin/main`（`33b890f`）；工作台 Phase 1 = `0e3d00a`（`feat(client-ui-layout): declare an optional workbench column`）、Phase 2 = 其后的 `feat(client-ui-workbench): add the workbench panel seat`，两者均为本地提交，尚未 push。
-- 运行中的 harness 要看到工作台，必须**重启**：Phase 2 新增了一条 bundle 行（组合变化），且 client bundle 的 rev 在启动时计算。
-- 后续阶段：host 共享状态服务与推送（ADR-3）、Range 流式路由（ADR-4）、agent 自写扩展与插件目录发现（ADR-5/7）——计划见 `community-audit/SYNTHESIS.md`。
+- 工作台五阶段全部落地并本地提交：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；`origin/main` 仍停在 `33b890f`（未 push）。
+- 运行中的 harness 要看到工作台，**刷新页面 + 打开一个会话**即可（client bundle 按请求从磁盘读并重算 rev）；只有当 bundle 行本身变化（新增/删除插件行）时才需要重启进程。
+- 后续：agent 自写扩展（ADR-5）与所有 desktop/mobile 相关能力**按用户决定不做**；mobile/远程访问由另一会话负责（Tailscale + `privilegedAuthority`）。计划见 `community-audit/SYNTHESIS.md`（Pending 已清空）。
+- **并发注意**：另一会话在同一工作树改 `packages/client/connection`（`privilegedAuthority`）与 `DSH进化日志.md`。本会话提交一律用显式路径，绝不 `git add -A`；`docs/config-catalog.*` 由双方共同触发重生成，谁后提交谁负责让中英两侧与源一致。
+- 已知竞态（非本次回归）：`apps/web/tests/steering.e2e.ts` 的 `mid-steer` golden 依赖「填充落在第一个 replay 窗口内」，重跑即绿；若 CI 复现，应改为等待确定态再快照，而不是刷新 golden。
+- `06f1e4e`（connection 的 `privilegedAuthority`）尚未 push；连同工作台四个提交一起，等双方确认后一并推 `origin/main`。
+- 桌面启动块的自启已四条路径兜底，但"登录即出现"最稳的做法是登录触发的计划任务——需管理员执行一次（见 14:20 条目）；下次开机可用 `tile-startup.log` / `win-forward.log` 的时间戳验证。
