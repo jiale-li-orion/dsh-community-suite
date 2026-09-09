@@ -3,8 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import ts from 'typescript'
 import { afterEach, describe, expect, it } from 'vitest'
-import { REMOTE_RESERVED_NAMES } from '@deepseek-ai/dsh-typert-protocol'
-import { RESERVED_REMOTE_NAMES, WorkspaceAnalyzer } from '../src/analyzer.ts'
+import { WorkspaceAnalyzer } from '../src/analyzer.ts'
 import type { InvocationModel } from '../src/model.ts'
 import { WorkspaceTypertGenerator } from '../src/workspace.ts'
 
@@ -45,12 +44,6 @@ interface RemoteDeclarationMap {
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true })
-})
-
-describe('Remote reserved names', () => {
-  it('keeps the analyzer copy equal to the runtime authority', () => {
-    expect([...RESERVED_REMOTE_NAMES].sort()).toEqual([...REMOTE_RESERVED_NAMES].sort())
-  })
 })
 
 describe('Remote model generation', { timeout: 60_000 }, () => {

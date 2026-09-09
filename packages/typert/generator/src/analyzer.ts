@@ -151,14 +151,14 @@ const EMPTY_DOCUMENTATION: DocumentationModel = { tags: [] }
 
 /**
  * Names a Remote method must not use, because the Client namespace service
- * answers them itself and a descriptor carrying one is rejected at mount.
- * Duplicated from `REMOTE_RESERVED_NAMES` in `@deepseek-ai/dsh-typert-protocol`
- * rather than imported: this analyzer runs inside the build, and a build-time
- * import of a workspace package resolves its previously emitted artifact, which
- * cannot carry a constant this same build is introducing.
- * `tests/remote-model.spec.ts` asserts the two lists stay equal.
+ * answers them itself and a descriptor carrying one is rejected when the
+ * namespace mounts. The runtime authority is that service's own prototype and
+ * instance members, in `packages/api/gateway/src/client/index.ts`; this
+ * analyzer cannot import it (host-face build, client-face module) and cannot
+ * import any workspace artifact it is itself producing, so it keeps a copy.
+ * `tests/remote-model.spec.ts` pins both rejection forms against it.
  */
-export const RESERVED_REMOTE_NAMES: ReadonlySet<string> = new Set([
+const RESERVED_REMOTE_NAMES: ReadonlySet<string> = new Set([
   'assertMethodAvailable',
   'empty',
   'has',

@@ -8086,9 +8086,6 @@ importers:
       '@deepseek-ai/dsh-tool-cordis':
         specifier: workspace:^
         version: link:../../extensions/tool-cordis
-      '@deepseek-ai/dsh-typert-protocol':
-        specifier: workspace:^
-        version: link:../protocol
       '@deepseek-ai/dsh-typert-registry':
         specifier: workspace:^
         version: link:../registry
