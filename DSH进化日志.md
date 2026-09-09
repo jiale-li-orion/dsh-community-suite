@@ -329,10 +329,10 @@
 
 ## 待办与注意
 
-- 工作台五阶段全部落地并本地提交：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；`origin/main` 仍停在 `33b890f`（未 push）。
+- 工作台五阶段全部落地并本地提交：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`、可靠性门禁 = `03da2eb` + `3391814`（日志两次单独提交 `60b7e78`、`55a2c19`）；`origin/main` 仍停在 `33b890f`（未 push）。
 - 运行中的 harness 要看到工作台，**刷新页面 + 打开一个会话**即可（client bundle 按请求从磁盘读并重算 rev）；只有当 bundle 行本身变化（新增/删除插件行）时才需要重启进程。
 - 后续：agent 自写扩展（ADR-5）与所有 desktop/mobile 相关能力**按用户决定不做**；mobile/远程访问由另一会话负责（Tailscale + `privilegedAuthority`）。计划见 `community-audit/SYNTHESIS.md`（Pending 已清空）。
 - **并发注意**：另一会话在同一工作树改 `packages/client/connection`（`privilegedAuthority`）与 `DSH进化日志.md`。本会话提交一律用显式路径，绝不 `git add -A`；`docs/config-catalog.*` 由双方共同触发重生成，谁后提交谁负责让中英两侧与源一致。
 - 已知竞态（非本次回归）：`apps/web/tests/steering.e2e.ts` 的 `mid-steer` golden 依赖「填充落在第一个 replay 窗口内」，重跑即绿；若 CI 复现，应改为等待确定态再快照，而不是刷新 golden。
-- `06f1e4e`（connection 的 `privilegedAuthority`）尚未 push；连同工作台四个提交一起，等双方确认后一并推 `origin/main`。
+- `06f1e4e`（connection 的 `privilegedAuthority`）尚未 push；连同工作台六个提交一起，等双方确认后一并推 `origin/main`。
 - 桌面启动块的自启已四条路径兜底，但"登录即出现"最稳的做法是登录触发的计划任务——需管理员执行一次（见 14:20 条目）；下次开机可用 `tile-startup.log` / `win-forward.log` 的时间戳验证。
