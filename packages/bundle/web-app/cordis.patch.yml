@@ -250,6 +250,11 @@
     - id: plugin-catalog-awesome
       name: '@deepseek-ai/dsh-plugin-catalog-awesome'
 
+    # Install capability: one validated argv install shared by the agent tool
+    # and the marketplace panel.
+    - id: plugin-install
+      name: '@deepseek-ai/dsh-plugin-install'
+
     # Background jobs: the session-header list over the jobsBySession mirror.
     - id: ui-jobs
       name: '@deepseek-ai/dsh-client-ui-jobs'

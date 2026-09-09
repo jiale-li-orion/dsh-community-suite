@@ -278,6 +278,7 @@
     { "path": "./packages/workbench/plugin-catalog" },
     { "path": "./packages/workbench/plugin-catalog-awesome" },
     { "path": "./packages/workbench/tool-plugin-catalog" },
+    { "path": "./packages/workbench/plugin-install" },
     { "path": "./packages/todo/tool-todo" },
     { "path": "./packages/plan/plan-mode" },
     { "path": "./packages/preset/agent-presets" },

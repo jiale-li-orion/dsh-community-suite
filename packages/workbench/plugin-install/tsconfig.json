@@ -18,16 +18,10 @@
       "path": "../plugin-catalog"
     },
     {
-      "path": "../../core/tools"
+      "path": "../../typert/protocol"
     },
     {
-      "path": "../../core/agent"
-    },
-    {
-      "path": "../plugin-install"
-    },
-    {
-      "path": "../../interaction/user-approval"
+      "path": "../../subprocess/subprocess"
     },
     {
       "path": "../../runtime-diagnostics/invariants"

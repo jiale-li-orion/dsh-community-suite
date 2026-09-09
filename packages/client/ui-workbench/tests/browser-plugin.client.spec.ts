@@ -18,6 +18,21 @@ import { en, NS, zh } from '../src/client/locales.ts'
 import type { WorkbenchFileRef, WorkbenchPanelTab } from '../src/client/contract/slots.ts'
 import type { WorkbenchView } from '@deepseek-ai/dsh-workbench/types'
 
+/** The catalog entry the fake remote namespaces serve. */
+const CATALOG_ENTRY = {
+  name: 'dsh-example',
+  owner: 'example',
+  url: 'https://github.com/example/dsh-example',
+  category: 'tools',
+  description: 'An example plugin.',
+  npm: null,
+  version: null,
+  stars: 1,
+  downloads: null,
+  install: 'dsh plugin --profile web add github:example/dsh-example',
+  added: '2026-09-01',
+}
+
 /** Header utilities entry ids currently registered. */
 function headerEntryIds(ctx: Context): (string | undefined)[] {
   return ctx.slots.entries('conversation.session.header.utilities').map(entry => entry.options.id)
@@ -61,8 +76,13 @@ function wireShell(ctx: Context): {
  * @param name - slot name to read the first entry of.
  * @returns the value that entry's inject factory produced.
  */
-function injectedOf(ctx: Context, name: 'workbench.panel' | 'conversation.session.header.utilities'): unknown {
-  const entry = ctx.slots.entries(name)[0]!
+function injectedOf(
+  ctx: Context,
+  name: 'workbench.panel' | 'conversation.session.header.utilities',
+  id?: string,
+): unknown {
+  const entries = ctx.slots.entries(name)
+  const entry = id === undefined ? entries[0]! : entries.find(candidate => candidate.options.id === id)!
   return (entry.inject as () => unknown)()
 }
 
@@ -91,6 +111,16 @@ function fakeRemote(initial: WorkbenchView = { open: false, active: null }, stat
   }
   const remote = {
     workbench: namespace,
+    pluginCatalog: {
+      search: vi.fn(() => Promise.resolve({ ok: true as const, value: { total: 1, entries: [CATALOG_ENTRY] } })),
+      get: vi.fn(() => Promise.resolve({ ok: true as const, value: CATALOG_ENTRY })),
+    },
+    pluginInstall: {
+      install: vi.fn(() => Promise.resolve({
+        ok: true as const,
+        value: { name: CATALOG_ENTRY.name, target: 'dsh-example', profile: 'web', output: '' },
+      })),
+    },
     $on: (_event: string, handler: (view: WorkbenchView) => void) => {
       handlers.add(handler)
       return () => { handlers.delete(handler) }
@@ -118,6 +148,8 @@ async function bench(layout = fakeLayout(), remote = fakeRemote()) {
   // The generated namespace is its own service (`remote.<namespace>`), which
   // the fiber injects so it starts only once the Client assembly mounted it.
   ctx.provide('remote.workbench', remote.remote.workbench as never)
+  ctx.provide('remote.pluginCatalog', remote.remote.pluginCatalog as never)
+  ctx.provide('remote.pluginInstall', remote.remote.pluginInstall as never)
   ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
   await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
   const fiber = ctx.plugin({ inject: [...inject], apply })
@@ -127,7 +159,7 @@ async function bench(layout = fakeLayout(), remote = fakeRemote()) {
 
 describe('ui-workbench browser half', () => {
   it('declares the services it binds, including the generated Remote namespace', () => {
-    expect(inject).toEqual(['slots', 'locale', 'layout', 'remote', 'remote.workbench'])
+    expect(inject).toEqual(['slots', 'locale', 'layout', 'remote', 'remote.workbench', 'remote.pluginCatalog', 'remote.pluginInstall'])
   })
 
   it('occupies the workbench column and declares both of its seats', async () => {
@@ -178,7 +210,10 @@ describe('ui-workbench browser half', () => {
     const { ctx } = await bench()
     const { panels } = wireShell(ctx)
     // The built-in file panel is registered by this plugin itself.
-    expect(panels.getSnapshot()).toEqual([{ id: 'files', label: '文件', order: 10 }])
+    expect(panels.getSnapshot()).toEqual([
+      { id: 'files', label: '文件', order: 10 },
+      { id: 'marketplace', label: '插件市场', order: 20 },
+    ])
     ctx.slots.inject('workbench.panel', () => ctx.slots.register({
       name: 'workbench.panel',
       id: 'terminal',
@@ -196,6 +231,7 @@ describe('ui-workbench browser half', () => {
     expect(panels.getSnapshot()).toEqual([
       { id: 'git', label: 'Git', order: 5 },
       { id: 'files', label: '文件', order: 10 },
+      { id: 'marketplace', label: '插件市场', order: 20 },
       { id: 'terminal', label: '终端', order: 20 },
     ])
   })
@@ -220,6 +256,7 @@ describe('ui-workbench browser half', () => {
       { id: 'bare', label: 'bare', order: 0 },
       { id: 'files', label: '文件', order: 10 },
       { id: 'tied', label: '并列', order: 10 },
+      { id: 'marketplace', label: '插件市场', order: 20 },
     ])
   })
 
@@ -240,6 +277,35 @@ describe('ui-workbench browser half', () => {
     const header = injectedOf(ctx, 'conversation.session.header.utilities') as { toggle: () => void }
     header.toggle()
     expect(namespace.toggle).toHaveBeenCalledTimes(2)
+  })
+
+  it('the marketplace panel inject face reads the catalog and installs through the host', async () => {
+    const { ctx } = await bench()
+    const panel = injectedOf(ctx, 'workbench.panel', 'marketplace') as {
+      search: (query: { query?: string }) => Promise<{ total: number }>
+      install: (url: string) => Promise<{ name: string; profile: string }>
+    }
+    await expect(panel.search({ query: 'example' })).resolves.toMatchObject({ total: 1 })
+    await expect(panel.install(CATALOG_ENTRY.url)).resolves.toMatchObject({ name: 'dsh-example', profile: 'web' })
+  })
+
+  it('the marketplace inject face surfaces a failed Remote as an error', async () => {
+    const remote = fakeRemote()
+    remote.remote.pluginCatalog.search.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'X', message: 'catalog unavailable', details: {} },
+    } as never)
+    remote.remote.pluginInstall.install.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'X', message: 'install refused', details: {} },
+    } as never)
+    const { ctx } = await bench(fakeLayout(), remote)
+    const panel = injectedOf(ctx, 'workbench.panel', 'marketplace') as {
+      search: (query: { query?: string }) => Promise<unknown>
+      install: (url: string) => Promise<unknown>
+    }
+    await expect(panel.search({})).rejects.toThrow('catalog unavailable')
+    await expect(panel.install(CATALOG_ENTRY.url)).rejects.toThrow('install refused')
   })
 
   it('the file panel preview request opens the column and stores the file locally', async () => {

@@ -555,16 +555,16 @@ const TOOL_PACKAGES: ToolPackage[] = [
     pkg: '@deepseek-ai/dsh-plugin-catalog-tools',
     dir: 'tool-plugin-catalog',
     source: 'packages/workbench/tool-plugin-catalog/src/index.ts',
-    requires: ['ctx.tools', 'ctx.pluginCatalog', 'ctx.subprocess', 'ctx.approval and a calling Agent (plugin_install only)'],
+    requires: ['ctx.tools', 'ctx.pluginCatalog', 'ctx.pluginInstall', 'ctx.approval and a calling Agent (plugin_install only)'],
     writes: ['tool/call', 'tool/result', 'approval/asked', 'approval/decided'],
     async mount(ctx) {
-      // The catalog and the process seam are stubbed: this catalog documents
-      // schemas, and an install would need a live profile and an answerer.
+      // The catalog and the install capability are stubbed: this catalog
+      // documents schemas, and an install would need a live profile.
       ctx.provide('pluginCatalog', {
         search: () => Promise.resolve({ total: 0, entries: [] }),
         get: () => Promise.resolve(undefined),
       } as never)
-      ctx.provide('subprocess', { spawn: () => { throw new Error('catalog mount does not run installs') } } as never)
+      ctx.provide('pluginInstall', { install: () => { throw new Error('catalog mount does not run installs') } } as never)
       await ctx.plugin(ToolPluginCatalog)
     },
     note:

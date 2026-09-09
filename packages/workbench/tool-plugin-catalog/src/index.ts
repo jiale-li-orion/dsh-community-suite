@@ -1,49 +1,25 @@
 /**
  * Model-facing plugin discovery and install. `plugin_search` reads the
- * configured catalog; `plugin_install` resolves one entry by URL, validates
- * the index's own install target, asks `ctx.approval` for the decision, and
- * only then runs `dsh plugin --profile <profile> add <target>` through the
- * subprocess seam as an argv array. Nothing here trusts the catalog's command
- * text or synthesizes one from fields.
+ * configured catalog; `plugin_install` resolves one entry by URL, asks
+ * `ctx.approval` for the decision, and only then calls `ctx.pluginInstall`,
+ * which owns target validation and the argv install. Nothing here trusts the
+ * catalog's command text or synthesizes one from fields.
  * @module @deepseek-ai/dsh-plugin-catalog-tools
  */
 
-import { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
+import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { PluginCatalogEntry } from '@deepseek-ai/dsh-plugin-catalog'
 import type {} from '@deepseek-ai/dsh-plugin-catalog'
-import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import type {} from '@deepseek-ai/dsh-subprocess'
+import type {} from '@deepseek-ai/dsh-plugin-install'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { GenericCallView, ToolExecution } from '@deepseek-ai/dsh-tools'
 import type {} from '@deepseek-ai/dsh-user-approval'
-import { parseInstallTarget } from './install-target.ts'
-import { resolveProfile } from './profile.ts'
 
 export const name = 'tool-plugin-catalog'
 
-/** Required services: the registry, the catalog, and the process seam installs run through. */
-export const inject = ['tools', 'pluginCatalog', 'subprocess']
-
-/** Install config: the profile to target when this build cannot derive it. */
-export interface Config {
-  /**
-   * Profile an install targets. Omitted in an installed deployment, where the
-   * plugin's own module path names the profile; a source launch must set it.
-   */
-  profile?: string
-}
-
-export const Config: z<Config> = z.object({
-  profile: z.string(),
-})
-
-/** Grace period for the install child's terminate escalation. */
-const INSTALL_GRACE_MS = 10_000
-
-/** Maximum install output retained for the model. */
-const INSTALL_OUTPUT_MAX_BYTES = 32 * 1024
+/** Required services: the registry, the catalog, and the install capability. */
+export const inject = ['tools', 'pluginCatalog', 'pluginInstall']
 
 /** One tool card per catalog call. */
 function callCard(title: string, rawInput: unknown): GenericCallView {
@@ -91,54 +67,13 @@ function renderRows(entries: readonly PluginCatalogEntry[]): string {
 }
 
 /**
- * Run the install command and collect its outcome.
- * @param ctx - context carrying the subprocess seam.
- * @param argv - the full argv, executable first.
- * @param signal - caller cancellation.
- * @returns exit code plus collected stdout and stderr.
- */
-async function runInstall(
-  ctx: Context,
-  argv: readonly string[],
-  signal: AbortSignal,
-): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
-  const handle = ctx.subprocess.spawn({
-    argv,
-    cwd: process.cwd(),
-    stdio: {
-      stdin: 'ignore',
-      stdout: { maxBytes: INSTALL_OUTPUT_MAX_BYTES },
-      stderr: { maxBytes: INSTALL_OUTPUT_MAX_BYTES },
-    },
-    graceMs: INSTALL_GRACE_MS,
-    signal,
-  } satisfies SubprocessSpawnSpec)
-  const outcome = await handle.done
-  return {
-    exitCode: outcome.exitCode,
-    stdout: handle.collected.stdout?.readFrom(0).text ?? '',
-    stderr: handle.collected.stderr?.readFrom(0).text ?? '',
-  }
-}
-
-/**
- * Ask for approval and run the install.
- * @param ctx - context carrying approval and the subprocess seam.
+ * Ask for approval before handing the URL to the install capability.
+ * @param ctx - context carrying the approval service.
  * @param exec - the tool execution (agent, call id, signal).
- * @param entry - the resolved catalog entry.
- * @param target - the validated install target.
- * @param profile - the profile the install targets.
- * @param cliEntry - the CLI entry to re-invoke.
- * @returns the child's exit facts.
+ * @param entry - the resolved catalog entry, named in the prompt.
+ * @returns nothing; rejects unless the decision is `allowed-once`.
  */
-async function install(
-  ctx: Context,
-  exec: ToolExecution,
-  entry: PluginCatalogEntry,
-  target: string,
-  profile: string,
-  cliEntry: string,
-): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
+async function approveInstall(ctx: Context, exec: ToolExecution, entry: PluginCatalogEntry): Promise<void> {
   const approval = ctx.get('approval')
   if (approval === undefined) {
     throw new Error('plugin_install requires approval, but no approval service is composed')
@@ -151,21 +86,19 @@ async function install(
     agent,
     toolName: 'plugin_install',
     callId: exec.callId,
-    reason: `install the plugin ${entry.name} (${entry.url}) into profile "${profile}"`,
+    reason: `install the plugin ${entry.name} (${entry.url})`,
     signal: exec.signal,
   })
   if (outcome !== 'allowed-once') {
     throw new Error(`the install of ${entry.name} was not allowed (${outcome})`)
   }
-  return runInstall(ctx, [process.execPath, ...process.execArgv, cliEntry, 'plugin', '--profile', profile, 'add', target], exec.signal)
 }
 
 /**
  * Register the catalog tools.
- * @param ctx - Cordis context carrying tools, the catalog, and the process seam.
- * @param config - resolved plugin config (the profile override, when any).
+ * @param ctx - Cordis context carrying tools, the catalog, and the install capability.
  */
-export function apply(ctx: Context, config: Config = {}): void {
+export function apply(ctx: Context): void {
   ctx.effect(() => ctx.tools.register(defineTool({
     name: 'plugin_search',
     description: 'Search the configured plugin catalog for published DSH plugins. '
@@ -244,23 +177,14 @@ export function apply(ctx: Context, config: Config = {}): void {
       if (entry === undefined) {
         throw new Error(`no catalog entry has url ${JSON.stringify(args.url)}; search first and pass the url a result carried`)
       }
-      const target = parseInstallTarget(entry.install)
-      const profile = resolveProfile(import.meta.url, config.profile)
-      const cliEntry = process.argv[1]
-      if (cliEntry === undefined) {
-        throw new Error('plugin_install cannot re-invoke the CLI: process.argv[1] is not set')
-      }
-      const result = await install(ctx, exec, entry, target, profile, cliEntry)
-      const output = [result.stdout, result.stderr].filter(text => text.trim() !== '').join('\n').trim()
-      if (result.exitCode !== 0) {
-        throw new Error(`installing ${target} into profile "${profile}" failed with exit code ${String(result.exitCode)}${output === '' ? '' : `:\n${output}`}`)
-      }
+      await approveInstall(ctx, exec, entry)
+      const result = await ctx.pluginInstall.install(args.url, exec.signal)
       return {
-        text: `Installed ${entry.name} into profile "${profile}". Restart the process to load it.`
-          + (output === '' ? '' : `\n\n${output}`),
+        text: `Installed ${result.name} into profile "${result.profile}". Restart the process to load it.`
+          + (result.output === '' ? '' : `\n\n${result.output}`),
         installed: true,
-        target,
-        profile,
+        target: result.target,
+        profile: result.profile,
       }
     },
     presentCall: args => callCard('Install a catalog plugin', args),

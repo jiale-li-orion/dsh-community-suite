@@ -25,6 +25,7 @@ import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 import type {} from '@deepseek-ai/dsh-workbench/remote'
 import type { WorkbenchFileRef, WorkbenchPanelTab } from './contract/slots.ts'
 import { FilePanel } from './FilePanel.tsx'
+import { MarketplacePanel } from './MarketplacePanel.tsx'
 import { createMediaViewer, mediaTypeSelector } from './MediaViewer.tsx'
 import { en, NS, zh } from './locales.ts'
 import type { WorkbenchKey } from './locales.ts'
@@ -38,6 +39,7 @@ export type { IWorkbench } from './service.ts'
 export type { WorkbenchFileRef, WorkbenchPanelTab, WorkbenchPanelOwnerProps, WorkbenchViewerOwnerProps } from './contract/slots.ts'
 export type { MediaViewerProps } from './MediaViewer.tsx'
 export type { FilePanelInjected, FilePanelProps } from './FilePanel.tsx'
+export type { MarketplaceInjected, MarketplacePanelProps } from './MarketplacePanel.tsx'
 export type { WorkbenchShellInjected, WorkbenchShellProps } from './WorkbenchShell.tsx'
 export type { WorkbenchToggleInjected, WorkbenchToggleProps } from './WorkbenchToggle.tsx'
 
@@ -56,7 +58,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Required services (cordis fiber inject — the loader passes all module exports as an object plugin). */
-export const inject = ['slots', 'locale', 'layout', 'remote', 'remote.workbench']
+export const inject = ['slots', 'locale', 'layout', 'remote', 'remote.workbench', 'remote.pluginCatalog', 'remote.pluginInstall']
 
 /**
  * Project the panel registry into the shell's tab list. Registration order is
@@ -152,6 +154,26 @@ export function apply(ctx: ClientContext): void {
     locale: NS,
     inject: () => ({ list: listDir, preview: (file: WorkbenchFileRef) => { controller.preview(file) } }),
   }, FilePanel))
+
+  ctx.slots.inject('workbench.panel', () => ctx.slots.register({
+    name: 'workbench.panel',
+    id: 'marketplace',
+    order: 20,
+    label: () => zh['marketplace.title'],
+    locale: NS,
+    inject: () => ({
+      search: async (query: { query?: string; category?: string; limit?: number }) => {
+        const result = await ctx.remote.pluginCatalog.search(query)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
+      install: async (url: string) => {
+        const result = await ctx.remote.pluginInstall.install(url)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
+    }),
+  }, MarketplacePanel))
 
   for (const family of ['image', 'audio', 'video'] as const) {
     ctx.slots.inject('workbench.viewer', () => ctx.slots.register({

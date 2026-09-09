@@ -388,6 +388,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'The Definition owns the entry and query vocabulary; the provider owns index transport, validation, and caching, and the tools resolve an install target only through an entry a search returned.',
   },
   {
+    key: 'pluginInstall',
+    pkg: 'plugin-install',
+    title: 'Approval-gated plugin install',
+    mode: 'core',
+    consumers: ['tool-plugin-catalog'],
+    note: 'One install implementation serves both planes: the agent tool gates the call behind ctx.approval, the marketplace panel is the human gesture, and both hand the service a catalog URL rather than a command.',
+  },
+  {
     key: 'e2b',
     pkg: 'e2b',
     title: 'E2B sandbox lifecycle owner',

@@ -10,7 +10,13 @@ The provider never serves a partial index. A non-2xx answer, an unreachable host
 
 ## Install
 
-An install is an approval-gated operation, never a route. `plugin_install` takes only the URL a search result carried, resolves that entry through the provider, and hands the entry's own `install` command to `parseInstallTarget`, which accepts only `dsh plugin [--profile <name>] add <target>` and only an npm specifier or a `github:owner/repo[#subpath]` target — no parent-directory segment, no shell metacharacter. The command text is never executed and no command is synthesized from entry fields; the profile comes from this build's own module path, so the index cannot name the profile an install writes to. The decision goes through `ctx.approval`, and the accepted argv runs through the subprocess seam as an array. The installed plugin is not mounted until the process restarts, and the tool says so.
+One implementation serves both planes. `@deepseek-ai/dsh-plugin-install` publishes `ctx.pluginInstall.install(url)`: it resolves the entry the URL names, hands the entry's own `install` command to `parseInstallTarget` — which accepts only `dsh plugin [--profile <name>] add <target>` and only an npm specifier or a `github:owner/repo[#subpath]` target, no parent-directory segment and no shell metacharacter — derives the profile from this build's own module path, and runs the accepted argv through the subprocess seam as an array. The command text is never executed and no command is synthesized from entry fields; the index cannot name the profile an install writes to.
+
+The agent path adds `ctx.approval`: `plugin_install` takes only the URL a search result carried, resolves the entry, asks for the decision, and calls the capability only on `allowed-once`. The installed plugin is not mounted until the process restarts, and both callers say so.
+
+## The marketplace panel
+
+The workbench's `marketplace` panel is the human path to the same capability: it searches the catalog through the provider's Remote surface and calls `pluginInstall.install` after a two-step confirm, so the click is the operator's own gesture rather than an agent request. It never receives a command — the entry's install string stays on the host — and the `/api` browser trust fence still bounds who may reach the endpoint.
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -20,11 +26,11 @@ An install is an approval-gated operation, never a route. `plugin_install` takes
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
-<a id="ctxplugincatalog--plugincatalog-abstract-seam"></a>
+<a id="ctxplugincatalog--plugincatalog"></a>
 
-### `ctx.pluginCatalog` — `PluginCatalog` (abstract seam)
+### `ctx.pluginCatalog` — `PluginCatalog`
 
-Abstract plugin catalog provider. A provider owns one index's transport and validation; consumers see only entries and pages, and `get(url)` resolves the exact entry a search returned so an install never invents a target.
+The plugin catalog contract. A provider owns one index's transport and validation; consumers see only entries and pages, and `get(url)` resolves the exact entry a search returned so an install never invents a target. The provider publishes the service under the `pluginCatalog` key (the Context augmentation below); this package owns only the contract and its vocabulary.
 
 ```ts cordis-catalog
 /**
@@ -33,7 +39,7 @@ Abstract plugin catalog provider. A provider owns one index's transport and vali
  * @param signal - optional caller cancellation.
  * @returns matching entries in catalog order plus the pre-limit total.
  */
-abstract search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>
+search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>
 
 /**
  * Resolve one entry by its canonical URL.
@@ -41,8 +47,27 @@ abstract search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<Plugin
  * @param signal - optional caller cancellation.
  * @returns the entry, or undefined when the index has none.
  */
-abstract get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>
+get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>
 ```
 
 Source: [`packages/workbench/plugin-catalog/src/index.ts:44`](../../packages/workbench/plugin-catalog/src/index.ts)
+
+<a id="ctxplugininstall--plugininstallservice"></a>
+
+### `ctx.pluginInstall` — `PluginInstallService`
+
+The install service. `install(url)` is the only entry: the URL names a catalog entry, the entry names its own install command, and this service decides whether that command's target may run and which profile it targets.
+
+```ts cordis-catalog
+/**
+ * Install one catalog plugin.
+ * @param url - the exact entry URL a catalog search returned.
+ * @param signal - optional caller cancellation.
+ * @returns the completed install's target, profile, and child output.
+ * @throws PluginInstallError when the entry is unknown, the target is refused, or the installer fails.
+ */
+@Remote('install') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>
+```
+
+Source: [`packages/workbench/plugin-install/src/index.ts:69`](../../packages/workbench/plugin-install/src/index.ts)
 <!-- END GENERATED cordis-surface -->

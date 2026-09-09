@@ -9,7 +9,9 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { PluginCatalog, PluginCatalogError } from '@deepseek-ai/dsh-plugin-catalog'
+import type { PluginCatalog } from '@deepseek-ai/dsh-plugin-catalog'
+import { PluginCatalogError } from '@deepseek-ai/dsh-plugin-catalog'
+import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { PluginCatalogEntry, PluginCatalogPage, PluginCatalogQuery } from '@deepseek-ai/dsh-plugin-catalog'
 
 /** The published index the provider reads by default. */
@@ -159,7 +161,7 @@ function matches(entry: PluginCatalogEntry, needle: string): boolean {
  * shared by concurrent callers, and a TTL that turns a refresh into a
  * conditional request.
  */
-export class AwesomePluginCatalog extends PluginCatalog {
+export class AwesomePluginCatalog extends TypertRemoteService implements PluginCatalog {
   static Config: z<Config> = Config
 
   private cache: IndexCache | undefined
@@ -175,7 +177,7 @@ export class AwesomePluginCatalog extends PluginCatalog {
    *   hand-built context that omits them gets the same defaults).
    */
   constructor(ctx: Context, config: Config = {}) {
-    super(ctx)
+    super(ctx, 'pluginCatalog')
     this.url = config.url ?? DEFAULT_INDEX_URL
     this.ttlMs = config.ttlMs ?? DEFAULT_TTL_MS
     this.maxBytes = config.maxBytes ?? DEFAULT_MAX_BYTES
@@ -188,6 +190,7 @@ export class AwesomePluginCatalog extends PluginCatalog {
    * @param signal - optional caller cancellation, checked around the load.
    * @returns matching entries in catalog order plus the pre-limit total.
    */
+  @Remote('search')
   async search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage> {
     signal?.throwIfAborted()
     const entries = await this.load()
@@ -206,6 +209,7 @@ export class AwesomePluginCatalog extends PluginCatalog {
    * @param signal - optional caller cancellation, checked around the load.
    * @returns the entry, or undefined when the index has none.
    */
+  @Remote('get')
   async get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined> {
     signal?.throwIfAborted()
     const entries = await this.load()

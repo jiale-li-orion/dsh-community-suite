@@ -6,8 +6,6 @@
  * @module @deepseek-ai/dsh-plugin-catalog
  */
 
-import type { Context } from '@deepseek-ai/cordis'
-import { Service } from '@deepseek-ai/cordis'
 import type { PluginCatalogEntry, PluginCatalogPage, PluginCatalogQuery } from './types.ts'
 
 export type * from './types.ts'
@@ -37,25 +35,20 @@ export class PluginCatalogError extends Error {
 }
 
 /**
- * Abstract plugin catalog provider. A provider owns one index's transport and
+ * The plugin catalog contract. A provider owns one index's transport and
  * validation; consumers see only entries and pages, and `get(url)` resolves the
- * exact entry a search returned so an install never invents a target.
+ * exact entry a search returned so an install never invents a target. The
+ * provider publishes the service under the `pluginCatalog` key (the Context
+ * augmentation below); this package owns only the contract and its vocabulary.
  */
-export abstract class PluginCatalog extends Service {
-  /**
-   * @param ctx - owning Cordis context.
-   */
-  constructor(ctx: Context) {
-    super(ctx, 'pluginCatalog')
-  }
-
+export interface PluginCatalog {
   /**
    * Search the catalog.
    * @param query - the filter and page size.
    * @param signal - optional caller cancellation.
    * @returns matching entries in catalog order plus the pre-limit total.
    */
-  abstract search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>
+  search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>
 
   /**
    * Resolve one entry by its canonical URL.
@@ -63,7 +56,5 @@ export abstract class PluginCatalog extends Service {
    * @param signal - optional caller cancellation.
    * @returns the entry, or undefined when the index has none.
    */
-  abstract get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>
+  get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>
 }
-
-export default PluginCatalog

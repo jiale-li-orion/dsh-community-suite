@@ -888,6 +888,12 @@ importers:
       '@deepseek-ai/dsh-message-feedback':
         specifier: workspace:^
         version: link:../../feedback/message-feedback
+      '@deepseek-ai/dsh-plugin-catalog-awesome':
+        specifier: workspace:^
+        version: link:../../workbench/plugin-catalog-awesome
+      '@deepseek-ai/dsh-plugin-install':
+        specifier: workspace:^
+        version: link:../../workbench/plugin-install
       '@deepseek-ai/dsh-session':
         specifier: workspace:^
         version: link:../../core/session
@@ -1444,6 +1450,9 @@ importers:
       '@deepseek-ai/dsh-plugin-catalog-awesome':
         specifier: workspace:^
         version: link:../../workbench/plugin-catalog-awesome
+      '@deepseek-ai/dsh-plugin-install':
+        specifier: workspace:^
+        version: link:../../workbench/plugin-install
       '@deepseek-ai/dsh-session-log-export':
         specifier: workspace:^
         version: link:../../session-query/session-log-export
@@ -3103,6 +3112,12 @@ importers:
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: workspace:^
         version: link:../ui-slots
+      '@deepseek-ai/dsh-plugin-catalog':
+        specifier: workspace:^
+        version: link:../../workbench/plugin-catalog
+      '@deepseek-ai/dsh-plugin-install':
+        specifier: workspace:^
+        version: link:../../workbench/plugin-install
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:^
         version: link:../../typert/protocol
@@ -8374,6 +8389,31 @@ importers:
       '@deepseek-ai/dsh-plugin-catalog':
         specifier: workspace:^
         version: link:../plugin-catalog
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+
+  packages/workbench/plugin-install:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-plugin-catalog':
+        specifier: workspace:^
+        version: link:../plugin-catalog
+      '@deepseek-ai/dsh-subprocess':
+        specifier: workspace:^
+        version: link:../../subprocess/subprocess
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
 
   packages/workbench/tool-plugin-catalog:
     dependencies:
@@ -8393,9 +8433,9 @@ importers:
       '@deepseek-ai/dsh-plugin-catalog':
         specifier: workspace:^
         version: link:../plugin-catalog
-      '@deepseek-ai/dsh-subprocess':
+      '@deepseek-ai/dsh-plugin-install':
         specifier: workspace:^
-        version: link:../../subprocess/subprocess
+        version: link:../plugin-install
       '@deepseek-ai/dsh-system-prompt':
         specifier: workspace:^
         version: link:../../core/system-prompt

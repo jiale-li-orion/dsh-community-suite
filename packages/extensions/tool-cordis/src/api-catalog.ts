@@ -1003,20 +1003,34 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'pluginCatalog',
-    summary: 'Abstract plugin catalog provider.',
-    description: 'Abstract plugin catalog provider. A provider owns one index\'s transport and validation; consumers see only entries and pages, and `get(url)` resolves the exact entry a search returned so an install never invents a target.',
+    summary: 'The plugin catalog contract.',
+    description: 'The plugin catalog contract. A provider owns one index\'s transport and validation; consumers see only entries and pages, and `get(url)` resolves the exact entry a search returned so an install never invents a target. The provider publishes the service under the `pluginCatalog` key (the Context augmentation below); this package owns only the contract and its vocabulary.',
     methods: [
       {
-        signature: 'abstract search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>',
+        signature: 'search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>',
         description: 'Search the catalog.',
         parameters: [{ name: 'query', description: 'the filter and page size.' }, { name: 'signal', description: 'optional caller cancellation.' }],
         returns: 'matching entries in catalog order plus the pre-limit total.',
       },
       {
-        signature: 'abstract get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>',
+        signature: 'get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>',
         description: 'Resolve one entry by its canonical URL.',
         parameters: [{ name: 'url', description: 'the entry URL a search returned.' }, { name: 'signal', description: 'optional caller cancellation.' }],
         returns: 'the entry, or undefined when the index has none.',
+      },
+    ],
+  },
+  {
+    key: 'pluginInstall',
+    summary: 'The install service.',
+    description: 'The install service. `install(url)` is the only entry: the URL names a catalog entry, the entry names its own install command, and this service decides whether that command\'s target may run and which profile it targets.',
+    methods: [
+      {
+        signature: '@Remote(\'install\') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>',
+        description: 'Install one catalog plugin.',
+        parameters: [{ name: 'url', description: 'the exact entry URL a catalog search returned.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'the completed install\'s target, profile, and child output.',
+        throws: ['PluginInstallError when the entry is unknown, the target is refused, or the installer fails.'],
       },
     ],
   },
@@ -3836,6 +3850,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PluginCatalogQuery',
     declaration: 'export interface PluginCatalogQuery {\n    query?: string;\n    category?: string;\n    limit?: number;\n}',
+  },
+  {
+    name: 'PluginInstallResult',
+    declaration: 'export interface PluginInstallResult {\n    name: string;\n    target: string;\n    profile: string;\n    output: string;\n}',
   },
   {
     name: 'PostToolDecision',

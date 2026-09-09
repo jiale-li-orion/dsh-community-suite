@@ -1418,24 +1418,24 @@ export interface Config {
 
 Source: [`packages/workbench/plugin-catalog-awesome/src/index.ts:34`](../packages/workbench/plugin-catalog-awesome/src/index.ts)
 
-<a id="deepseek-aidsh-plugin-catalog-tools"></a>
+<a id="deepseek-aidsh-plugin-install"></a>
 
-## `@deepseek-ai/dsh-plugin-catalog-tools`
+## `@deepseek-ai/dsh-plugin-install`
 
-需要：`tools` · `pluginCatalog` · `subprocess`
+需要：`subprocess` · `pluginCatalog`
 
 ```ts config-catalog
 /** Install config: the profile to target when this build cannot derive it. */
 export interface Config {
   /**
-   * Profile an install targets. Omitted in an installed deployment, where the
+   * Profile an install targets. Omitted in an installed deployment, where this
    * plugin's own module path names the profile; a source launch must set it.
    */
   profile?: string
 }
 ```
 
-Source: [`packages/workbench/tool-plugin-catalog/src/index.ts:30`](../packages/workbench/tool-plugin-catalog/src/index.ts)
+Source: [`packages/workbench/plugin-install/src/index.ts:29`](../packages/workbench/plugin-install/src/index.ts)
 
 <a id="deepseek-aidsh-pwsh-local"></a>
 
@@ -3192,6 +3192,7 @@ export interface Config {
 - `@deepseek-ai/dsh-host-plugin-inventory` — 需要 `loader`（[`packages/host/plugin-inventory/src/index.ts`](../packages/host/plugin-inventory/src/index.ts)）
 - `@deepseek-ai/dsh-llm`（[`packages/llm/llm/src/index.ts`](../packages/llm/llm/src/index.ts)）
 - `@deepseek-ai/dsh-lsp`（[`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts)）
+- `@deepseek-ai/dsh-plugin-catalog-tools` — 需要 `tools` · `pluginCatalog` · `pluginInstall`（[`packages/workbench/tool-plugin-catalog/src/index.ts`](../packages/workbench/tool-plugin-catalog/src/index.ts)）
 - `@deepseek-ai/dsh-schedule` — 需要 `agents` · `sessions` · `tools` · `sessionPersistence`（[`packages/schedule/schedule/src/index.ts`](../packages/schedule/schedule/src/index.ts)）
 - `@deepseek-ai/dsh-session`（[`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts)）
 - `@deepseek-ai/dsh-session-checkpoint-policy` — 需要 `llm` · `sessionPersistence` · `sessions` · `tools`（[`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts)）
@@ -3224,7 +3225,6 @@ export interface Config {
 - `@deepseek-ai/dsh-fs` — 抽象 `FileSystem`（[`packages/fs/fs/src/index.ts`](../packages/fs/fs/src/index.ts)）
 - `@deepseek-ai/dsh-host-directory-picker` — 抽象 `DirectoryPicker`（[`packages/host/directory-picker/src/index.ts`](../packages/host/directory-picker/src/index.ts)）
 - `@deepseek-ai/dsh-jobs` — 抽象 `JobRegistry`（[`packages/jobs/jobs/src/index.ts`](../packages/jobs/jobs/src/index.ts)）
-- `@deepseek-ai/dsh-plugin-catalog` — 抽象 `PluginCatalog`（[`packages/workbench/plugin-catalog/src/index.ts`](../packages/workbench/plugin-catalog/src/index.ts)）
 - `@deepseek-ai/dsh-sandbox` — 抽象 `SandboxProvider`（[`packages/sandbox/sandbox/src/index.ts`](../packages/sandbox/sandbox/src/index.ts)）
 - `@deepseek-ai/dsh-session-persistence` — 抽象 `SessionPersistence`（[`packages/session/session-persistence/src/index.ts`](../packages/session/session-persistence/src/index.ts)）
 - `@deepseek-ai/dsh-session-query` — 抽象 `SessionQueryEngine`（[`packages/session-query/session-query/src/index.ts`](../packages/session-query/session-query/src/index.ts)）
@@ -3259,6 +3259,7 @@ export interface Config {
 - `@deepseek-ai/dsh-loader-smoke`（[`packages/test-support/loader-smoke/src/index.ts`](../packages/test-support/loader-smoke/src/index.ts)）
 - `@deepseek-ai/dsh-native-command`（[`packages/util/native-command/src/index.ts`](../packages/util/native-command/src/index.ts)）
 - `@deepseek-ai/dsh-output-retention`（[`packages/util/output-retention/src/index.ts`](../packages/util/output-retention/src/index.ts)）
+- `@deepseek-ai/dsh-plugin-catalog`（[`packages/workbench/plugin-catalog/src/index.ts`](../packages/workbench/plugin-catalog/src/index.ts)）
 - `@deepseek-ai/dsh-sandbox-windows-acl`（[`packages/sandbox/sandbox-windows-acl/src/index.ts`](../packages/sandbox/sandbox-windows-acl/src/index.ts)）
 - `@deepseek-ai/dsh-scope`（[`packages/core/scope/src/index.ts`](../packages/core/scope/src/index.ts)）
 - `@deepseek-ai/dsh-sdk-client`（[`packages/sdk/client/src/index.ts`](../packages/sdk/client/src/index.ts)）

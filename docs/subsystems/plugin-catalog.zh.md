@@ -10,7 +10,13 @@ provider 绝不提供残缺索引。非 2xx 应答、不可达主机、超过 `m
 
 ## 安装
 
-安装是受审批保护的操作，而不是一条路由。`plugin_install` 只接受搜索结果携带的 URL，经 provider 解析出该条目，再把它自带的 `install` 命令交给 `parseInstallTarget`——后者只接受 `dsh plugin [--profile <name>] add <target>`，且目标只能是 npm 规格或 `github:owner/repo[#subpath]`，不得含父目录段与 shell 元字符。命令文本从不被执行，也不会由条目字段拼装出命令；profile 来自本次构建自身的模块路径，因此索引无法指定安装写入哪个 profile。决定经 `ctx.approval`，被接受的 argv 以数组形式经 subprocess 通道执行。装好的插件要等进程重启才会挂载，工具会说明这一点。
+同一份实现服务两个平面。`@deepseek-ai/dsh-plugin-install` 发布 `ctx.pluginInstall.install(url)`：解析 URL 指向的条目，把该条目自带的 `install` 命令交给 `parseInstallTarget`——后者只接受 `dsh plugin [--profile <name>] add <target>`，且目标只能是 npm 规格或 `github:owner/repo[#subpath]`，不得含父目录段与 shell 元字符——从本次构建自身的模块路径推导出 profile，并以数组形式经 subprocess 通道执行被接受的 argv。命令文本从不被执行，也不会由条目字段拼装出命令；索引无法指定安装写入哪个 profile。
+
+agent 路径额外加了 `ctx.approval`：`plugin_install` 只接受搜索结果携带的 URL，解析条目、请求决定，只有在 `allowed-once` 时才调用该能力。装好的插件要等进程重启才会挂载，两个调用方都会说明这一点。
+
+## 插件市场面板
+
+工作台的 `marketplace` 面板是同一条能力的人手路径：它经 provider 的 Remote 面搜索目录，并在两步确认后调用 `pluginInstall.install`——因此点击是操作者自己的手势，而不是 agent 的请求。它从不接触命令——条目的安装字符串留在 host 侧——而 `/api` 的浏览器信任栅栏依旧限定谁能到达该端点。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -20,11 +26,11 @@ provider 绝不提供残缺索引。非 2xx 应答、不可达主机、超过 `m
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
-<a id="ctxplugincatalog--plugincatalog-abstract-seam"></a>
+<a id="ctxplugincatalog--plugincatalog"></a>
 
-### `ctx.pluginCatalog` — `PluginCatalog` (abstract seam)
+### `ctx.pluginCatalog` — `PluginCatalog`
 
-Abstract plugin catalog provider. A provider owns one index's transport and validation; consumers see only entries and pages, and `get(url)` resolves the exact entry a search returned so an install never invents a target.
+The plugin catalog contract. A provider owns one index's transport and validation; consumers see only entries and pages, and `get(url)` resolves the exact entry a search returned so an install never invents a target. The provider publishes the service under the `pluginCatalog` key (the Context augmentation below); this package owns only the contract and its vocabulary.
 
 ```ts cordis-catalog
 /**
@@ -33,7 +39,7 @@ Abstract plugin catalog provider. A provider owns one index's transport and vali
  * @param signal - optional caller cancellation.
  * @returns matching entries in catalog order plus the pre-limit total.
  */
-abstract search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>
+search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<PluginCatalogPage>
 
 /**
  * Resolve one entry by its canonical URL.
@@ -41,8 +47,27 @@ abstract search(query: PluginCatalogQuery, signal?: AbortSignal): Promise<Plugin
  * @param signal - optional caller cancellation.
  * @returns the entry, or undefined when the index has none.
  */
-abstract get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>
+get(url: string, signal?: AbortSignal): Promise<PluginCatalogEntry | undefined>
 ```
 
 Source: [`packages/workbench/plugin-catalog/src/index.ts:44`](../../packages/workbench/plugin-catalog/src/index.ts)
+
+<a id="ctxplugininstall--plugininstallservice"></a>
+
+### `ctx.pluginInstall` — `PluginInstallService`
+
+The install service. `install(url)` is the only entry: the URL names a catalog entry, the entry names its own install command, and this service decides whether that command's target may run and which profile it targets.
+
+```ts cordis-catalog
+/**
+ * Install one catalog plugin.
+ * @param url - the exact entry URL a catalog search returned.
+ * @param signal - optional caller cancellation.
+ * @returns the completed install's target, profile, and child output.
+ * @throws PluginInstallError when the entry is unknown, the target is refused, or the installer fails.
+ */
+@Remote('install') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>
+```
+
+Source: [`packages/workbench/plugin-install/src/index.ts:69`](../../packages/workbench/plugin-install/src/index.ts)
 <!-- END GENERATED cordis-surface -->

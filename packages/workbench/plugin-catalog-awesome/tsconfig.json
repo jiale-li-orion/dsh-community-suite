@@ -18,6 +18,9 @@
       "path": "../plugin-catalog"
     },
     {
+      "path": "../../typert/protocol"
+    },
+    {
       "path": "../../runtime-diagnostics/invariants"
     }
   ]

@@ -57,6 +57,12 @@
     },
     {
       "path": "../../workbench/workbench"
+    },
+    {
+      "path": "../../workbench/plugin-catalog-awesome"
+    },
+    {
+      "path": "../../workbench/plugin-install"
     }
   ]
 }
