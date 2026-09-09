@@ -332,7 +332,8 @@
 - **面板可进目录**：`wallpaper` 面板原来只列工作区根目录（本仓库图片都在 `assets/`，所以打开就是空态）。现在与文件面板共用新内部模块 `listing.ts` 的两个纯函数——`parentPath(path, root)`（按 host 分隔符裁一层，越界夹回 root）与 `selectWallpaperEntries(entries)`（分目录/图片）——面板列出子目录与图片，可进入、可「返回上级」，空态文案改为「这个目录里没有图片」。
 - **顺手修掉文件面板的一个小错**：「返回上级」原来一律跳回根目录（`setPath(listing.root)`），从 `assets/foo/` 按它并不「向上」。两个面板现在都走同一个 `parentPath`，`file-panel.client.spec.tsx` 增加了一个两层的用例（`/w/src/deep` → `/w/src`）。
 - **发现并修掉壁纸「设了却看不见」**：实机测量（隐藏图层前后逐像素对比）显示只有 0.17% 的像素变化——`ui-conversation` 的根节点自己画了 `--dsw-alias-bg-base`（白色），把框架里的 `shell.background` 图层整个盖住了；框架本身已经画了同一个底色，所以会话列根节点的那行背景是多余的。删掉后（无壁纸时像素完全不变），换一张彩色探针图实测：会话区均值 R 从 249.8 降到 222.0，壁纸在遮罩下清晰可见且文字仍可读。
-- 验证：`ui-workbench` + `ui-conversation` 38 文件 / 510 测试、`ui-workbench` 范围 per-file 覆盖率含新文件 `listing.ts` 100%、`test:gui` 287 文件 / 3902 通过、`DSH_SNAPSHOT=replay pnpm run test:web` 绿、`lint` 0/0、`verify-client-bundles` 41/41、`doc-sync` 28/28；实机在 3080 上点进 `assets/` 设置图片并截图确认。
+- **一个自己造出来的回归（重要）**：`DSH_SNAPSHOT=replay pnpm run test:web` 报 **36 个失败**（`settings-chrome`、`models-settings`、`agent-preset-authoring`、`plugin-config`、两份 onboarding、`cordis-tool-round`），全部是 30s 点击超时，报错都指向「`_6_0dBa_scrollBody` 拦截了指针事件」。根因是 Phase 7 给四条栏位加了 `position: relative; z-index: 1`——设置模态框注册在 `sidebar.settings`（侧栏子树里，`position: fixed; z-index: 1000`），栏位一建立堆叠上下文就把它永久压在后面的会话列之下，z-index 再大也出不来。修法是**只删四条 `z-index: 1`**：背景图层本来就在文档顺序上排在栏位之前，栏位自然盖住它、透明处露出它，模态框则重新回到框架的堆叠上下文里。单独跑 `settings-chrome.e2e.ts` 从 6 失败变为 **8/8 通过**。
+- 验证：`ui-workbench` + `ui-conversation` 38 文件 / 510 测试、`ui-workbench` 范围 per-file 覆盖率含新文件 `listing.ts` 100%、`test:gui` 287 文件 / 3902 通过、`lint` 0/0、`verify-client-bundles` 41/41、`doc-sync` 28/28；实机在 3080 上点进 `assets/` 设置图片并截图确认（彩色探针图：会话区均值 R 249.8 → 219.6，侧栏保持自己的表面色）。
 
 ## 待办与注意
 
