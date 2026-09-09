@@ -26,6 +26,21 @@ The integration adapts these changes to the official rc.7 base. It does not make
 
 [xiaobright/dsh-anchored-standard@9298a07d940d](https://github.com/xiaobright/dsh-anchored-standard/tree/9298a07d940dbf311fd34f9db7bc354f4752fbf9) supplies the anchored presets under [MIT](https://github.com/xiaobright/dsh-anchored-standard/blob/9298a07d940dbf311fd34f9db7bc354f4752fbf9/LICENSE). Local adaptation `29f732a5ef` is an audit identifier, not a GitHub link; its durable record is [dsh-anchored-standard-rc7.patch](community/patches/dsh-anchored-standard-rc7.patch). It aligns the wire-think adapter with rc.7; the presets remain runtime compositions outside the workspace build graph.
 
+## Workbench design sources (no code adapted)
+
+The Human-Agent workbench (`packages/workbench/*`, `packages/client/ui-workbench`) is first-party code written against rc.7 seams. It adapts **designs**, not source, from the audited projects below; none of their files were copied, so no additional notice applies.
+
+- [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (MIT) — the panel-registry and file-viewer-matching contract behind `workbench.panel` and `workbench.viewer`.
+- [kendu76/dsh-music-player](https://github.com/kendu76/dsh-music-player) (MIT) — the host-owned intent both planes mutate; the workbench replaces its 2 s polling with the forwarded `workbench/changed` event.
+- [tsonglew/dsh-media-preview](https://github.com/tsonglew/dsh-media-preview) (MIT) — the Range/206/416 streaming handler; the workbench adds the workspace fence its whole-filesystem version lacks.
+- [DshMarketPlace/dsh-plugins-store](https://github.com/DshMarketPlace/dsh-plugins-store) (MIT) — the install-target validator and the search/install tool split; installs run through `ctx.approval` plus the subprocess seam instead of its exact-path routes.
+
+## Runtime data dependency
+
+[awesome-dsh-plugin/awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) publishes the plugin index under [CC0-1.0](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/LICENSE). `@deepseek-ai/dsh-plugin-catalog-awesome` fetches `https://awesome-dsh-plugin.com/plugins.json` at runtime and caches it in memory; no index data is vendored, mirrored, or redistributed with this repository. A deployment without outbound HTTP points `url` at its own mirror or drops the row.
+
+Designs studied but deliberately not shipped: agent-authored workbench extensions ([saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile), Apache-2.0) and the Android/desktop clients ([ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android), MIT; [ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui), Unlicense; `Hakunm/dsh-android-app`, AGPL-3.0, and `WSK-build/DSHBox`, GPL-3.0, design study only).
+
 ## Upstream compatibility audit
 
 The source revisions above were checked on 2026-08-28. The archived-session source remains at its recorded revision. The official Harness head is [`cd5ef8148158`](https://github.com/deepseek-ai/deepseek-harness/tree/cd5ef8148158c3a752a658978873241fdf8e2bbc) (`dsh@0.1.2-alpha.1`), but this suite retains rc.7 because the official change is a new developer-preview baseline rather than a community-module update. The anchored preset source advances independently and is adapted to the retained rc.7 interfaces by the recorded patch.

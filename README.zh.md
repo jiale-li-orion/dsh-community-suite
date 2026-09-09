@@ -24,8 +24,12 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 - **归档会话**：在 Web 设置页列出、预览、释放、删除归档会话并统计容量的 bundle；来源为 [MuWinds/dsh-archived-sessions](https://github.com/MuWinds/dsh-archived-sessions)。
 - **锚定 agent**：7 个可独立安装的 agent 组合，提供受控的首轮工具面、上下文门控、wire-think 路由、压缩感知的阶段提升、默认会话 prefab 播种、跨平台 shell 路径与稳健的指令发现；来源为 [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
 - **DeepSeek 图片输入**：内置的 `llm-deepseek` 适配器按模型声明输入模态，并把用户上传的图片与工具产生的图片都以 `image_url` data URL 送到模型。
+- **Human-Agent 共享工作台**：一个可停靠的栏位，面板与文件查看器都经声明的槽位注册（`workbench.panel`、`workbench.viewer`）；浏览器与 agent 修改同一份 host 持有的视图（`ctx.workbench` 加转发的 `workbench/changed` 事件）；一条受围栏保护的字节路由以 `Range`／`206`／`416` 流式提供工作区文件。全部为 rc.7 seam 上的一手包；设计参考 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（面板与文件查看器注册表）、[kendu76/dsh-music-player](https://github.com/kendu76/dsh-music-player)（host 持有、两个平面共同修改的意图）、[tsonglew/dsh-media-preview](https://github.com/tsonglew/dsh-media-preview)（Range／流式处理器）。未搬运任何社区代码。
+- **插件目录**：在 CC0 的 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 索引之上提供 `plugin_search` 与 `plugin_install`；每次安装都要经用户审批，且只以 argv 形式调用子进程。安装目标校验与「搜索/安装」工具拆分参考 [DshMarketPlace/dsh-plugins-store](https://github.com/DshMarketPlace/dsh-plugins-store)；索引在运行时作为数据消费，绝不重新生成或镜像。
 
-完整功能审计与兼容边界见[社区优化](docs/community-optimizations.md)（[中文](docs/community-optimizations.zh.md)）。
+已审计但有意未落地的部分：agent 自写工作台扩展（设计参考 [saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile)）与 Android／桌面客户端（[ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android)、[ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui)，以及仅允许设计研究的 AGPL-3.0／GPL-3.0 项目）。相关决策与每条已落地行的回滚方式记录在工作台 [Agent Notes](.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.md)。
+
+完整功能审计与兼容边界见[社区优化](docs/community-optimizations.md)（[中文](docs/community-optimizations.zh.md)）；精确的上游修订与许可证见[社区来源记录](COMMUNITY_SOURCES.md)。
 
 ## 运行
 
