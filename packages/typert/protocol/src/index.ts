@@ -19,28 +19,6 @@ export function isTypertRemoteSegment(value: string): boolean {
 }
 
 /**
- * Names a Remote method must not use: the Client namespace service answers them
- * itself, so a descriptor with the same name is rejected at mount. The Client
- * gateway reads this list; the Typert analyzer keeps its own copy because a
- * build-time import resolves the previously emitted artifact, which cannot carry
- * a name the same build introduces.
- * `packages/typert/generator/tests/remote-model.spec.ts` fails when they diverge.
- */
-export const REMOTE_RESERVED_NAMES: readonly string[] = [
-  'assertMethodAvailable',
-  'empty',
-  'has',
-  'install',
-  'installDirect',
-  'installScoped',
-  'invokeRemote',
-  'methods',
-  'name',
-  'namespace',
-  'remove',
-]
-
-/**
  * A lookup policy rejection whose typed payload belongs to the active boundary adapter.
  * Gateway adapters preserve this payload instead of collapsing it into an infrastructure failure.
  */

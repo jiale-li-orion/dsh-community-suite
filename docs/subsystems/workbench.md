@@ -79,7 +79,7 @@ The viewer itself is the `workbench.viewer` chain seat the workbench shell decla
 
 ## The wallpaper panel
 
-The workbench also hosts a `wallpaper` panel: it lists the image files in the current session's workspace (through the same fenced listing the file panel uses), and setting one paints it behind the conversation. The paint target is ui-layout's `shell.background` list seat — one full-bleed, click-through layer rendered behind every column — so a background image never touches another column's DOM, and the columns always paint above it. The choice is browser-local, persisted per browser, and a URL whose session has gone simply fails to load, at which point the layer hides itself.
+The workbench also hosts a `wallpaper` panel: it browses the current session's workspace (through the same fenced listing the file panel uses), showing each directory's subdirectories and image files, and setting an image paints it behind the conversation. The paint target is ui-layout's `shell.background` list seat — one full-bleed, click-through layer rendered behind every column — so a background image never touches another column's DOM, and the columns always paint above it. The choice is browser-local, persisted per browser, and a URL whose session has gone simply fails to load, at which point the layer hides itself.
 
 ## Events
 

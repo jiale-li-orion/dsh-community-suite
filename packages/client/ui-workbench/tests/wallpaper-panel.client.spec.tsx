@@ -4,7 +4,7 @@
  * layer's render/hide behavior.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
@@ -68,13 +68,16 @@ describe('WallpaperPanel', () => {
     expect(list).not.toHaveBeenCalled()
   })
 
-  it('lists only image files and sets the byte URL on click', async () => {
+  it('lists image files and directories, and sets the byte URL on click', async () => {
     const list = vi.fn(() => Promise.resolve(LISTING))
     const { props, set } = panelProps(list)
     render(<WallpaperPanel {...props} />)
     expect(await screen.findByText('photo.png')).toBeTruthy()
+    expect(screen.getByText('src')).toBeTruthy()
     expect(screen.queryByText('notes.txt')).toBeNull()
-    expect(screen.queryByText('src')).toBeNull()
+    // The workspace root names itself and offers no way up.
+    expect(screen.getByText(zh['wallpaper.root'])).toBeTruthy()
+    expect(screen.queryByText(zh['wallpaper.parent'])).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: zh['wallpaper.set'] }))
     expect(set).toHaveBeenCalledWith({
       url: `/workbench/file?${new URLSearchParams({ sessionId: 'session-1', path: '/w/photo.png' }).toString()}`,
@@ -82,7 +85,42 @@ describe('WallpaperPanel', () => {
     })
   })
 
-  it('reports an empty workspace root and a failed listing', async () => {
+  it('enters a subdirectory, names it, and returns to the true parent', async () => {
+    const nested: WorkbenchListing = {
+      root: '/w',
+      path: '/w/src',
+      fileRoute: '/workbench/file',
+      entries: [
+        { name: 'deep', type: 'directory', path: '/w/src/deep' },
+        { name: 'logo.png', type: 'file', path: '/w/src/logo.png', mediaType: 'image/png' },
+      ],
+    }
+    const deeper: WorkbenchListing = { ...nested, path: '/w/src/deep', entries: [] }
+    const list = vi.fn((_sessionId: string, path: string | null) => Promise.resolve(
+      path === null ? LISTING : path === '/w/src' ? nested : deeper,
+    ))
+    const { props, set } = panelProps(list)
+    render(<WallpaperPanel {...props} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /src/ }))
+    await waitFor(() => { expect(list).toHaveBeenLastCalledWith('session-1', '/w/src') })
+    expect(await screen.findByText('/w/src')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: zh['wallpaper.set'] }))
+    expect(set).toHaveBeenCalledWith({
+      url: `/workbench/file?${new URLSearchParams({ sessionId: 'session-1', path: '/w/src/logo.png' }).toString()}`,
+      name: 'logo.png',
+    })
+
+    // A second level proves the parent row cuts one segment, not straight to root.
+    fireEvent.click(screen.getByRole('button', { name: /deep/ }))
+    await waitFor(() => { expect(list).toHaveBeenLastCalledWith('session-1', '/w/src/deep') })
+    expect(await screen.findByText(zh['wallpaper.empty'])).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(zh['wallpaper.parent']) }))
+    await waitFor(() => { expect(list).toHaveBeenLastCalledWith('session-1', '/w/src') })
+    expect(await screen.findByText('logo.png')).toBeTruthy()
+  })
+
+  it('reports an empty directory and a failed listing', async () => {
     const empty = vi.fn(() => Promise.resolve({ ...LISTING, entries: [] }))
     const { unmount } = render(<WallpaperPanel {...panelProps(empty as WallpaperPanelProps['list']).props} />)
     expect(await screen.findByText(zh['wallpaper.empty'])).toBeTruthy()

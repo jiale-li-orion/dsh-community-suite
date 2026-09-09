@@ -7,7 +7,6 @@
 import { Service } from '@deepseek-ai/cordis'
 import type { Context, Events } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
-import { REMOTE_RESERVED_NAMES } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   InvocationDescriptor,
   TypertClientRemote,
@@ -505,10 +504,7 @@ class RemoteNamespaceService extends Service {
   }
 }
 
-const REMOTE_NAMESPACE_FIELDS = new Set([
-  'ctx',
-  ...REMOTE_RESERVED_NAMES,
-])
+const REMOTE_NAMESPACE_FIELDS = new Set(['ctx', 'empty', 'invokeRemote', 'methods', 'name', 'namespace'])
 
 function remoteServiceKey(namespace: string): string {
   return `remote.${namespace}`

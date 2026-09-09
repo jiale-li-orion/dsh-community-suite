@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-09-wallpaper-background-seat.md
-2026-09-09-wallpaper-background-seat.md: ce0a1d218984defd6519d6f2dd5fb0f7516904d8
-2026-09-09-wallpaper-background-seat.zh.md: b4e3672b186f2bcfeddfd1fdf7404f8913e13fd6
+2026-09-09-wallpaper-background-seat.md: fda2162140a3eee2c00254406c43fe3b11ceae92
+2026-09-09-wallpaper-background-seat.zh.md: 03047a4060d7231ecaefab0e58d158efb34e5a83

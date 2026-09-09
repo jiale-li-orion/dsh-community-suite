@@ -26,7 +26,7 @@ The audited `dsh-wallpaper-engine` paints its background by appending a `body`-l
 
 ## Consequences
 
-A wallpaper now costs one declared seat, one panel, and one small store; removing the bundle row removes the layer and the panel with it, and the frame is unchanged when no entry registers. The scrim keeps conversation text readable over any image. The cost is a new core-ish seat in `ui-layout` (additive, like the workbench column) and a panel that only lists the workspace root — nested images still need the file panel's navigation.
+A wallpaper now costs one declared seat, one panel, and one small store; removing the bundle row removes the layer and the panel with it, and the frame is unchanged when no entry registers. The scrim keeps conversation text readable over any image. The cost is a new core-ish seat in `ui-layout` (additive, like the workbench column) and a panel that browses the workspace through the file panel's fenced listing, so nested images are reachable without leaving it.
 
 ## Testing
 

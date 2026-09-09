@@ -11,6 +11,7 @@ import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 import type { WorkbenchFileRef } from './contract/slots.ts'
+import { parentPath } from './listing.ts'
 import type { NS } from './locales.ts'
 import css from './FilePanel.module.css'
 
@@ -73,18 +74,18 @@ export function FilePanel({ useSessions, list, preview, t }: FilePanelProps) {
   if (error !== undefined) return <div className={css.error}>{t('files.error', { message: error })}</div>
   if (listing === undefined) return <div className={css.notice} />
 
-  const atRoot = listing.path === listing.root
+  const parent = parentPath(listing.path, listing.root)
   // The listing advertises the byte route, so this window never hardcodes a
   // host path: the URL is the same value the host registered.
   const fileUrl = (entryPath: string): string =>
     `${listing.fileRoute}?${new URLSearchParams({ sessionId, path: entryPath }).toString()}`
   return (
     <div className={css.panel}>
-      <div className={css.path} title={listing.path}>{atRoot ? t('files.root') : listing.path}</div>
+      <div className={css.path} title={listing.path}>{parent === null ? t('files.root') : listing.path}</div>
       <ul className={css.list}>
-        {!atRoot && (
+        {parent !== null && (
           <li>
-            <button type="button" className={css.row} onClick={() => { setPath(listing.root) }}>
+            <button type="button" className={css.row} onClick={() => { setPath(parent) }}>
               <span className={css.icon}>↰</span>
               <span className={css.name}>{t('files.parent')}</span>
             </button>

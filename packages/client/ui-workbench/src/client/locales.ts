@@ -38,7 +38,9 @@ export const zh = {
   'wallpaper.none': '未设置',
   'wallpaper.clear': '清除',
   'wallpaper.set': '设为壁纸',
-  'wallpaper.empty': '工作区根目录里没有图片。',
+  'wallpaper.root': '工作区根目录',
+  'wallpaper.parent': '返回上级',
+  'wallpaper.empty': '这个目录里没有图片。',
   'wallpaper.error': '读取工作区失败：{message}',
   'wallpaper.noSession': '先打开一个会话再选壁纸。',
 }
@@ -76,7 +78,9 @@ export const en: Record<WorkbenchKey, string> = {
   'wallpaper.none': 'None',
   'wallpaper.clear': 'Clear',
   'wallpaper.set': 'Set as wallpaper',
-  'wallpaper.empty': 'No images in the workspace root.',
+  'wallpaper.root': 'Workspace root',
+  'wallpaper.parent': 'Go up',
+  'wallpaper.empty': 'No images in this directory.',
   'wallpaper.error': 'Could not read the workspace: {message}',
   'wallpaper.noSession': 'Open a session before choosing a wallpaper.',
 }

@@ -109,6 +109,31 @@ describe('FilePanel', () => {
     expect(await screen.findByText('README.md')).toBeTruthy()
   })
 
+  it('returns to the enclosing directory rather than jumping to the root', async () => {
+    const deep: WorkbenchListing = {
+      root: '/w',
+      path: '/w/src/deep',
+      fileRoute: '/workbench/file',
+      entries: [{ name: 'leaf.ts', type: 'file', path: '/w/src/deep/leaf.ts', size: 3 }],
+    }
+    const nestedWithDir: WorkbenchListing = {
+      ...NESTED,
+      entries: [...NESTED.entries, { name: 'deep', type: 'directory', path: '/w/src/deep' }],
+    }
+    const list = vi.fn((_sessionId: string, path: string | null) => Promise.resolve(
+      path === null ? ROOT : path === '/w/src' ? nestedWithDir : deep,
+    ))
+    render(<FilePanel {...props(list as FilePanelProps['list']).props} />)
+    fireEvent.click(await screen.findByRole('button', { name: /src/ }))
+    await waitFor(() => { expect(list).toHaveBeenLastCalledWith('session-1', '/w/src') })
+    fireEvent.click(await screen.findByRole('button', { name: /deep/ }))
+    await waitFor(() => { expect(list).toHaveBeenLastCalledWith('session-1', '/w/src/deep') })
+
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(zh['files.parent']) }))
+    await waitFor(() => { expect(list).toHaveBeenLastCalledWith('session-1', '/w/src') })
+    expect(await screen.findByText('index.ts')).toBeTruthy()
+  })
+
   it('clicking a file row requests a preview with its byte URL and media type', async () => {
     const list = vi.fn(() => Promise.resolve(ROOT))
     const { props: panelProps, preview } = props(list)
