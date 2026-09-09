@@ -10,7 +10,7 @@ The audited `dsh-wallpaper-engine` paints its background by appending a `body`-l
 
 ## Decision
 
-**The frame declares one background seat.** `ui-layout` gains a `shell.background` list slot: a full-bleed, click-through layer rendered before the columns, with the columns lifted above it. A feature that wants to paint the surface registers an entry, so the layer's lifetime is the entry's fiber and the shell owns the stacking order. The `shell.overlay` seat could not serve: it paints above every column by design.
+**The frame declares one background seat.** `ui-layout` gains a `shell.background` list slot: a full-bleed, click-through layer rendered before the columns in document order, so the columns paint over it where they paint a surface and the conversation shows it where it does not. The columns deliberately carry no `z-index`: a column that created a stacking context would trap a fixed-position dialog registered inside its subtree — the settings modal renders under `sidebar.settings` — beneath the later columns. A feature that wants to paint the surface registers an entry, so the layer's lifetime is the entry's fiber and the shell owns the stacking order. The `shell.overlay` seat could not serve: it paints above every column by design.
 
 **The wallpaper is a workbench panel plus that entry.** `@deepseek-ai/dsh-client-ui-workbench` registers a `wallpaper` panel (order 30) that lists the current session's image files through the same fenced listing the file panel uses, and a `shell.background` entry that paints the chosen image with a scrim. The choice lives in one snapshot store owned by the plugin, exposed as `ctx.wallpaper`; the panel writes it and the background entry reads it through its inject `hooks` compartment, so neither registration reaches into the other.
 
@@ -26,7 +26,7 @@ The audited `dsh-wallpaper-engine` paints its background by appending a `body`-l
 
 ## Consequences
 
-A wallpaper now costs one declared seat, one panel, and one small store; removing the bundle row removes the layer and the panel with it, and the frame is unchanged when no entry registers. The scrim keeps conversation text readable over any image. The cost is a new core-ish seat in `ui-layout` (additive, like the workbench column) and a panel that browses the workspace through the file panel's fenced listing, so nested images are reachable without leaving it.
+A wallpaper now costs one declared seat, one panel, and one small store; removing the bundle row removes the layer and the panel with it, and the frame is unchanged when no entry registers. The scrim keeps conversation text readable over any image. The cost is a new core-ish seat in `ui-layout` (additive, like the workbench column), a panel that browses the workspace through the file panel's fenced listing, and a layering constraint on every column: adding `z-index` to one re-traps the dialogs registered inside it.
 
 ## Testing
 
