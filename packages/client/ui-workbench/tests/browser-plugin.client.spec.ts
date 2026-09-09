@@ -116,7 +116,7 @@ function fakeRemote(initial: WorkbenchView = { open: false, active: null }, stat
       get: vi.fn(() => Promise.resolve({ ok: true as const, value: CATALOG_ENTRY })),
     },
     pluginInstall: {
-      install: vi.fn(() => Promise.resolve({
+      installPlugin: vi.fn(() => Promise.resolve({
         ok: true as const,
         value: { name: CATALOG_ENTRY.name, target: 'dsh-example', profile: 'web', output: '' },
       })),
@@ -329,7 +329,7 @@ describe('ui-workbench browser half', () => {
       ok: false,
       error: { code: 'X', message: 'catalog unavailable', details: {} },
     } as never)
-    remote.remote.pluginInstall.install.mockResolvedValueOnce({
+    remote.remote.pluginInstall.installPlugin.mockResolvedValueOnce({
       ok: false,
       error: { code: 'X', message: 'install refused', details: {} },
     } as never)

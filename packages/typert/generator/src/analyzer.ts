@@ -149,6 +149,29 @@ type ReferenceSite = ts.TypeReferenceNode | ts.ExpressionWithTypeArguments | ts.
 
 const EMPTY_DOCUMENTATION: DocumentationModel = { tags: [] }
 
+/**
+ * Names a Remote method must not use, because the Client namespace service
+ * answers them itself and a descriptor carrying one is rejected at mount.
+ * Duplicated from `REMOTE_RESERVED_NAMES` in `@deepseek-ai/dsh-typert-protocol`
+ * rather than imported: this analyzer runs inside the build, and a build-time
+ * import of a workspace package resolves its previously emitted artifact, which
+ * cannot carry a constant this same build is introducing.
+ * `tests/remote-model.spec.ts` asserts the two lists stay equal.
+ */
+export const RESERVED_REMOTE_NAMES: ReadonlySet<string> = new Set([
+  'assertMethodAvailable',
+  'empty',
+  'has',
+  'install',
+  'installDirect',
+  'installScoped',
+  'invokeRemote',
+  'methods',
+  'name',
+  'namespace',
+  'remove',
+])
+
 interface FaceProgramHost {
   readonly host: ts.CompilerHost
   readonly files: Map<string, ts.SourceFile | undefined>
@@ -993,6 +1016,13 @@ class FaceAnalyzer {
     }
     const methodName = method.name.text
     const exportedMethod = invocation.exportName ?? methodName
+    if (RESERVED_REMOTE_NAMES.has(exportedMethod)) {
+      this.fail(
+        method.name,
+        `Remote method ${JSON.stringify(exportedMethod)} shadows its Client namespace service, which answers that name itself; `
+        + `rename the method or its @Remote name (for example ${JSON.stringify(`${exportedMethod}Plugin`)})`,
+      )
+    }
 
     const lookups = this.lookupDeclarations()
     const lookupByHost = new Map(lookups.map(lookup => [lookup.hostSymbol, lookup]))

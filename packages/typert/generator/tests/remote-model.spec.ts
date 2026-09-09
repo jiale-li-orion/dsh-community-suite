@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import ts from 'typescript'
 import { afterEach, describe, expect, it } from 'vitest'
-import { WorkspaceAnalyzer } from '../src/analyzer.ts'
+import { REMOTE_RESERVED_NAMES } from '@deepseek-ai/dsh-typert-protocol'
+import { RESERVED_REMOTE_NAMES, WorkspaceAnalyzer } from '../src/analyzer.ts'
 import type { InvocationModel } from '../src/model.ts'
 import { WorkspaceTypertGenerator } from '../src/workspace.ts'
 
@@ -44,6 +45,12 @@ interface RemoteDeclarationMap {
 
 afterEach(() => {
   for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
+
+describe('Remote reserved names', () => {
+  it('keeps the analyzer copy equal to the runtime authority', () => {
+    expect([...RESERVED_REMOTE_NAMES].sort()).toEqual([...REMOTE_RESERVED_NAMES].sort())
+  })
 })
 
 describe('Remote model generation', { timeout: 60_000 }, () => {
@@ -355,6 +362,26 @@ export interface RemainingSchema {
 
     expect(() => new WorkspaceTypertGenerator(root).generate())
       .toThrow('publishes Remote artifacts but has no Remote methods')
+  })
+
+  it('rejects a Remote name that shadows its Client namespace service', () => {
+    const root = copyFixture()
+    editFile(root, 'packages/remote/src/index.ts', source => source
+      .replace('  @Remote\n  async create(', "  @Remote('install')\n  async create("))
+
+    expect(() => new WorkspaceTypertGenerator(root).generate())
+      .toThrow(/shadows its Client namespace service/)
+  })
+
+  it('rejects a bare Remote method whose own name is reserved', () => {
+    const root = copyFixture()
+    editFile(root, 'packages/remote/src/index.ts', source => source
+      .replace('  @Remote\n  async create(', '  @Remote\n  async remove(')
+      .replace('async create(agent: Agent', 'async remove(agent: Agent')
+      .replace('GoalService', 'GoalService'))
+
+    expect(() => new WorkspaceTypertGenerator(root).generate())
+      .toThrow(/shadows its Client namespace service/)
   })
 
   it('validates Remote artifacts only on the host face of a dual-face package', () => {

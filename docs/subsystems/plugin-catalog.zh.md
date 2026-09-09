@@ -16,7 +16,7 @@ agent 路径额外加了 `ctx.approval`：`plugin_install` 只接受搜索结果
 
 ## 插件市场面板
 
-工作台的 `marketplace` 面板是同一条能力的人手路径：它经 provider 的 Remote 面搜索目录，并在两步确认后调用 `pluginInstall.install`——因此点击是操作者自己的手势，而不是 agent 的请求。它从不接触命令——条目的安装字符串留在 host 侧——而 `/api` 的浏览器信任栅栏依旧限定谁能到达该端点。
+工作台的 `marketplace` 面板是同一条能力的人手路径：它经 provider 的 Remote 面搜索目录，并在两步确认后调用 `pluginInstall.installPlugin`——因此点击是操作者自己的手势，而不是 agent 的请求。它从不接触命令——条目的安装字符串留在 host 侧——而 `/api` 的浏览器信任栅栏依旧限定谁能到达该端点。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -66,7 +66,7 @@ The install service. `install(url)` is the only entry: the URL names a catalog e
  * @returns the completed install's target, profile, and child output.
  * @throws PluginInstallError when the entry is unknown, the target is refused, or the installer fails.
  */
-@Remote('install') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>
+@Remote('installPlugin') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>
 ```
 
 Source: [`packages/workbench/plugin-install/src/index.ts:69`](../../packages/workbench/plugin-install/src/index.ts)

@@ -1026,7 +1026,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'The install service. `install(url)` is the only entry: the URL names a catalog entry, the entry names its own install command, and this service decides whether that command\'s target may run and which profile it targets.',
     methods: [
       {
-        signature: '@Remote(\'install\') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>',
+        signature: '@Remote(\'installPlugin\') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>',
         description: 'Install one catalog plugin.',
         parameters: [{ name: 'url', description: 'the exact entry URL a catalog search returned.' }, { name: 'signal', description: 'optional caller cancellation.' }],
         returns: 'the completed install\'s target, profile, and child output.',

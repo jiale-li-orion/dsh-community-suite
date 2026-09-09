@@ -17,7 +17,7 @@
     "website"
   ],
   "scripts": {
-    "build": "npm run build:lib && npm run build:web",
+    "build": "npm run build:lib && npm run verify-client-bundles && npm run build:web",
     "build:lib": "npm run build:lib:host && npm run build:lib:client",
     "build:lib:host": "tsc -b tsconfig.host.json && tsdown --env.DSH_BUILD_FACE host",
     "build:lib:client": "tsc -b tsconfig.client.json && tsdown --env.DSH_BUILD_FACE client",
@@ -142,7 +142,8 @@
     "demo:acp": "node --import tsx packages/examples/acp-demo/src/bin.ts --config examples/acp-agent/cordis.yml",
     "mock:llm": "node --import tsx packages/test-support/llm-mock-server/src/bin.ts",
     "dev:web": "tsx scripts/dev-web.ts --poll",
-    "postinstall": "node scripts/install-lefthook.mjs"
+    "postinstall": "node scripts/install-lefthook.mjs",
+    "verify-client-bundles": "tsx scripts/verify-client-bundles.ts"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "0.25.1",

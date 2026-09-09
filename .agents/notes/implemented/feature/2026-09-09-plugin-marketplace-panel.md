@@ -10,6 +10,8 @@ ADR-7 deliberately shipped the plugin catalog as **tools only** — "the index i
 
 ## Decision
 
+The browser calls `ctx.remote.pluginInstall.installPlugin(url)`; the Host method remains `ctx.pluginInstall.install(url)`. The Remote name avoids the namespace service's internal `install` method. Both generated Remote providers declare `zod` as a runtime dependency so the client bundle can inline their codecs.
+
 **Extract the install into one capability, then let two planes call it.** `@deepseek-ai/dsh-plugin-install` publishes `ctx.pluginInstall.install(url)`: it resolves the catalog entry the URL names, validates the entry's own target with `parseInstallTarget`, derives the profile from this build's module path, and runs `dsh plugin --profile <profile> add <target>` as an argv array. `@deepseek-ai/dsh-tool-plugin-catalog`'s `plugin_install` now resolves the entry, asks `ctx.approval`, and calls that capability; the new `marketplace` panel calls the same capability after a two-step confirm. The validator, the profile derivation, and the process path exist once, so the two callers cannot drift.
 
 **The catalog gains a Remote surface; the index still has one reader.** `AwesomePluginCatalog` extends `TypertRemoteService` and marks `search`/`get` with `@Remote`, so the browser searches through the host cache instead of fetching the 3 MB index itself. `@deepseek-ai/dsh-plugin-catalog` stays the transport-free contract (the entry and page vocabulary, the coded error, the Context key).

@@ -182,7 +182,7 @@ export function apply(ctx: ClientContext): void {
         return result.value
       },
       install: async (url: string) => {
-        const result = await ctx.remote.pluginInstall.install(url)
+        const result = await ctx.remote.pluginInstall.installPlugin(url)
         if (!result.ok) throw new Error(result.error.message)
         return result.value
       },

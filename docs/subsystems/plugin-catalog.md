@@ -16,7 +16,7 @@ The agent path adds `ctx.approval`: `plugin_install` takes only the URL a search
 
 ## The marketplace panel
 
-The workbench's `marketplace` panel is the human path to the same capability: it searches the catalog through the provider's Remote surface and calls `pluginInstall.install` after a two-step confirm, so the click is the operator's own gesture rather than an agent request. It never receives a command — the entry's install string stays on the host — and the `/api` browser trust fence still bounds who may reach the endpoint.
+The workbench's `marketplace` panel is the human path to the same capability: it searches the catalog through the provider's Remote surface and calls `pluginInstall.installPlugin` after a two-step confirm, so the click is the operator's own gesture rather than an agent request. It never receives a command — the entry's install string stays on the host — and the `/api` browser trust fence still bounds who may reach the endpoint.
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -66,7 +66,7 @@ The install service. `install(url)` is the only entry: the URL names a catalog e
  * @returns the completed install's target, profile, and child output.
  * @throws PluginInstallError when the entry is unknown, the target is refused, or the installer fails.
  */
-@Remote('install') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>
+@Remote('installPlugin') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>
 ```
 
 Source: [`packages/workbench/plugin-install/src/index.ts:69`](../../packages/workbench/plugin-install/src/index.ts)

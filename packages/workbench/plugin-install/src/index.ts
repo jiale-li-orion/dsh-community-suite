@@ -89,7 +89,7 @@ export class PluginInstallService extends TypertRemoteService {
    * @returns the completed install's target, profile, and child output.
    * @throws PluginInstallError when the entry is unknown, the target is refused, or the installer fails.
    */
-  @Remote('install')
+  @Remote('installPlugin')
   async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult> {
     const entry = await this.ctx.pluginCatalog.get(url, signal)
     if (entry === undefined) {
