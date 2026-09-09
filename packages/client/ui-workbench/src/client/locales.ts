@@ -33,6 +33,14 @@ export const zh = {
   'marketplace.install': '安装',
   'marketplace.confirm': '确认安装',
   'marketplace.installed': '已安装 {name} 到 profile "{profile}"，重启后生效。',
+  'wallpaper.title': '壁纸',
+  'wallpaper.current': '当前壁纸',
+  'wallpaper.none': '未设置',
+  'wallpaper.clear': '清除',
+  'wallpaper.set': '设为壁纸',
+  'wallpaper.empty': '工作区根目录里没有图片。',
+  'wallpaper.error': '读取工作区失败：{message}',
+  'wallpaper.noSession': '先打开一个会话再选壁纸。',
 }
 
 /** Workbench dictionary keys. */
@@ -63,4 +71,12 @@ export const en: Record<WorkbenchKey, string> = {
   'marketplace.install': 'Install',
   'marketplace.confirm': 'Confirm install',
   'marketplace.installed': 'Installed {name} into profile "{profile}"; restart to load it.',
+  'wallpaper.title': 'Wallpaper',
+  'wallpaper.current': 'Current wallpaper',
+  'wallpaper.none': 'None',
+  'wallpaper.clear': 'Clear',
+  'wallpaper.set': 'Set as wallpaper',
+  'wallpaper.empty': 'No images in the workspace root.',
+  'wallpaper.error': 'Could not read the workspace: {message}',
+  'wallpaper.noSession': 'Open a session before choosing a wallpaper.',
 }

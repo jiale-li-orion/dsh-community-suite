@@ -77,6 +77,10 @@ interface WorkbenchListing {
 
 The viewer itself is the `workbench.viewer` chain seat the workbench shell declares: `@deepseek-ai/dsh-client-ui-workbench` registers one entry per media family (`image/*`, `audio/*`, `video/*`) whose selector elects the listing's `mediaType`, and a type nothing elects falls to the shell's no-preview notice. Which file a window previews is browser-local (the shell store); only the column's open state and the panel choice are shared with the host and the agent.
 
+## The wallpaper panel
+
+The workbench also hosts a `wallpaper` panel: it lists the image files in the current session's workspace (through the same fenced listing the file panel uses), and setting one paints it behind the conversation. The paint target is ui-layout's `shell.background` list seat — one full-bleed, click-through layer rendered behind every column — so a background image never touches another column's DOM, and the columns always paint above it. The choice is browser-local, persisted per browser, and a URL whose session has gone simply fails to load, at which point the layer hides itself.
+
 ## Events
 
 `workbench/changed` carries the committed view on every commit. The event is one-way and payload-only, so the forwarded-event allowlist can deliver it to a browser verbatim; the invariant companion asserts each payload equals the state the service holds.

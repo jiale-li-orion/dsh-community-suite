@@ -22,7 +22,17 @@
   }
 }
 
+.backgroundLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .sidebarCol {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   overflow: hidden;
   background: var(--dsw-specific-sidebar-fill);
@@ -30,6 +40,8 @@
 }
 
 .centerCol {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -37,6 +49,8 @@
 }
 
 .detailsCol {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   overflow: hidden;
   border-left: 1px solid var(--dsw-alias-border-l2);
@@ -45,6 +59,8 @@
 /* The workbench column sits between the conversation and the details column and
    paints the same separator, because either neighbour may be closed. */
 .workbenchCol {
+  position: relative;
+  z-index: 1;
   min-width: 0;
   overflow: hidden;
   border-left: 1px solid var(--dsw-alias-border-l2);

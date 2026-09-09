@@ -24,8 +24,12 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 import type {} from '@deepseek-ai/dsh-workbench/remote'
 import type { WorkbenchFileRef, WorkbenchPanelTab } from './contract/slots.ts'
+import type { IWallpaper, WallpaperChoice } from './wallpaper.ts'
 import { FilePanel } from './FilePanel.tsx'
 import { MarketplacePanel } from './MarketplacePanel.tsx'
+import { createWallpaper } from './wallpaper.ts'
+import { WallpaperBackground } from './WallpaperBackground.tsx'
+import { WallpaperPanel } from './WallpaperPanel.tsx'
 import { createMediaViewer, mediaTypeSelector } from './MediaViewer.tsx'
 import { en, NS, zh } from './locales.ts'
 import type { WorkbenchKey } from './locales.ts'
@@ -40,6 +44,9 @@ export type { WorkbenchFileRef, WorkbenchPanelTab, WorkbenchPanelOwnerProps, Wor
 export type { MediaViewerProps } from './MediaViewer.tsx'
 export type { FilePanelInjected, FilePanelProps } from './FilePanel.tsx'
 export type { MarketplaceInjected, MarketplacePanelProps } from './MarketplacePanel.tsx'
+export type { IWallpaper, WallpaperChoice } from './wallpaper.ts'
+export type { WallpaperBackgroundInjected, WallpaperBackgroundProps } from './WallpaperBackground.tsx'
+export type { WallpaperPanelInjected, WallpaperPanelProps } from './WallpaperPanel.tsx'
 export type { WorkbenchShellInjected, WorkbenchShellProps } from './WorkbenchShell.tsx'
 export type { WorkbenchToggleInjected, WorkbenchToggleProps } from './WorkbenchToggle.tsx'
 
@@ -47,6 +54,8 @@ declare module '@deepseek-ai/cordis' {
   interface Context {
     /** The outward face only; the concrete service stays inside this plugin. */
     workbench: IWorkbench
+    /** The wallpaper face: the frame's background image, shared by the panel and the layer. */
+    wallpaper: IWallpaper
   }
 }
 
@@ -93,6 +102,11 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workbench: dictionaries')
 
   const controller = new WorkbenchController(ctx.layout, ctx.remote.workbench)
+  const wallpaper = createWallpaper()
+  ctx.effect(() => {
+    const disposeService = ctx.reflect.provide('wallpaper', wallpaper.service)
+    return () => { void disposeService() }
+  }, 'ui-workbench: wallpaper service')
   const panels = createSnapshotStore<readonly WorkbenchPanelTab[]>([])
   ctx.effect(() => {
     const project = (): void => { panels.set(projectTabs(ctx.slots.entries('workbench.panel'))) }
@@ -174,6 +188,27 @@ export function apply(ctx: ClientContext): void {
       },
     }),
   }, MarketplacePanel))
+
+  ctx.slots.inject('workbench.panel', () => ctx.slots.register({
+    name: 'workbench.panel',
+    id: 'wallpaper',
+    order: 30,
+    label: () => zh['wallpaper.title'],
+    locale: NS,
+    inject: () => ({
+      list: listDir,
+      set: (choice: WallpaperChoice) => { wallpaper.service.set(choice) },
+      clear: () => { wallpaper.service.clear() },
+      hooks: { wallpaper: wallpaper.store },
+    }),
+  }, WallpaperPanel))
+
+  ctx.slots.inject('shell.background', () => ctx.slots.register({
+    name: 'shell.background',
+    id: 'wallpaper',
+    order: 0,
+    inject: () => ({ hooks: { wallpaper: wallpaper.store } }),
+  }, WallpaperBackground))
 
   for (const family of ['image', 'audio', 'video'] as const) {
     ctx.slots.inject('workbench.viewer', () => ctx.slots.register({

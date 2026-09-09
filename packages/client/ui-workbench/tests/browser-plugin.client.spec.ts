@@ -78,7 +78,7 @@ function wireShell(ctx: Context): {
  */
 function injectedOf(
   ctx: Context,
-  name: 'workbench.panel' | 'conversation.session.header.utilities',
+  name: 'workbench.panel' | 'conversation.session.header.utilities' | 'shell.background',
   id?: string,
 ): unknown {
   const entries = ctx.slots.entries(name)
@@ -138,6 +138,7 @@ async function bench(layout = fakeLayout(), remote = fakeRemote()) {
     children: {
       'workbench': { kind: 'single', scope: 'root' },
       'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+      'shell.background': { kind: 'list', scope: 'root' },
     },
   } as never, () => null)
   ctx.provide('layout', layout as never)
@@ -213,6 +214,7 @@ describe('ui-workbench browser half', () => {
     expect(panels.getSnapshot()).toEqual([
       { id: 'files', label: '文件', order: 10 },
       { id: 'marketplace', label: '插件市场', order: 20 },
+      { id: 'wallpaper', label: '壁纸', order: 30 },
     ])
     ctx.slots.inject('workbench.panel', () => ctx.slots.register({
       name: 'workbench.panel',
@@ -233,6 +235,7 @@ describe('ui-workbench browser half', () => {
       { id: 'files', label: '文件', order: 10 },
       { id: 'marketplace', label: '插件市场', order: 20 },
       { id: 'terminal', label: '终端', order: 20 },
+      { id: 'wallpaper', label: '壁纸', order: 30 },
     ])
   })
 
@@ -257,6 +260,7 @@ describe('ui-workbench browser half', () => {
       { id: 'files', label: '文件', order: 10 },
       { id: 'tied', label: '并列', order: 10 },
       { id: 'marketplace', label: '插件市场', order: 20 },
+      { id: 'wallpaper', label: '壁纸', order: 30 },
     ])
   })
 
@@ -277,6 +281,36 @@ describe('ui-workbench browser half', () => {
     const header = injectedOf(ctx, 'conversation.session.header.utilities') as { toggle: () => void }
     header.toggle()
     expect(namespace.toggle).toHaveBeenCalledTimes(2)
+  })
+
+  it('provides the wallpaper face and registers the background layer', async () => {
+    const { ctx, fiber } = await bench()
+    expect(ctx.slots.entries('shell.background').map(entry => entry.options.id)).toEqual(['wallpaper'])
+    const background = injectedOf(ctx, 'shell.background') as {
+      hooks: { wallpaper: { getSnapshot(): unknown; set(value: unknown): void } }
+    }
+    expect(background.hooks.wallpaper.getSnapshot()).toBeNull()
+    ctx.wallpaper.set({ url: '/u', name: 'a.png' })
+    expect(background.hooks.wallpaper.getSnapshot()).toEqual({ url: '/u', name: 'a.png' })
+    ctx.wallpaper.clear()
+    expect(background.hooks.wallpaper.getSnapshot()).toBeNull()
+    await fiber.dispose()
+    expect(ctx.slots.entries('shell.background')).toHaveLength(0)
+  })
+
+  it('the wallpaper panel inject face lists through the host and writes the shared choice', async () => {
+    const { ctx } = await bench()
+    const panel = injectedOf(ctx, 'workbench.panel', 'wallpaper') as {
+      list: (sessionId: string, path: string | null) => Promise<unknown>
+      set: (choice: { url: string; name: string }) => void
+      clear: () => void
+      hooks: { wallpaper: { getSnapshot(): unknown } }
+    }
+    await expect(panel.list('session-1', null)).resolves.toMatchObject({ root: '/w' })
+    panel.set({ url: '/u', name: 'a.png' })
+    expect(panel.hooks.wallpaper.getSnapshot()).toEqual({ url: '/u', name: 'a.png' })
+    panel.clear()
+    expect(panel.hooks.wallpaper.getSnapshot()).toBeNull()
   })
 
   it('the marketplace panel inject face reads the catalog and installs through the host', async () => {
