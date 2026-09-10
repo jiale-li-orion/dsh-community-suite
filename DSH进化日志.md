@@ -380,6 +380,13 @@
 - **面板**：主题页改名「外观」性质——上面是 **系统原皮·跟随系统 / 系统原皮·亮色 / 系统原皮·暗色** + 注册表里的社区主题（即时切换），下面是**皮肤**分组：列出已安装的外观行，一行一个启用/停用按钮，写明「重启后生效」。
 - **本次 profile 变动**：删 `@kubor/dsh-bloom-theme`（用户：没 UI 效果），装 `dsh-theme`（30 款 CSS 主题）与 `@eternalnight/dsh-theme`。**必须重启**：删 bloom 后运行中的进程仍按旧组合要它的 bundle，浏览器现在报 `Failed to load plugins`（profile 与运行进程漂移，不是代码问题）。重启前已验证：`--dump-config` 组合通过；两个新 bundle 过模块表检查 OK（`dsh-theme` 的 `dsh.client.inject` 写了服务名 `slots`，是信息性错误，不影响加载）。
 
+### 17:15–17:35 · 社区主题的 Apply 点不到：栏位层叠契约再修一格
+
+- **现象**（用户）：@eternalnight/dsh-theme 的主题面板里「Apply」点不动，"被对话框挡住了"。
+- **诊断**：面板是 `div.dt-overlay`（`position: fixed; z-index: 200050`），它注册在**侧栏子树**里（和设置模态框同一位置）。女仆皮自己的样式表给侧栏内容根 `_1WWqza_root` 设了 `z-index: 2`——栏位内容因此成了堆叠上下文，把 200050 关在里面；会话列的 composer seat 是 `sticky; z-index: 7`，7 > 2，于是整块对话框被输入框压住（`elementFromPoint` 命中的是 composer 的 textarea）。实测把该根节点的 z-index 改回 auto，Apply 立刻可点。
+- **修法（在框架里，不在第三方 CSS 里打架）**：非侧栏的三条栏位（会话/工作台/详情）各自取 `position: relative; z-index: 0` 的堆叠上下文，把栏位内部的 z-index（composer seat 7、下拉 20/100、轨迹表 3-6）**封顶在 0**；侧栏自身不带 z-index，于是任何抬高侧栏内容根的东西（皮肤设 2、设置模态框自身 1000）都能压过会话列，注册在侧栏里的对话框重新可点。契约写进 `AppFrame.module.css` 的注释：栏位之间只有文档顺序，栏位的 z-index 归框架所有。
+- **实机验证**：主题面板 Apply `hittable: true`（命中 `dt-btn primary`）、设置模态框第一个导航项 `hittable: true`；女仆皮外观不变。
+
 ## 待办与注意
 
 - 工作台五阶段全部落地并本地提交：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`、可靠性门禁 = `03da2eb` + `3391814`（日志两次单独提交 `60b7e78`、`55a2c19`）；`origin/main` 仍停在 `33b890f`（未 push）。
