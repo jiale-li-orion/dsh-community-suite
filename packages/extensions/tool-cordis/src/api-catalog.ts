@@ -1032,6 +1032,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the completed install\'s target, profile, and child output.',
         throws: ['PluginInstallError when the entry is unknown, the target is refused, or the installer fails.'],
       },
+      {
+        signature: '@Remote(\'listSkins\') async listSkins(): Promise<readonly PluginSkinRow[]>',
+        description: 'List the appearance rows this profile\'s installed bundles insert.',
+        parameters: [],
+        returns: 'one entry per row, with its current enablement.',
+      },
+      {
+        signature: '@Remote(\'setSkinEnabled\') async setSkinEnabled(id: string, enabled: boolean): Promise<PluginSkinToggle>',
+        description: 'Enable or disable one appearance row by rewriting the profile patch.',
+        parameters: [{ name: 'id', description: 'the row id a {@link listSkins} result carried.' }, { name: 'enabled', description: 'false disables the row, true restores its bundle default.' }],
+        returns: 'the written state and the profile it was written to.',
+        throws: ['PluginInstallError when the profile declares no such row.'],
+      },
     ],
   },
   {
@@ -3854,6 +3867,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PluginInstallResult',
     declaration: 'export interface PluginInstallResult {\n    name: string;\n    target: string;\n    profile: string;\n    output: string;\n}',
+  },
+  {
+    name: 'PluginSkinRow',
+    declaration: 'export interface PluginSkinRow {\n    id: string;\n    name: string;\n    enabled: boolean;\n}',
+  },
+  {
+    name: 'PluginSkinToggle',
+    declaration: 'export interface PluginSkinToggle {\n    id: string;\n    enabled: boolean;\n    profile: string;\n}',
   },
   {
     name: 'PostToolDecision',

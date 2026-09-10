@@ -67,7 +67,22 @@ The install service. `install(url)` is the only entry: the URL names a catalog e
  * @throws PluginInstallError when the entry is unknown, the target is refused, or the installer fails.
  */
 @Remote('installPlugin') async install(url: string, signal?: AbortSignal): Promise<PluginInstallResult>
+
+/**
+ * List the appearance rows this profile's installed bundles insert.
+ * @returns one entry per row, with its current enablement.
+ */
+@Remote('listSkins') async listSkins(): Promise<readonly PluginSkinRow[]>
+
+/**
+ * Enable or disable one appearance row by rewriting the profile patch.
+ * @param id - the row id a {@link listSkins} result carried.
+ * @param enabled - false disables the row, true restores its bundle default.
+ * @returns the written state and the profile it was written to.
+ * @throws PluginInstallError when the profile declares no such row.
+ */
+@Remote('setSkinEnabled') async setSkinEnabled(id: string, enabled: boolean): Promise<PluginSkinToggle>
 ```
 
-Source: [`packages/workbench/plugin-install/src/index.ts:69`](../../packages/workbench/plugin-install/src/index.ts)
+Source: [`packages/workbench/plugin-install/src/index.ts:70`](../../packages/workbench/plugin-install/src/index.ts)
 <!-- END GENERATED cordis-surface -->

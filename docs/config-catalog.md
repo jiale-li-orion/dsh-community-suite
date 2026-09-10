@@ -1433,7 +1433,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/workbench/plugin-install/src/index.ts:29`](../packages/workbench/plugin-install/src/index.ts)
+Source: [`packages/workbench/plugin-install/src/index.ts:30`](../packages/workbench/plugin-install/src/index.ts)
 
 <a id="deepseek-aidsh-pwsh-local"></a>
 

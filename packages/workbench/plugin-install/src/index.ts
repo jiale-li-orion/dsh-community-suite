@@ -15,7 +15,8 @@ import type {} from '@deepseek-ai/dsh-subprocess'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { parseInstallTarget } from './install-target.ts'
 import { resolveProfile } from './profile.ts'
-import type { PluginInstallResult } from './types.ts'
+import { listRows, profileDirectory, setRowEnabled } from './skins.ts'
+import type { PluginInstallResult, PluginSkinRow, PluginSkinToggle } from './types.ts'
 
 export type * from './types.ts'
 
@@ -117,6 +118,38 @@ export class PluginInstallService extends TypertRemoteService {
       )
     }
     return { name: entry.name, target, profile, output }
+  }
+
+  /**
+   * List the appearance rows this profile's installed bundles insert.
+   * @returns one entry per row, with its current enablement.
+   */
+  @Remote('listSkins')
+  async listSkins(): Promise<readonly PluginSkinRow[]> {
+    return listRows(profileDirectory(resolveProfile(import.meta.url, this.configuredProfile)))
+  }
+
+  /**
+   * Enable or disable one appearance row by rewriting the profile patch.
+   * @param id - the row id a {@link listSkins} result carried.
+   * @param enabled - false disables the row, true restores its bundle default.
+   * @returns the written state and the profile it was written to.
+   * @throws PluginInstallError when the profile declares no such row.
+   */
+  @Remote('setSkinEnabled')
+  async setSkinEnabled(id: string, enabled: boolean): Promise<PluginSkinToggle> {
+    const profile = resolveProfile(import.meta.url, this.configuredProfile)
+    const directory = profileDirectory(profile)
+    // Checked before the write so an unknown row is a coded refusal rather than
+    // whatever the file arithmetic would have done to an untargeted patch.
+    if (!listRows(directory).some(row => row.id === id)) {
+      throw new PluginInstallError(
+        `profile "${profile}" has no appearance row ${JSON.stringify(id)}`,
+        'PLUGIN_SKIN_UNKNOWN_ROW',
+      )
+    }
+    setRowEnabled(directory, id, enabled)
+    return { id, enabled, profile }
   }
 
   /** Spawn the installer and collect its exit facts. */

@@ -120,6 +120,11 @@ function fakeRemote(initial: WorkbenchView = { open: false, active: null }, stat
         ok: true as const,
         value: { name: CATALOG_ENTRY.name, target: 'dsh-example', profile: 'web', output: '' },
       })),
+      listSkins: vi.fn(() => Promise.resolve({ ok: true as const, value: [] })),
+      setSkinEnabled: vi.fn((id: string, enabled: boolean) => Promise.resolve({
+        ok: true as const,
+        value: { id, enabled, profile: 'web' },
+      })),
     },
     $on: (_event: string, handler: (view: WorkbenchView) => void) => {
       handlers.add(handler)
@@ -217,6 +222,12 @@ describe('ui-workbench browser half', () => {
     expect(panel.hooks.theme.getSnapshot().preference).toBe('dark')
     panel.set('bloom-aurora')
     expect(theme.setTheme).toHaveBeenCalledWith('bloom-aurora')
+    const withSkins = injectedOf(ctx, 'workbench.panel', 'theme') as {
+      skins(): Promise<readonly { id: string }[]>
+      setSkin(id: string, enabled: boolean): Promise<{ id: string; enabled: boolean }>
+    }
+    await expect(withSkins.skins()).resolves.toEqual([])
+    await expect(withSkins.setSkin('ui-skin-x', false)).resolves.toEqual({ id: 'ui-skin-x', enabled: false, profile: 'web' })
   })
 
   it('registers the header toggle, and fiber teardown removes it (HMR safety)', async () => {

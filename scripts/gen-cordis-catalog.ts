@@ -545,6 +545,8 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   PluginCatalogQuery: 'catalog query vocabulary is owned by packages/workbench/plugin-catalog/README.md',
   PluginCatalogPage: 'catalog page vocabulary is owned by packages/workbench/plugin-catalog/README.md',
   PluginInstallResult: 'install result vocabulary is owned by packages/workbench/plugin-install/README.md',
+  PluginSkinRow: 'appearance-row vocabulary is owned by packages/workbench/plugin-install/README.md',
+  PluginSkinToggle: 'appearance-row vocabulary is owned by packages/workbench/plugin-install/README.md',
   AgentPreset: 'discovered preset record is owned by packages/preset/agent-presets/README.md',
   PresetMetadata: 'preset display text is owned by packages/preset/agent-presets/README.md',
   BashEnvContributor: 'service-local extension type is owned by packages/shell/tool-bash/src/index.ts',

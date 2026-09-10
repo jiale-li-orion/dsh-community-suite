@@ -173,6 +173,16 @@ export function apply(ctx: ClientContext): void {
     inject: (): ThemePanelInjected => ({
       hooks: { theme: themeState },
       set: (id: string) => { ctx.theme.setTheme(id) },
+      skins: async () => {
+        const result = await ctx.remote.pluginInstall.listSkins()
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
+      setSkin: async (id: string, enabled: boolean) => {
+        const result = await ctx.remote.pluginInstall.setSkinEnabled(id, enabled)
+        if (!result.ok) throw new Error(result.error.message)
+        return result.value
+      },
     }),
   }, ThemePanel))
 

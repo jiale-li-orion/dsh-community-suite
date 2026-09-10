@@ -2,7 +2,10 @@
  * The install capability: target validation, profile derivation, and the
  * argv install over the real service with a recording process seam.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import type { PluginCatalogEntry } from '@deepseek-ai/dsh-plugin-catalog'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
@@ -71,6 +74,47 @@ async function harness(
   await ctx.plugin(PluginInstallService, config)
   return { service: ctx.pluginInstall, subprocess, get }
 }
+
+let home: string
+
+beforeEach(() => {
+  home = mkdtempSync(join(tmpdir(), 'dsh-install-skins-'))
+  vi.stubEnv('DSH_HOME', home)
+})
+
+afterEach(() => {
+  rmSync(home, { recursive: true, force: true })
+  vi.unstubAllEnvs()
+})
+
+/** Install one appearance bundle into the temporary profile. */
+function installSkin(profile: string, pkg: string, rowId: string): void {
+  const dir = join(home, 'profiles', profile)
+  mkdirSync(join(dir, 'node_modules', pkg), { recursive: true })
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ dsh: { profile: { bundles: [pkg] } } }))
+  writeFileSync(join(dir, 'node_modules', pkg, 'package.json'), JSON.stringify({
+    name: pkg,
+    dsh: { bundle: { patch: './cordis.patch.yml' } },
+  }))
+  writeFileSync(join(dir, 'node_modules', pkg, 'cordis.patch.yml'), `- insert:\n    - id: ${rowId}\n`)
+}
+
+describe('PluginInstallService appearance rows', () => {
+  it('lists a profile skin row and flips it through the profile patch', async () => {
+    installSkin('web', '@dsh-external/dsh-skin-x', 'ui-skin-x')
+    const { service } = await harness()
+    expect(await service.listSkins()).toEqual([{ id: 'ui-skin-x', name: '@dsh-external/dsh-skin-x', enabled: true }])
+    expect(await service.setSkinEnabled('ui-skin-x', false)).toEqual({ id: 'ui-skin-x', enabled: false, profile: 'web' })
+    expect(readFileSync(join(home, 'profiles', 'web', 'cordis.patch.yml'), 'utf8')).toBe('- id: ui-skin-x\n  disabled: true\n')
+    expect(await service.listSkins()).toEqual([{ id: 'ui-skin-x', name: '@dsh-external/dsh-skin-x', enabled: false }])
+  })
+
+  it('refuses a row the profile does not declare', async () => {
+    const { service } = await harness()
+    await expect(service.setSkinEnabled('ui-skin-nope', false)).rejects.toThrow(PluginInstallError)
+    await expect(service.setSkinEnabled('ui-skin-nope', false)).rejects.toThrow(/has no appearance row "ui-skin-nope"/)
+  })
+})
 
 describe('PluginInstallService', () => {
   it('resolves the entry, validates its target, and runs an argv install with the configured profile', async () => {
