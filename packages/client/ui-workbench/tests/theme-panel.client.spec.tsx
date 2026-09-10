@@ -101,6 +101,7 @@ describe('ThemePanel', () => {
     expect(await screen.findByText(/profile unreadable/)).toBeTruthy()
     cleanup()
 
+    // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the non-Error rejection is the scenario under test.
     const failingSwitch = () => Promise.reject('no such row')
     render(<ThemePanel {...props(SNAPSHOT, () => Promise.resolve([SKIN]), failingSwitch as unknown as never).props} />)
     fireEvent.click(await screen.findByRole('button', { name: zh['theme.skinDisable'] }))
