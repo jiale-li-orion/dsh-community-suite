@@ -114,6 +114,40 @@ describe('client bundle activation', () => {
     expect(String(thrown)).not.toContain('pnpm run build')
   })
 
+  it('caches a bundle only when the request names its current revision', async () => {
+    const packageName = '@fixture/cacheable'
+    const clientPath = writePackage(packageName)
+    mkdirSync(dirname(clientPath), { recursive: true })
+    writeFileSync(clientPath, 'module.exports = {}\n')
+    const { service, route } = constructWithRoute([packageName])
+    const rev = service.graph().entries.find(entry => entry.id === packageName)?.rev
+    expect(rev).toBeDefined()
+
+    /** GET one URL through the route and report the cache header it answered with. */
+    const cacheControl = async (url: string): Promise<string | undefined> => {
+      let headers: Record<string, string> = {}
+      const response = {
+        writeHead(_status: number, nextHeaders?: Record<string, string>) {
+          headers = nextHeaders ?? {}
+          return response
+        },
+        end() {
+          return response
+        },
+      } as unknown as ServerResponse
+      await route.handler({ method: 'GET', url, headers: {} } as IncomingMessage, response)
+      return headers['cache-control']
+    }
+
+    // The revision is content-addressed, so this body can never change under
+    // that URL.
+    expect(await cacheControl(`/plugins/${packageName}/client.js?rev=${String(rev)}`))
+      .toBe('public, max-age=31536000, immutable')
+    // No revision, or one this build no longer has: revalidate instead.
+    expect(await cacheControl(`/plugins/${packageName}/client.js`)).toBe('no-cache')
+    expect(await cacheControl(`/plugins/${packageName}/client.js?rev=stale`)).toBe('no-cache')
+  })
+
   it('serves the source map beside a registered client bundle', async () => {
     const packageName = '@fixture/source-map'
     const clientPath = writePackage(packageName)

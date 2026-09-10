@@ -425,7 +425,8 @@ export class ClientModuleRegistry extends Service {
       return
     }
     /* v8 ignore next -- `?? '/'` arm: node:http always sets url on server requests. */
-    const pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname)
+    const url = new URL(req.url ?? '/', 'http://x')
+    const pathname = decodeURIComponent(url.pathname)
     // The id may contain a scope slash. Anything else under /plugins (including
     // /plugins/events when the HMR row is absent) is an unknown resource.
     const prefix = '/plugins/'
@@ -433,10 +434,16 @@ export class ClientModuleRegistry extends Service {
     const bundleSuffix = '/client.js'
     const isSourceMap = pathname.startsWith(prefix) && pathname.endsWith(mapSuffix)
     const suffix = isSourceMap ? mapSuffix : bundleSuffix
-    const clientPath = pathname.startsWith(prefix) && pathname.endsWith(suffix)
-      ? this.clientPath(pathname.slice(prefix.length, -suffix.length))
+    const id = pathname.startsWith(prefix) && pathname.endsWith(suffix)
+      ? pathname.slice(prefix.length, -suffix.length)
       : undefined
+    const clientPath = id === undefined ? undefined : this.clientPath(id)
     const path = clientPath === undefined ? undefined : `${clientPath}${isSourceMap ? '.map' : ''}`
+    // A bundle URL names the revision it was built from, so a request that names
+    // the current one can be cached until that revision changes — which is what
+    // makes a repeat visit skip a round trip per bundle over a relayed link. The
+    // source map is requested without a revision, so it stays revalidated.
+    const cacheable = !isSourceMap && url.searchParams.get('rev') === this.table.get(id ?? '')?.entry.rev
     if (path === undefined) {
       res.writeHead(404)
       res.end()
@@ -448,7 +455,7 @@ export class ClientModuleRegistry extends Service {
       // pays for every byte of them.
       await sendEncoded(req, res, 200, body, {
         'content-type': isSourceMap ? 'application/json; charset=utf-8' : 'text/javascript; charset=utf-8',
-        'cache-control': 'no-cache',
+        'cache-control': cacheable ? 'public, max-age=31536000, immutable' : 'no-cache',
       })
     } catch {
       // Registered but unreadable (bundle not built yet): loud 404 beats a silent SPA-fallback HTML page.
