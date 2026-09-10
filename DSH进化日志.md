@@ -442,16 +442,26 @@
 - **验证**：`webserver` 6 个新单元用例（gzip 解码回原文、`q=0` 拒绝、`*` 通配、小实体不压、非文本不压且不声明 vary）；`frontend-static` 真实 HTTP 端到端（raw socket 观测 `content-encoding: gzip` + `vary` + gunzip 还原、identity 原样）；`test:gui` 289 文件 / 3928 通过；host 侧 36 文件 / 497 通过；lint 0。typecheck 曾报一处（`MIME['.html']` 可能是 `undefined`），已改成 `HTML_TYPE` 常量一处归属。
 - **注意**：同样**要重启 `dsh web` 才生效**（host 代码）。与连接横幅那一条是同一次重启。
 
+### 00:15– · 重启核对、bundle 缓存、PWA 可安装（`e2ab729` + `beebecd`）
+
+**重启核对（用户重启后）**：新插件行 `ui-connection-status` 已在启动清单里；`/assets/*.js` 与 `/plugins/*/client.js` 都返回 `content-encoding: gzip` + `vary: accept-encoding`——压缩与横幅插件都生效了。
+
+- **CDP 离线模拟测不出横幅（重要教训）**：把浏览器设成 offline 挂 35 秒，横幅没出现；查 socket 才发现**25 条到 3080 的连接全程保持 ESTABLISHED**——CDP 的离线模拟**不会断开已建立的 WebSocket**，所以 `onStateChange('reconnecting')` 从未触发。**是没被触发，不是坏了**。真要验证必须让连接真的断（手机飞行模式、或停服务）。
+- **bundle 缓存（`e2ab729`，计划 §1 候选）**：bundle 的 URL 本来就带 `?rev=<内容哈希>`，服务端却一律回 `no-cache`，重复访问时 44 个 bundle 每个都要走一次中继往返。现在只有「请求的 rev 等于注册 rev」才回 `public, max-age=31536000, immutable`（URL 内容寻址，字节不可能变），不带 rev 或 rev 过期仍回 `no-cache`；sourcemap 不带 rev、保持 revalidate。**`/assets/*` 故意不动**：SPA fallback 对未命中的资源返回 index.html + 200，给那种路径打 immutable 有可能把一份 HTML 钉在 JS 的 URL 上。
+- **PWA 可安装（`beebecd`，计划 §5 第一项）**：原 manifest 只有一个 SVG 图标、无主题色、`display: fullscreen`。现在补 192/512 PNG 图标 + maskable 512（标记留在 80% 安全区内）+ 暗色壳底色（`#151517`，来自 `--dsw-alias-bg-base`）；`display` 改 **`standalone`**（fullscreen 会连状态栏一起隐藏，且页面卡住时没有浏览器 chrome 可退出）。图标由 `favicon.svg`（白鲸标记）用 cairosvg 光栅化再合成，生成脚本是一次性的（`.artifacts/gen-pwa-icons.py`，不入库），产物入库。
+- **顺带修掉一个真 bug**：`frontend-static` 的 MIME 表没有 `.png`/`.woff`/`.woff2`/`.ttf`——**manifest 图标被当成 `application/octet-stream` 发**（Chrome 会因此拒绝安装），构建里全部 59 个字体文件也都在发 octet-stream。按 dist 实际内容补齐，并加了回归断言。
+- **验证**：PWA 构建产物测试 3 条通过（manifest 钉死 + 每个命名图标确为 dist 里真实 PNG 而不是 SPA fallback 页）；`frontend-static` 真实 HTTP 用例新增 png/woff2 类型断言；lint 0、host typecheck 0。
+
 ## 待办与注意
 
-### 提交账目（全部已推送；`main` = `fce8774`，`codex/e0-mobile-baseline` 已并入 main 并删除）
+### 提交账目（全部已推送；`main` = `beebecd`，`codex/e0-mobile-baseline` 已并入 main 并删除）
 
 - 工作台：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`（该特性的面板/座位已于 16:10 那轮移除）。
 - 可靠性：`03da2eb`（客户端 bundle 门禁 + 生成器拒绝保留 Remote 名）、`3391814`（图边检查）、`e93eedb`（保留名清单收回分析器自持）。
 - 层叠：`2229d4e`（栏位不再困住 fixed 对话框）、`2bf7c07`（壁纸面板目录导航 + 会话列底色）、`14590ef`（非侧栏栏位封顶 z-index 0，修好社区主题面板的 Apply）。
 - 体验：`2442158`（文本预览 + 市场默认页/中文摘要 + 删壁纸面板）、`5293c23`/`100525a`（主题面板与「系统原皮」命名）、`9843b1b`（皮肤行开关）。
 - E0 移动访问（分支 `codex/e0-mobile-baseline`）：`e1b482a`（上一轮日志与重启清单）、`eab2493`（E0 部署与验收记录 + 只读探测工具 + 两份探测结果）、`f82a8fc`（把 oxlint 抑制收窄到被测的非 Error 拒绝用例）。E1 的窄屏单面板改动**未提交**，补丁存于 `.artifacts/e1-narrow-single-panel.patch`。
-- E1：`ff620ce`（窄屏单面板工作台）、`bc35b20`（连接断开横幅 + connection 发布相位）、`ce300ae`/`fce8774`（首屏 gzip，-47% 字节）、`0dec08a`/`118446f`（日志）。
+- E1：`ff620ce`（窄屏单面板工作台）、`bc35b20`（连接断开横幅 + connection 发布相位）、`ce300ae`/`fce8774`（首屏 gzip，-47% 字节）、`e2ab729`（bundle 内容寻址缓存）、`beebecd`（PWA 可安装 + dist MIME 表补齐）、日志若干。
 - 日志与共享文档按约定单独提交（`60b7e78`、`55a2c19`、`4c018b8`、`9a47072`、`f60c3a5` 等）。
 
 ### 重启清单（本次重启后应看到）
