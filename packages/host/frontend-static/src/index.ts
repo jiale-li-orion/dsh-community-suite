@@ -34,8 +34,11 @@ export const Config: z<Config> = z.object({
   distIndex: z.string().required(),
 })
 
+/** Content type of the index document, shared by the MIME table and the index response. */
+const HTML_TYPE = 'text/html; charset=utf-8'
+
 const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
+  '.html': HTML_TYPE,
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
@@ -69,7 +72,7 @@ export async function serveStatic(
   const serveIndex = async (): Promise<void> => {
     // The index body is produced per request by the registered taps, so it is
     // encoded here rather than cached.
-    await sendEncoded(req, res, 200, await renderIndex(), { 'content-type': MIME['.html'] })
+    await sendEncoded(req, res, 200, await renderIndex(), { 'content-type': HTML_TYPE })
   }
   if (target === distRoot || target === distIndex) {
     await serveIndex()
