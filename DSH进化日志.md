@@ -387,6 +387,25 @@
 - **修法（在框架里，不在第三方 CSS 里打架）**：非侧栏的三条栏位（会话/工作台/详情）各自取 `position: relative; z-index: 0` 的堆叠上下文，把栏位内部的 z-index（composer seat 7、下拉 20/100、轨迹表 3-6）**封顶在 0**；侧栏自身不带 z-index，于是任何抬高侧栏内容根的东西（皮肤设 2、设置模态框自身 1000）都能压过会话列，注册在侧栏里的对话框重新可点。契约写进 `AppFrame.module.css` 的注释：栏位之间只有文档顺序，栏位的 z-index 归框架所有。
 - **实机验证**：主题面板 Apply `hittable: true`（命中 `dt-btn primary`）、设置模态框第一个导航项 `hittable: true`；女仆皮外观不变。
 
+### 17:45–18:10 · E0：HTTPS 入口打通；部署与验收记录成文
+
+接上一轮（用户在同一天开启了 Tailscale 账户的 Serve/HTTPS）。本轮把 E0 从"只有 HTTP 入口"推到"HTTPS 入口已用真实 Chromium 验证"，并留下可重复的检查工具与记录。
+
+- **HTTPS 入口已生效**：`tailscale serve status` 同时有 `https://node.tail0d75db.ts.net`（443，tailnet only）与旧的 `http://…:3082`，都 proxy 到 `127.0.0.1:3080`。TLS 实测 `TLSv1.3` / `ALPN h2` / 证书 `CN=node.tail0d75db.ts.net`、Let's Encrypt `YE2`、有效期到 2026-12-09——公开受信，Android Chrome 不需要额外信任配置，tailscaled 自持续期。
+- **真实 Chromium 验证通过**：Windows Edge 152（`--headless=new --no-proxy-server --dump-dom`）打开该 origin 返回完整启动页（含 `window.__DSH_BOOT__`）。**这是本轮最重要的更正**：先前几轮"Chromium 连不上 Tailscale 入口"的结论是错的。
+- **两条假故障线索，已定位并记入部署文档**：① WSL 在 mirrored 网络下同时持有 `100.77.160.68/32`，于是 WSL 内该地址被当成**本机地址**（`ip route get` → `dev lo`），WSL 里连 `:443`/`:3082` 一律 connection refused——**WSL 够不到不等于服务不可用**，HTTPS 探测必须在 Windows 侧跑。② WSL 的 `HTTP(S)_PROXY` 指向 Clash（`127.0.0.1:7897`）且 `no_proxy` 不含 `100.*`，tailnet 请求被丢给代理后返回 **502 + `Proxy-Connection`**，看起来像后端挂了。上一轮用 `agent-browser` 拿到的"Chromium 失败"就是这两条叠加：它默认驱动的是 **WSL 自带 Chromium**，`connect 9222` / `--cdp 9222` 都没有真正接管 Windows Edge（`get cdp-url` 返回自己新起的实例，UA 为 `X11; Linux x86_64`）。
+- **可重复检查**：`进化/e0_smoke.py`（只读、直连、验证 TLS、不落盘响应体）与 `进化/test_e0_smoke.py`（6 用例）本会话首次实测——HTTPS origin 13/13 通过（`E0-HTTPS检查结果.json`，`require_https: true`），回归 6/6 通过。`--privileged-status` 用来钉住特权策略位：本轮传 `200`，即当前部署确实启用了 `privilegedAuthority: trusted`。
+- **部署事实记录**：新增 `进化/移动访问部署与验收.md`（计划第 4 节点名的交付物），含监听位置、origin、authority 与特权策略、启动/停止/恢复、TLS 事实、探测矩阵、未完成项与四条陷阱。
+- **确认漂移已消除**：`GET /` 的 `window.__DSH_BOOT__` 44 个条目里没有 bloom，`/plugins/@kubor/dsh-bloom-theme/client.js` → 404。17:44 那次重启确实把 profile 与进程对齐了（重启清单第 1、2 项通过）。
+- **手机真机验收通过**（18:1x）：手机 `v2463a` 转为 **active**，经**东京 DERP 中继**（非局域网直连、链路约 37 MB）打开 `https://node.tail0d75db.ts.net/`，五项全过——进入已有会话看历史、发消息看流式、点审批、工作台打开文件预览，并且工作台开关与 PC 同步（这是 `workbench` 服务进程级 `open/active` 的既定设计，不是远控）。
+- **首次加载被误判为卡死（新发现）**：手机在 `Loading plugins…` 停留较久。实测首屏载荷 **11.70 MiB / 48 个请求**，其中 **7.0 MiB（60%）是单个第三方 bundle** `@dsh-external/dsh-client-ui-skin-maid-atelier`；且服务端**不压缩**（客户端给 `Accept-Encoding: gzip, br`，响应无 `Content-Encoding`）。经 DERP 的移动网络下这就是原因，不是故障。E1 候选优化：host 侧压缩、或把皮肤拆出首屏。
+- **E1 缺口已用代码证据定位（下一步要做的事）**：`computeColumns(390, 56, 560, 0)` 走完让步链后把工作台推导为 **0 宽**（56 轨 + `CENTER_MIN` 640 + `WORKBENCH_MIN` 320 已超过视口），而 `WorkbenchShell` 在 `collapsed` 时直接 `return null`。所以窄屏下点「工作台」只写了 host 共享状态（PC 那边开），**手机上什么都看不到**——这正是计划 §5 要修的「求解器把工作台宽度归零后让按钮失去作用」。已在 `AppFrame` 落地「窄屏单面板呈现」的改法（只改呈现、不写共享状态），测试与文档未完成，故未随本次提交。
+- **仍未完成**：手机「断开重连后读回最终结果」与「停止 PC 后明确显示不可达」未实测——后者要停服务、会中断正在使用的 GUI 会话，须用户指定时机；「非家庭 Wi-Fi」由中继路径间接支持、待用户确认网络类型。旧链路（`0.0.0.0:3081` 转发、`:3082` HTTP Serve）按计划在真机验收通过后再收敛。
+
+### 18:20– · 桌面启动块显示 DeepSeek 账户余额（用户新需求）
+
+用户要求：桌面启动块（`DshTile.exe`）实时显示 DeepSeek 账户余额，并且**余额对 agent 可见**（agent 也要能读到）。实现顺序排在 E1 之前。余额来源与鉴权方式见本轮后续条目。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送，`origin/main` = `14590ef`）
