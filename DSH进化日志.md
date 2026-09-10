@@ -389,10 +389,29 @@
 
 ## 待办与注意
 
-- 工作台五阶段全部落地并本地提交：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`、可靠性门禁 = `03da2eb` + `3391814`（日志两次单独提交 `60b7e78`、`55a2c19`）；`origin/main` 仍停在 `33b890f`（未 push）。
-- 运行中的 harness 要看到工作台，**刷新页面 + 打开一个会话**即可（client bundle 按请求从磁盘读并重算 rev）；只有当 bundle 行本身变化（新增/删除插件行）时才需要重启进程。
-- 后续：agent 自写扩展（ADR-5）与所有 desktop/mobile 相关能力**按用户决定不做**；mobile/远程访问由另一会话负责（Tailscale + `privilegedAuthority`）。计划见 `community-audit/SYNTHESIS.md`（Pending 已清空）。
-- **并发注意**：另一会话在同一工作树改 `packages/client/connection`（`privilegedAuthority`）与 `DSH进化日志.md`。本会话提交一律用显式路径，绝不 `git add -A`；`docs/config-catalog.*` 由双方共同触发重生成，谁后提交谁负责让中英两侧与源一致。
-- 已知竞态（非本次回归）：`apps/web/tests/steering.e2e.ts` 的 `mid-steer` golden 依赖「填充落在第一个 replay 窗口内」，重跑即绿；若 CI 复现，应改为等待确定态再快照，而不是刷新 golden。
-- `06f1e4e`（connection 的 `privilegedAuthority`）尚未 push；连同工作台六个提交一起，等双方确认后一并推 `origin/main`。
-- 桌面启动块的自启已四条路径兜底，但"登录即出现"最稳的做法是登录触发的计划任务——需管理员执行一次（见 14:20 条目）；下次开机可用 `tile-startup.log` / `win-forward.log` 的时间戳验证。
+### 提交账目（全部已推送，`origin/main` = `14590ef`）
+
+- 工作台：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`（该特性的面板/座位已于 16:10 那轮移除）。
+- 可靠性：`03da2eb`（客户端 bundle 门禁 + 生成器拒绝保留 Remote 名）、`3391814`（图边检查）、`e93eedb`（保留名清单收回分析器自持）。
+- 层叠：`2229d4e`（栏位不再困住 fixed 对话框）、`2bf7c07`（壁纸面板目录导航 + 会话列底色）、`14590ef`（非侧栏栏位封顶 z-index 0，修好社区主题面板的 Apply）。
+- 体验：`2442158`（文本预览 + 市场默认页/中文摘要 + 删壁纸面板）、`5293c23`/`100525a`（主题面板与「系统原皮」命名）、`9843b1b`（皮肤行开关）。
+- 日志与共享文档按约定单独提交（`60b7e78`、`55a2c19`、`4c018b8`、`9a47072`、`f60c3a5` 等）。
+
+### 重启清单（本次重启后应看到）
+
+1. 浏览器不再报 `Failed to load plugins`（上一轮删 bloom 造成的 profile/进程漂移）。
+2. `~/.dsh/profiles/web` 的 bundles：`dsh-base` / `dsh-web-app` / `archived-sessions` / `dsh-client-ui-skin-maid-atelier` / `dsh-theme` / `@eternalnight/dsh-theme`；`@kubor/dsh-bloom-theme` 已移除。
+3. 工作台三页：**文件**（`.md`/`.ts`/`.json` 等现在有文本预览）、**插件市场**（打开即出默认页、按 star 排序、按语言显示摘要）、**主题**（系统原皮三行 + 注册表主题 + 皮肤启用/停用开关）。
+4. 社区包自带入口：`@eternalnight/dsh-theme` 的 **Theme** 按钮（Built-in / Image / Video + Apply，已修好可点）；`dsh-theme` 的设置入口。
+5. 想验证组合：`node --import tsx/esm apps/cli/src/bin.ts --profile web --dump-config | grep -E '^- id:|^# =='`。
+
+### 约束与已知事项
+
+- **栏位层叠归框架**：栏位之间只有文档顺序；非侧栏栏位取 `z-index: 0` 堆叠上下文封顶内部 z-index，侧栏不带 z-index——注册在侧栏子树里的 fixed 对话框（设置模态框、社区主题面板）才能压过会话列。给任何栏位加 z-index 前先读 `AppFrame.module.css` 的注释。
+- **社区外观包不走原生注册表**：`dsh-theme` 用 `data-dsh-*`、女仆皮用 `data-dsh-maid-atelier`、`@eternalnight/dsh-theme` 用 `overrideTokens`；所以「主题」列表只列原生注册的主题（目前只有系统原皮三行），皮肤靠行级开关切换（改 profile patch，重启生效）。
+- `dsh-theme` 的 `dsh.client.inject` 写了服务名 `slots`（应为包名）——信息性错误，不影响加载；`verify-client-bundles` 会把它报出来。
+- 装完新插件后**必须重启**：profile 与运行进程漂移会让客户端报 `Failed to load plugins`（本轮实测过一次）。重启前先跑 `--dump-config` 组合自检 + 模块表预检。
+- **并发**：另一会话在同一工作树（`packages/client/connection` 与 `DSH进化日志.md`）。本会话提交一律用显式路径；`docs/config-catalog.*` 谁后提交谁负责让中英两侧与源一致。
+- 已知竞态（非本会话回归）：`apps/web/tests/steering.e2e.ts` 的 `mid-steer` golden 依赖「填充落在第一个 replay 窗口内」，重跑即绿；若 CI 复现应改为等待确定态。
+- 后续未做：agent 自写扩展（ADR-5）、所有 desktop/mobile 能力（用户决定不做；mobile/远程由另一会话负责）。计划见 `community-audit/SYNTHESIS.md`。
+- 桌面启动块自启已四条路径兜底，但"登录即出现"最稳的是登录触发的计划任务（需管理员，见 14:20 条目）。
