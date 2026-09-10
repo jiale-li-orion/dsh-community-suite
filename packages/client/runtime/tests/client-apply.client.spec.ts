@@ -98,6 +98,38 @@ describe('runtime client apply', () => {
     bench.sinks?.onConnected?.({ version: '0', cwd: '/f', attachedSessions: 0, canOpenPath: true })
   })
 
+  it('reconnects by refetching only, never by re-issuing an action the user asked for', async () => {
+    // The plan's rule for a recovered network: the client may rebuild what it
+    // reads, but a reconnected generation must not re-send a message,
+    // re-approve a request, or re-install anything. Every `connection/reset`
+    // listener today only refreshes; this pins that.
+    const bench = await mount()
+    const description = { version: '0', cwd: '/f', attachedSessions: 0, canOpenPath: true }
+    bench.sinks?.onConnected?.(description)
+    await flushMicrotasks()
+    const beforeReconnect = bench.api.calls.length
+
+    bench.sinks?.onStateChange?.('reconnecting')
+    await flushMicrotasks()
+    bench.sinks?.onConnected?.(description)
+    await flushMicrotasks()
+
+    // The generation did rebuild its reads...
+    expect(bench.api.calls.length).toBeGreaterThan(beforeReconnect)
+    expect(bench.api.callsOf('session.list').length).toBeGreaterThan(1)
+    // ...and issued none of the actions a user gesture owns.
+    const actions = [
+      'session.prompt', 'session.cancel', 'session.create', 'session.fork', 'session.rename',
+      'session.selectModel', 'session.updateQueue', 'session.attachment', 'respond',
+      'subagent.prompt', 'subagent.interrupt',
+      'goal.create', 'goal.edit', 'goal.complete', 'goal.clear',
+      'settings.mutate', 'settings.update', 'settings.replace', 'credentials.set', 'host.openPath',
+    ]
+    const reissued = bench.api.calls.slice(beforeReconnect).map(call => call.method)
+      .filter(method => actions.includes(method))
+    expect(reissued).toEqual([])
+  })
+
   it('selects the recent Workspace once when the first baselines have no current session', async () => {
     const bench = await mount()
     bench.api.onWorkspaceList = () => Promise.resolve(ok({
