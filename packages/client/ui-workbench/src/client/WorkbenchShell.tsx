@@ -25,6 +25,13 @@ export interface WorkbenchShellInjected {
   closeFile: () => void
 }
 
+/**
+ * Column width below which the preview replaces the panel instead of sitting
+ * beside it. Two panes need room to be usable; under this the file is a page of
+ * its own, which is what a phone column is.
+ */
+const SPLIT_MIN_WIDTH = 640
+
 /** Full composed props: runtime owner share + render shares + store + inject + locale. */
 export type WorkbenchShellProps =
   & PropsRuntime<'workbench'>
@@ -56,12 +63,15 @@ export function WorkbenchShell({
   // The selection falls back to the first registered panel, so a column opened
   // before any panel was selected still shows work rather than an empty frame.
   const active = selected !== null && tabs.some(tab => tab.id === selected) ? selected : tabs[0]?.id
+  // A wide column splits: the panel keeps the tree, the file gets its own pane.
+  // A narrow one pushes: the file covers the panel, and closing it returns.
+  const pushed = file !== null && width < SPLIT_MIN_WIDTH
   // A closed column keeps this component mounted (its selection store survives)
   // but renders nothing, so the workbench never enters the accessibility tree
   // of a page the user has not opened it on.
   if (collapsed) return null
   return (
-    <div className={css.shell}>
+    <div className={css.shell} data-pushed={pushed || undefined}>
       <header className={css.header}>
         <span className={css.title}>{t('title')}</span>
         {tabs.length > 1 && (
@@ -83,31 +93,42 @@ export function WorkbenchShell({
           ×
         </button>
       </header>
-      <div className={css.body}>
-        {active === undefined
-          ? (
-            <div className={css.empty}>
-              <p className={css.emptyTitle}>{t('empty.title')}</p>
-              <p className={css.emptyHint}>{t('empty.hint')}</p>
+      <div className={css.panes}>
+        <div className={css.body}>
+          {active === undefined
+            ? (
+              <div className={css.empty}>
+                <p className={css.emptyTitle}>{t('empty.title')}</p>
+                <p className={css.emptyHint}>{t('empty.hint')}</p>
+              </div>
+            )
+            : renderSlot('workbench.panel', { width }, { only: active })}
+        </div>
+        {file !== null && (
+          <section className={css.viewer} aria-label={file.name}>
+            <header className={css.viewerHeader}>
+              <button
+                type="button"
+                className={css.back}
+                aria-label={t('viewer.back')}
+                title={t('viewer.back')}
+                onClick={closeFile}
+              >
+                ←
+              </button>
+              <span className={css.viewerName} title={file.path}>{file.name}</span>
+              <button type="button" className={css.close} title={t('viewer.close')} onClick={closeFile}>
+                ×
+              </button>
+            </header>
+            <div className={css.viewerBody}>
+              {renderSlotChain('workbench.viewer', file, {
+                fallback: <div className={css.notice}>{t('viewer.unsupported')}</div>,
+              })}
             </div>
-          )
-          : renderSlot('workbench.panel', { width }, { only: active })}
+          </section>
+        )}
       </div>
-      {file !== null && (
-        <section className={css.viewer} aria-label={file.name}>
-          <header className={css.viewerHeader}>
-            <span className={css.viewerName} title={file.path}>{file.name}</span>
-            <button type="button" className={css.close} title={t('viewer.close')} onClick={closeFile}>
-              ×
-            </button>
-          </header>
-          <div className={css.viewerBody}>
-            {renderSlotChain('workbench.viewer', file, {
-              fallback: <div className={css.notice}>{t('viewer.unsupported')}</div>,
-            })}
-          </div>
-        </section>
-      )}
     </div>
   )
 }

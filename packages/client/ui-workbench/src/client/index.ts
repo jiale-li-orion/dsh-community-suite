@@ -40,7 +40,7 @@ import { createWorkbenchStore } from './stores.ts'
 import { WorkbenchController } from './service.ts'
 import type { IWorkbench } from './service.ts'
 import { WorkbenchShell } from './WorkbenchShell.tsx'
-import { WorkbenchToggle } from './WorkbenchToggle.tsx'
+import { WorkbenchBarAction, WorkbenchToggle } from './WorkbenchToggle.tsx'
 
 export type { IWorkbench } from './service.ts'
 export type { WorkbenchFileRef, WorkbenchPanelTab, WorkbenchPanelOwnerProps, WorkbenchViewerOwnerProps } from './contract/slots.ts'
@@ -53,7 +53,7 @@ export type { ThemePanelInjected, ThemePanelProps } from './ThemePanel.tsx'
 export type { FilePanelInjected, FilePanelProps } from './FilePanel.tsx'
 export type { MarketplaceInjected, MarketplacePanelProps } from './MarketplacePanel.tsx'
 export type { WorkbenchShellInjected, WorkbenchShellProps } from './WorkbenchShell.tsx'
-export type { WorkbenchToggleInjected, WorkbenchToggleProps } from './WorkbenchToggle.tsx'
+export type { WorkbenchBarActionProps, WorkbenchToggleInjected, WorkbenchToggleProps } from './WorkbenchToggle.tsx'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -251,6 +251,15 @@ export function apply(ctx: ClientContext): void {
       locale: NS,
     }, createMediaViewer(family)))
   }
+
+  // The same trigger serves the narrow frame's page bar: opening the workbench
+  // page means committing the shared view, which only this plugin owns.
+  ctx.slots.inject('shell.mobile.bar', () => ctx.slots.register({
+    name: 'shell.mobile.bar',
+    id: 'workbench-toggle',
+    locale: NS,
+    inject: () => ({ toggle: () => { void controller.toggle() } }),
+  }, WorkbenchBarAction))
 
   ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({
     name: 'conversation.session.header.utilities',

@@ -12,11 +12,13 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
+import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { useSyncExternalStore } from 'react'
 import { AppFrame } from '@deepseek-ai/dsh-client-ui-layout/src/client/AppFrame.tsx'
 import type { AppFrameProps } from '@deepseek-ai/dsh-client-ui-layout/src/client/AppFrame.tsx'
-import { SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, WORKBENCH_DEFAULT } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
+import { SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
 import { createLayoutStore } from '@deepseek-ai/dsh-client-ui-layout/src/client/stores.ts'
+import { zh } from '@deepseek-ai/dsh-client-ui-layout/src/client/locales.ts'
 import type {
   SessionId, SessionListState, WorkspaceListState,
 } from '@deepseek-ai/dsh-client-runtime/client'
@@ -89,6 +91,7 @@ function mountFrame() {
       useSessions={useSessions}
       useWorkspaces={((sel: (s: WorkspaceListState) => unknown) => sel(workspaceState)) as never}
       SessionProvider={SessionProviderStub}
+      t={makeTranslate(zh)}
     />
   )
   const utils = render(element())
@@ -100,12 +103,6 @@ function tracks(frame: HTMLElement): number[] {
   const m = /^(\d+)px minmax\(0, 1fr\) (\d+)px (\d+)px$/.exec(frame.style.gridTemplateColumns)
   if (m === null) throw new Error(`unexpected template: ${frame.style.gridTemplateColumns}`)
   return [Number(m[1]), Number(m[2]), Number(m[3])]
-}
-
-function singleTrack(frame: HTMLElement): number[] {
-  const m = /^(\d+)px minmax\(0, 1fr\)$/.exec(frame.style.gridTemplateColumns)
-  if (m === null) throw new Error(`unexpected single-panel template: ${frame.style.gridTemplateColumns}`)
-  return [Number(m[1])]
 }
 
 function drag(handle: Element, fromX: number, toX: number): void {
@@ -338,113 +335,61 @@ describe('AppFrame — workbench column', () => {
   })
 })
 
-describe('AppFrame — narrow single-panel workbench', () => {
-  it('presents the open workbench as the single panel instead of deriving it to zero', () => {
-    // At this width the concession chain cannot fit the center beside the
-    // workbench (rail + CENTER_MIN + WORKBENCH_MIN already exceeds the
-    // viewport), so the frame presents the requested column on its own.
+describe('AppFrame — narrow frame pages', () => {
+  it('shows the conversation with a bar naming the session and offering the pages', () => {
     frameWidth = 390
-    const { frame, instance, slotCalls, getByTestId } = mountFrame()
-    expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0, 0])
-    act(() => { instance.actions.openWorkbench() })
-    expect(singleTrack(frame)).toEqual([SIDEBAR_COLLAPSED])
-    expect(frame.hasAttribute('data-single-panel')).toBe(true)
-    expect(frame.hasAttribute('data-workbench-collapsed')).toBe(false)
-    expect(slotCalls.filter(c => c.key === 'workbench').at(-1)!.props)
-      .toEqual({ collapsed: false, width: 390 - SIDEBAR_COLLAPSED })
-    // The conversation stays mounted behind the panel: its session state must
-    // survive the trip back.
+    const { frame, getByTestId } = mountFrame()
+    expect(frame.hasAttribute('data-mobile')).toBe(true)
+    expect(frame.getAttribute('data-mobile-page')).toBe('main')
+    const bar = frame.querySelector('[class*="mobileBar"]')!
+    expect(bar.textContent).toContain('Test')
+    // The switch is a control with a name, not a bare glyph.
+    expect(bar.querySelector('button')?.getAttribute('aria-label')).toBe(zh['mobile.openList'])
     expect(getByTestId('center-content')).toBeTruthy()
   })
 
-  it('returns to the four-column frame when the workbench closes', () => {
+  it('switches to the session list and back, keeping every page mounted', () => {
     frameWidth = 390
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.openWorkbench() })
-    expect(singleTrack(frame)).toEqual([SIDEBAR_COLLAPSED])
-    act(() => { instance.actions.closeWorkbench() })
-    expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0, 0])
-    expect(frame.hasAttribute('data-single-panel')).toBe(false)
+    const { frame, instance, getByTestId } = mountFrame()
+    act(() => { instance.actions.setMobilePage('list') })
+    expect(frame.getAttribute('data-mobile-page')).toBe('list')
+    expect(frame.querySelector('button')?.getAttribute('aria-label')).toBe(zh['mobile.back'])
+    // Switching pages must not cost a session its state: all three stay mounted
+    // and the frame decides what is visible.
+    expect(getByTestId('center-content')).toBeTruthy()
+    expect(getByTestId('sidebar-content')).toBeTruthy()
+    act(() => { instance.actions.setMobilePage('main') })
+    expect(frame.getAttribute('data-mobile-page')).toBe('main')
   })
 
-  it('resizes the single panel with the viewport without writing the preference', () => {
+  it('makes the open workbench the main page and keeps its own width', () => {
     frameWidth = 390
-    const { instance, slotCalls } = mountFrame()
+    const { frame, instance, slotCalls, getByTestId } = mountFrame()
     act(() => { instance.actions.openWorkbench() })
-    frameWidth = 430
-    act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
-    expect(slotCalls.filter(c => c.key === 'workbench').at(-1)!.props)
-      .toEqual({ collapsed: false, width: 430 - SIDEBAR_COLLAPSED })
-    expect(instance.getSnapshot().workbench).toBe(WORKBENCH_DEFAULT)
+    expect(frame.getAttribute('data-mobile-page')).toBe('main')
+    expect(frame.hasAttribute('data-workbench-collapsed')).toBe(false)
+    const workbench = slotCalls.filter(call => call.key === 'workbench').at(-1)!
+    expect(workbench.props).toEqual({ collapsed: false, width: 390 })
+    expect(getByTestId('workbench-content')).toBeTruthy()
   })
 
-  it('restores the shared column width once the frame is wide again', () => {
+  it('returns to the four-column frame when the viewport widens', () => {
     frameWidth = 390
     const { frame, instance } = mountFrame()
-    act(() => { instance.actions.openWorkbench() })
-    expect(instance.getSnapshot().workbench).toBe(WORKBENCH_DEFAULT)
+    act(() => { instance.actions.setMobilePage('list') })
     frameWidth = 1920
     act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
-    expect(tracks(frame)).toEqual([SIDEBAR_DEFAULT, WORKBENCH_DEFAULT, 0])
-    expect(frame.hasAttribute('data-single-panel')).toBe(false)
+    expect(frame.hasAttribute('data-mobile')).toBe(false)
+    expect(tracks(frame)).toEqual([SIDEBAR_DEFAULT, 0, 0])
+    // A page is a narrow-frame idea; widening forgets it.
+    expect(instance.getSnapshot().mobilePage).toBe('main')
   })
 
-  it('offers no resize handle for a panel that fills the frame', () => {
-    frameWidth = 390
+  it('keeps the four-column chain for wide frames', () => {
     const { frame, instance } = mountFrame()
     act(() => { instance.actions.openWorkbench() })
-    expect(frame.querySelectorAll('[class*="handle"]')).toHaveLength(0)
-  })
-
-  it('leaves the wide frame on the concession chain', () => {
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.openWorkbench() })
-    expect(frame.hasAttribute('data-single-panel')).toBe(false)
-    expect(tracks(frame)).toEqual([SIDEBAR_DEFAULT, WORKBENCH_DEFAULT, 0])
-  })
-})
-
-describe('AppFrame — narrow-viewport auto-collapse', () => {
-  it('mounts collapsed below the breakpoint with no sidebar handle', () => {
-    frameWidth = 980
-    const { frame, slotCalls } = mountFrame()
-    expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0, 0])
-    expect(frame.hasAttribute('data-sidebar-collapsed')).toBe(true)
-    expect(slotCalls.filter(c => c.key === 'sidebar').at(-1)!.props).toEqual({ collapsed: true, width: SIDEBAR_COLLAPSED })
-    expect(frame.querySelectorAll('[class*="handle"]')).toHaveLength(0)
-  })
-
-  it('narrow toggle re-expands over the squeezed center and back', () => {
-    frameWidth = 980
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() })
-    expect(tracks(frame)).toEqual([280, 0, 0])
-    expect(frame.hasAttribute('data-sidebar-collapsed')).toBe(false)
-    expect(frame.querySelectorAll('[class*="handle"]')).toHaveLength(1)
-    act(() => { instance.actions.toggleSidebar() })
-    expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0, 0])
-  })
-
-  it('a wide-closed preference re-expands at the contract default while narrow', () => {
-    frameWidth = 1920
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.toggleSidebar() }) // close while wide: preference 0
-    frameWidth = 980
-    act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
-    act(() => { instance.actions.toggleSidebar() })
-    expect(tracks(frame)).toEqual([280, 0, 0])
-    expect(instance.getSnapshot().sidebar).toBe(0) // preference untouched
-  })
-
-  it('shrinking across the breakpoint auto-collapses; re-widening restores the drag width', () => {
-    const { frame, instance } = mountFrame()
-    act(() => { instance.actions.setSidebar(400) })
-    frameWidth = 980
-    act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
-    expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0, 0])
-    frameWidth = 1920
-    act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
-    expect(tracks(frame)).toEqual([400, 0, 0])
+    expect(frame.hasAttribute('data-mobile')).toBe(false)
+    expect(tracks(frame)).toEqual([280, 560, 0])
   })
 })
 

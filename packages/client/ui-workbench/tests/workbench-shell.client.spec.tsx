@@ -37,6 +37,7 @@ function props(
   tabs: readonly WorkbenchPanelTab[],
   selected: string | null = null,
   file: WorkbenchFileRef | null = null,
+  width = 560,
 ): {
   props: WorkbenchShellProps
   select: ReturnType<typeof vi.fn>
@@ -50,7 +51,7 @@ function props(
   return {
     props: {
       collapsed: false,
-      width: 560,
+      width,
       useStore: (read: (s: { active: string | null; file: WorkbenchFileRef | null }) => unknown) =>
         read({ active: selected, file }),
       actions: { select, clear: vi.fn(), preview: vi.fn(), closeFile: vi.fn() },
@@ -139,6 +140,27 @@ describe('WorkbenchShell', () => {
     expect(screen.getByRole('region', { name: FILE.name })).toBeTruthy()
     expect(screen.getByTitle(FILE.path)).toBeTruthy()
     fireEvent.click(screen.getByTitle(zh['viewer.close']))
+    expect(shellProps.closeFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('splits the panel and the file side by side in a wide column', () => {
+    const { props: shellProps } = props(TWO_PANELS, 'files', FILE, 900)
+    const { container } = render(<WorkbenchShell {...shellProps} />)
+    const shell = container.firstElementChild as HTMLElement
+    expect(shell.hasAttribute('data-pushed')).toBe(false)
+    // Both panes are present: the file sits beside the panel, not over it.
+    expect(screen.getByRole('region', { name: FILE.name })).toBeTruthy()
+    expect(shell.querySelector('[class*="body"]')).toBeTruthy()
+  })
+
+  it('pushes the file over the panel in a narrow column and returns through back', () => {
+    const { props: shellProps } = props(TWO_PANELS, 'files', FILE, 390)
+    const { container } = render(<WorkbenchShell {...shellProps} />)
+    const shell = container.firstElementChild as HTMLElement
+    expect(shell.hasAttribute('data-pushed')).toBe(true)
+    // A phone column shows one page; the way back is a control, not a glyph
+    // without a name.
+    fireEvent.click(screen.getByRole('button', { name: zh['viewer.back'] }))
     expect(shellProps.closeFile).toHaveBeenCalledTimes(1)
   })
 

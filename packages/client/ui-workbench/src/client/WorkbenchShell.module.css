@@ -138,3 +138,36 @@
   text-align: center;
   padding: 12px;
 }
+
+/* The panes: side by side when the column can afford two, one at a time when it
+   cannot. The panel and the preview both stay mounted, so a pushed page returns
+   to a tree that never lost its place. */
+.panes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.shell:not([data-pushed]) .viewer {
+  flex: 0 0 55%;
+  border-left: 1px solid var(--dsw-alias-border-l1);
+}
+
+.shell[data-pushed] .body {
+  display: none;
+}
+
+.shell[data-pushed] .viewer {
+  flex: 1;
+}
+
+.back {
+  flex: none;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}

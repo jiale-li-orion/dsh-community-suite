@@ -12,7 +12,8 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
+import type { NS } from './locales.ts'
 import { computeColumns, SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT } from './columns.ts'
 import type { createLayoutStore } from './stores.ts'
 import css from './AppFrame.module.css'
@@ -20,8 +21,9 @@ import css from './AppFrame.module.css'
 /** Full composed props: runtime share + child-slot render share + store share. */
 export type AppFrameProps =
   & PropsRuntime<'root'>
-  & PropsRenderSlots<'sidebar' | 'conversation' | 'workbench' | 'details' | 'shell.overlay'>
+  & PropsRenderSlots<'sidebar' | 'conversation' | 'workbench' | 'details' | 'shell.overlay' | 'shell.mobile.bar'>
   & PropsStore<ReturnType<typeof createLayoutStore>>
+  & PropsLocale<typeof NS>
 
 /** Center column grid item (session-body building block). */
 function CenterColumn(props: { children?: ReactNode }) {
@@ -94,8 +96,15 @@ export function AppFrame({
   useSessions,
   actions,
   renderSlot,
+  t,
 }: AppFrameProps) {
   const panels = useStore(s => s)
+  // The narrow frame's title is the current session, not a product name: the
+  // page behind it is that session's conversation.
+  const sessionTitle = useSessions((s) => {
+    const current = s.current
+    return current === undefined ? undefined : s.byId[current]?.displayTitle
+  })
   const detailsSession = useSessions((s) => {
     const current = s.current
     return current !== undefined && s.byId[current]?.blank === false ? current : undefined
@@ -166,7 +175,9 @@ export function AppFrame({
   // gesture commits, and that still goes through the host service.
   const singlePanel = narrow && panels.workbench > 0
   const workbenchCollapsed = singlePanel ? false : cols.workbench === 0
-  const workbenchWidth = singlePanel ? Math.max(0, viewport - cols.sidebar) : cols.workbench
+  // A narrow frame shows no sidebar rail, so the workbench page owns the whole
+  // width it is given.
+  const workbenchWidth = singlePanel ? viewport : cols.workbench
 
   // The drag base is the rendered width captured at drag start (grabbing a
   // concession-clamped panel must not jump back to the stored preference);
@@ -190,6 +201,47 @@ export function AppFrame({
   const onDetailsDrag = useCallback((dx: number) => {
     actions.setDetails(detailsBase.current - dx)
   }, [actions])
+
+  if (narrow) {
+    const onList = panels.mobilePage === 'list'
+    return (
+      <div
+        ref={frameRef}
+        className={css.frame}
+        data-mobile=''
+        data-mobile-page={panels.mobilePage}
+        data-workbench-collapsed={workbenchCollapsed || undefined}
+      >
+        {/* One page at a time, and a bar that says which session this is and
+            which page it can move to. The padding is the safe area: a control
+            the system status bar covers is a control nobody can press. */}
+        <header className={css.mobileBar}>
+          <button
+            type='button'
+            className={css.mobileNav}
+            aria-label={onList ? t('mobile.back') : t('mobile.openList')}
+            onClick={() => { actions.setMobilePage(onList ? 'main' : 'list') }}
+          >
+            {onList ? '←' : '☰'}
+          </button>
+          <span className={css.mobileTitle} title={sessionTitle}>{sessionTitle ?? t('mobile.untitled')}</span>
+          <div className={css.mobileActions}>{renderSlot('shell.mobile.bar', {})}</div>
+        </header>
+        {/* Every page stays mounted: switching pages must not cost a session its
+            scroll position or a panel its listing. */}
+        <div className={css.mobileBody}>
+          <div className={css.mobileSidebar}>{renderSlot('sidebar', { collapsed: false, width: viewport })}</div>
+          <CenterColumn>{renderSlot('conversation', {})}</CenterColumn>
+          <WorkbenchColumn>
+            {renderSlot('workbench', { collapsed: workbenchCollapsed, width: workbenchWidth })}
+          </WorkbenchColumn>
+        </div>
+        <div className={css.overlayLayer} data-shell-overlay>
+          {renderSlot('shell.overlay', {})}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div

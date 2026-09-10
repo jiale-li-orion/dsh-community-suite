@@ -6,8 +6,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { WorkbenchToggle } from '../src/client/WorkbenchToggle.tsx'
-import type { WorkbenchToggleProps } from '../src/client/WorkbenchToggle.tsx'
+import { WorkbenchBarAction, WorkbenchToggle } from '../src/client/WorkbenchToggle.tsx'
+import type { WorkbenchBarActionProps, WorkbenchToggleProps } from '../src/client/WorkbenchToggle.tsx'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(() => { cleanup() })
@@ -22,5 +22,16 @@ describe('WorkbenchToggle', () => {
     expect(button.getAttribute('title')).toBe(zh['toggle.open'])
     fireEvent.click(button)
     expect(toggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the page-bar form as its own chip, because it has its own seat', () => {
+    const toggle = vi.fn()
+    const bar = { toggle, t } as unknown as WorkbenchBarActionProps
+    const { container } = render(<WorkbenchBarAction {...bar} />)
+    const button = screen.getByRole('button')
+    expect(button.className).toContain('barAction')
+    fireEvent.click(button)
+    expect(toggle).toHaveBeenCalledTimes(1)
+    expect(container.textContent).toBe(zh['title'])
   })
 })

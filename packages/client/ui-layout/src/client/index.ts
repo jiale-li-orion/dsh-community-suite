@@ -8,11 +8,13 @@
  * presenter, which projects ctx.theme snapshots onto document.body.
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-theme/client'
 import type { PanelActions } from './service.ts'
 import { AppFrame } from './AppFrame.tsx'
 import { createLayoutStore } from './stores.ts'
 import { LayoutController } from './service.ts'
+import { en, NS, zh, type LayoutKey } from './locales.ts'
 import { ThemePresenter } from './theme-presenter.ts'
 
 // Contract exports only (export-convergence rule: cross-package consumers
@@ -31,6 +33,11 @@ declare module '@deepseek-ai/cordis' {
 }
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
+  /** Copy the shell owns: the narrow frame's page bar. */
+  interface LocaleNamespaceMap {
+    'layout': LayoutKey
+  }
+
   interface SlotMap {
     // The 'root' entry itself is the runtime's built-in slot (declared
     // there); these four are the frame's children, declared by the same
@@ -96,6 +103,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * `id` is added beside the shipped entries instead of replacing them.
      */
     'shell.overlay': { kind: 'list'; scope: 'root' }
+    /**
+     * The narrow frame's page bar: the additive seat for the actions that own a
+     * page. A fresh `id` is added beside the shipped entries.
+     */
+    'shell.mobile.bar': { kind: 'list'; scope: 'root' }
   }
 }
 
@@ -132,7 +144,7 @@ export interface WorkbenchOwnerProps {
 }
 
 /** Required services (cordis fiber inject — the loader passes all module exports as an object plugin). */
-export const inject = ['slots', 'theme']
+export const inject = ['slots', 'theme', 'locale']
 
 /**
  * Client plugin body: provide ctx.layout, then one register() call — AppFrame
@@ -144,6 +156,7 @@ export function apply(ctx: ClientContext): void {
   const layout = new LayoutController()
   ctx.effect(() => {
     const disposeService = ctx.reflect.provide('layout', layout)
+    ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-layout: dictionaries')
     const disposeRegistration = ctx.slots.register({
       name: 'root',
       children: {
@@ -152,7 +165,12 @@ export function apply(ctx: ClientContext): void {
         'workbench': { kind: 'single', scope: 'root' },
         'details': { kind: 'single', scope: 'session' },
         'shell.overlay': { kind: 'list', scope: 'root' },
+        // The narrow frame's page bar: plugins contribute the actions that own
+        // a page (the workbench toggle), while the shell renders the title and
+        // the page switch it owns itself.
+        'shell.mobile.bar': { kind: 'list', scope: 'root' },
       },
+      locale: NS,
       // Exclusive store: the factory itself — the framework instantiates per
       // entry and delivers useStore/actions to AppFrame as standard props.
       store: createLayoutStore,

@@ -78,7 +78,7 @@ function wireShell(ctx: Context): {
  */
 function injectedOf(
   ctx: Context,
-  name: 'workbench.panel' | 'conversation.session.header.utilities',
+  name: 'workbench.panel' | 'conversation.session.header.utilities' | 'shell.mobile.bar',
   id?: string,
 ): unknown {
   const entries = ctx.slots.entries(name)
@@ -143,6 +143,8 @@ async function bench(layout = fakeLayout(), remote = fakeRemote()) {
     children: {
       'workbench': { kind: 'single', scope: 'root' },
       'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+      // The narrow frame's page bar, which the shell declares.
+      'shell.mobile.bar': { kind: 'list', scope: 'root' },
     },
   } as never, () => null)
   ctx.provide('layout', layout as never)
@@ -188,6 +190,22 @@ describe('ui-workbench browser half', () => {
     expect(ctx.slots.spec('workbench.viewer')).toEqual({ kind: 'chain', scope: 'root' })
     await fiber.dispose()
     expect(ctx.slots.entries('workbench')).toHaveLength(0)
+  })
+
+  it('contributes the workbench page action to the narrow frame bar', async () => {
+    const { ctx, fiber } = await bench()
+    const entries = ctx.slots.entries('shell.mobile.bar')
+    expect(entries).toHaveLength(1)
+    expect(entries[0]!.options.id).toBe('workbench-toggle')
+    // The page the action opens is the shared view, so the entry owns the
+    // controller call rather than the shell reaching for it.
+    const injected = injectedOf(ctx, 'shell.mobile.bar') as { toggle: () => void }
+    // Pressing it commits the shared view through the host, which is what makes
+    // the page the phone opens the same one the desktop shows.
+    injected.toggle()
+    await Promise.resolve()
+    await fiber.dispose()
+    expect(ctx.slots.entries('shell.mobile.bar')).toHaveLength(0)
   })
 
   it('registers the markdown, source, text and media viewers, and removes them with the fiber', async () => {

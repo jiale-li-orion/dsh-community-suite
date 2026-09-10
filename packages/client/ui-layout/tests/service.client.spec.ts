@@ -13,6 +13,7 @@ function fakePanels(): PanelActions {
     setSidebar: vi.fn(),
     setWorkbench: vi.fn(),
     setDetails: vi.fn(),
+    setMobilePage: vi.fn(),
     toggleSidebar: vi.fn(),
     setNarrow: vi.fn(),
     openWorkbench: vi.fn(),

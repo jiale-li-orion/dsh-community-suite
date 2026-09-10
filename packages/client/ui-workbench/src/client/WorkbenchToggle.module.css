@@ -13,3 +13,15 @@
   background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-text-l1);
 }
+
+/* The page-bar form: a chip beside the page it opens, so the bar reads as
+   navigation rather than as a second header. */
+.barAction {
+  padding: 6px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  cursor: pointer;
+}

@@ -32,3 +32,29 @@ export function WorkbenchToggle({ toggle, t }: WorkbenchToggleProps) {
     </button>
   )
 }
+
+/**
+ * The same trigger as it appears on a narrow frame's page bar.
+ *
+ * It is a second entry rather than a second seat on one component because the
+ * owner share is part of the component's props: an entry registered into
+ * `shell.mobile.bar` must declare that seat, and one component cannot be typed
+ * for two seats at once.
+ */
+export type WorkbenchBarActionProps =
+  & PropsRuntime<'shell.mobile.bar'>
+  & InjectFace<WorkbenchToggleInjected>
+  & PropsLocale<typeof NS>
+
+/**
+ * Render the workbench page action for the narrow frame's bar.
+ * @param props - runtime share, injected toggle, and the locale seat.
+ * @returns the bar button.
+ */
+export function WorkbenchBarAction({ toggle, t }: WorkbenchBarActionProps) {
+  return (
+    <button type="button" className={css.barAction} title={t('toggle.open')} onClick={toggle}>
+      {t('title')}
+    </button>
+  )
+}
