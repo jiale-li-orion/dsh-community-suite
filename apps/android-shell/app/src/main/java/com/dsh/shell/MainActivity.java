@@ -22,6 +22,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.IOException;
+
 /**
  * The shell's single window: one WebView over the DSH web application.
  *
@@ -37,11 +39,20 @@ import android.webkit.WebViewClient;
 public class MainActivity extends Activity {
 
     private static final String TAG = "DshShell";
-    private static final String START_URL = "https://node.tail0d75db.ts.net/";
     private static final int FILE_CHOOSER_REQUEST = 1;
+
+    /**
+     * The tailnet endpoint this shell serves. The name is what the certificate
+     * is issued for and what the gateway passes as SNI; the address is what it
+     * dials, so no resolver on the phone is involved.
+     */
+    private static final String UPSTREAM_HOST = "node.tail0d75db.ts.net";
+    private static final String UPSTREAM_ADDRESS = "100.77.160.68";
+    private static final int UPSTREAM_PORT = 443;
 
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
+    private LoopbackProxy proxy;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -80,7 +91,31 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(0xFF151517);
         setContentView(web, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        if (state == null) web.loadUrl(START_URL);
+        if (state == null) web.loadUrl(startOrigin());
+    }
+
+    /**
+     * Origin to load: the loopback gateway when it is up, the named origin when
+     * it is not. The fallback keeps the app usable on a phone whose resolver
+     * happens to work, at the cost of the secure context the loopback origin
+     * provides.
+     */
+    private String startOrigin() {
+        try {
+            proxy = new LoopbackProxy(0, UPSTREAM_HOST, UPSTREAM_ADDRESS, UPSTREAM_PORT);
+            proxy.start();
+            Log.i(TAG, "gateway " + proxy.origin() + " -> " + UPSTREAM_HOST + " (" + UPSTREAM_ADDRESS + ":" + UPSTREAM_PORT + ")");
+            return proxy.origin();
+        } catch (IOException error) {
+            Log.w(TAG, "gateway unavailable, loading the named origin: " + error.getMessage());
+            return "https://" + UPSTREAM_HOST + "/";
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (proxy != null) proxy.close();
+        super.onDestroy();
     }
 
     /** Browser behaviour the page depends on: file selection, console, new-window links. */
