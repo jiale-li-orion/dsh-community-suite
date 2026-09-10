@@ -78,7 +78,7 @@ function wireShell(ctx: Context): {
  */
 function injectedOf(
   ctx: Context,
-  name: 'workbench.panel' | 'conversation.session.header.utilities' | 'shell.background',
+  name: 'workbench.panel' | 'conversation.session.header.utilities',
   id?: string,
 ): unknown {
   const entries = ctx.slots.entries(name)
@@ -138,7 +138,6 @@ async function bench(layout = fakeLayout(), remote = fakeRemote()) {
     children: {
       'workbench': { kind: 'single', scope: 'root' },
       'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
-      'shell.background': { kind: 'list', scope: 'root' },
     },
   } as never, () => null)
   ctx.provide('layout', layout as never)
@@ -152,15 +151,29 @@ async function bench(layout = fakeLayout(), remote = fakeRemote()) {
   ctx.provide('remote.pluginCatalog', remote.remote.pluginCatalog as never)
   ctx.provide('remote.pluginInstall', remote.remote.pluginInstall as never)
   ctx.provide('settingsScope', { bind: () => stubSettingsScope().scope } as never)
+  // ui-theme's service face the plugin injects: reads plus the preference write.
+  const theme = {
+    setTheme: vi.fn(),
+    getTheme: () => ({
+      preference: 'system',
+      active: { id: 'light', colorScheme: 'light', tokens: {} },
+      themes: [
+        { id: 'light', colorScheme: 'light', tokens: {} },
+        { id: 'dark', colorScheme: 'dark', tokens: {} },
+      ],
+      revision: 1,
+    }),
+  }
+  ctx.provide('theme', theme as never)
   await ctx.plugin({ inject: localeInject, apply: applyLocale }).await()
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
-  return { ctx, fiber, layout, ...remote }
+  return { ctx, fiber, layout, theme, ...remote }
 }
 
 describe('ui-workbench browser half', () => {
   it('declares the services it binds, including the generated Remote namespace', () => {
-    expect(inject).toEqual(['slots', 'locale', 'layout', 'remote', 'remote.workbench', 'remote.pluginCatalog', 'remote.pluginInstall'])
+    expect(inject).toEqual(['theme', 'slots', 'locale', 'layout', 'remote', 'remote.workbench', 'remote.pluginCatalog', 'remote.pluginInstall'])
   })
 
   it('occupies the workbench column and declares both of its seats', async () => {
@@ -172,16 +185,38 @@ describe('ui-workbench browser half', () => {
     expect(ctx.slots.entries('workbench')).toHaveLength(0)
   })
 
-  it('registers the three media viewers, each electing its own family, and removes them with the fiber', async () => {
+  it('registers the media and text viewers, each electing its own types, and removes them with the fiber', async () => {
     const { ctx, fiber } = await bench()
     const entries = ctx.slots.entries('workbench.viewer')
-    expect(entries).toHaveLength(3)
+    expect(entries).toHaveLength(4)
     const selectors = entries.map(entry => entry.select as (owner: { mediaType: string }) => string | null)
-    const elected = selectors.map(select => select({ mediaType: 'image/png' }))
-    // Exactly the image entry elects an image; the other two decline.
-    expect(elected.filter(match => match !== null)).toEqual(['image/png'])
+    const elected = (mediaType: string): readonly (string | null)[] =>
+      selectors.map(select => select({ mediaType })).filter(match => match !== null)
+    // Non-overlapping selectors: each type is elected by exactly one entry.
+    expect(elected('image/png')).toEqual(['image/png'])
+    expect(elected('video/mp4')).toEqual(['video/mp4'])
+    expect(elected('application/json')).toEqual(['application/json'])
+    expect(elected('application/octet-stream')).toEqual([])
     await fiber.dispose()
     expect(ctx.slots.entries('workbench.viewer')).toHaveLength(0)
+  })
+
+  it('feeds the theme panel from the theme/change event and writes the preference back', async () => {
+    const { ctx, theme } = await bench()
+    const panel = injectedOf(ctx, 'workbench.panel', 'theme') as {
+      hooks: { theme: { getSnapshot(): { preference: string } } }
+      set: (id: string) => void
+    }
+    expect(panel.hooks.theme.getSnapshot().preference).toBe('system')
+    ctx.emit('theme/change', {
+      preference: 'dark',
+      active: { id: 'dark', colorScheme: 'dark', tokens: {} },
+      themes: [],
+      revision: 2,
+    })
+    expect(panel.hooks.theme.getSnapshot().preference).toBe('dark')
+    panel.set('bloom-aurora')
+    expect(theme.setTheme).toHaveBeenCalledWith('bloom-aurora')
   })
 
   it('registers the header toggle, and fiber teardown removes it (HMR safety)', async () => {
@@ -214,7 +249,7 @@ describe('ui-workbench browser half', () => {
     expect(panels.getSnapshot()).toEqual([
       { id: 'files', label: '文件', order: 10 },
       { id: 'marketplace', label: '插件市场', order: 20 },
-      { id: 'wallpaper', label: '壁纸', order: 30 },
+      { id: 'theme', label: '主题', order: 30 },
     ])
     ctx.slots.inject('workbench.panel', () => ctx.slots.register({
       name: 'workbench.panel',
@@ -235,7 +270,7 @@ describe('ui-workbench browser half', () => {
       { id: 'files', label: '文件', order: 10 },
       { id: 'marketplace', label: '插件市场', order: 20 },
       { id: 'terminal', label: '终端', order: 20 },
-      { id: 'wallpaper', label: '壁纸', order: 30 },
+      { id: 'theme', label: '主题', order: 30 },
     ])
   })
 
@@ -260,7 +295,7 @@ describe('ui-workbench browser half', () => {
       { id: 'files', label: '文件', order: 10 },
       { id: 'tied', label: '并列', order: 10 },
       { id: 'marketplace', label: '插件市场', order: 20 },
-      { id: 'wallpaper', label: '壁纸', order: 30 },
+      { id: 'theme', label: '主题', order: 30 },
     ])
   })
 
@@ -281,36 +316,6 @@ describe('ui-workbench browser half', () => {
     const header = injectedOf(ctx, 'conversation.session.header.utilities') as { toggle: () => void }
     header.toggle()
     expect(namespace.toggle).toHaveBeenCalledTimes(2)
-  })
-
-  it('provides the wallpaper face and registers the background layer', async () => {
-    const { ctx, fiber } = await bench()
-    expect(ctx.slots.entries('shell.background').map(entry => entry.options.id)).toEqual(['wallpaper'])
-    const background = injectedOf(ctx, 'shell.background') as {
-      hooks: { wallpaper: { getSnapshot(): unknown; set(value: unknown): void } }
-    }
-    expect(background.hooks.wallpaper.getSnapshot()).toBeNull()
-    ctx.wallpaper.set({ url: '/u', name: 'a.png' })
-    expect(background.hooks.wallpaper.getSnapshot()).toEqual({ url: '/u', name: 'a.png' })
-    ctx.wallpaper.clear()
-    expect(background.hooks.wallpaper.getSnapshot()).toBeNull()
-    await fiber.dispose()
-    expect(ctx.slots.entries('shell.background')).toHaveLength(0)
-  })
-
-  it('the wallpaper panel inject face lists through the host and writes the shared choice', async () => {
-    const { ctx } = await bench()
-    const panel = injectedOf(ctx, 'workbench.panel', 'wallpaper') as {
-      list: (sessionId: string, path: string | null) => Promise<unknown>
-      set: (choice: { url: string; name: string }) => void
-      clear: () => void
-      hooks: { wallpaper: { getSnapshot(): unknown } }
-    }
-    await expect(panel.list('session-1', null)).resolves.toMatchObject({ root: '/w' })
-    panel.set({ url: '/u', name: 'a.png' })
-    expect(panel.hooks.wallpaper.getSnapshot()).toEqual({ url: '/u', name: 'a.png' })
-    panel.clear()
-    expect(panel.hooks.wallpaper.getSnapshot()).toBeNull()
   })
 
   it('the marketplace panel inject face reads the catalog and installs through the host', async () => {

@@ -148,6 +148,14 @@ async function readCapped(response: Response, maxBytes: number): Promise<string>
   return Buffer.concat(chunks).toString('utf8')
 }
 
+/** Popularity order: stars, then downloads, then name; unknown counts sort last. */
+function byPopularity(left: PluginCatalogEntry, right: PluginCatalogEntry): number {
+  const stars = (right.stars ?? -1) - (left.stars ?? -1)
+  if (stars !== 0) return stars
+  const downloads = (right.downloads ?? -1) - (left.downloads ?? -1)
+  return downloads !== 0 ? downloads : left.name.localeCompare(right.name)
+}
+
 /** Whether one entry matches a lowercase substring needle. */
 function matches(entry: PluginCatalogEntry, needle: string): boolean {
   return entry.name.toLowerCase().includes(needle)
@@ -200,7 +208,10 @@ export class AwesomePluginCatalog extends TypertRemoteService implements PluginC
       (query.category === undefined || entry.category === query.category)
       && (needle === undefined || needle === '' || matches(entry, needle)))
     const limit = Math.min(query.limit ?? DEFAULT_LIMIT, MAX_LIMIT)
-    return { total: matched.length, entries: matched.slice(0, Math.max(0, limit)) }
+    // A queryless search is the marketplace's default view: show the most
+    // installed plugins first instead of the index's generation order.
+    const ordered = needle === undefined || needle === '' ? [...matched].sort(byPopularity) : matched
+    return { total: ordered.length, entries: ordered.slice(0, Math.max(0, limit)) }
   }
 
   /**

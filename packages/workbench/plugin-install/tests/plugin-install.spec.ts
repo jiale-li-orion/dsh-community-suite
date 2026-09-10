@@ -138,6 +138,14 @@ describe('parseInstallTarget', () => {
     expect(parseInstallTarget('dsh plugin --profile web add @scope/dsh-example')).toBe('@scope/dsh-example')
     expect(parseInstallTarget('dsh plugin --profile web add github:owner/repo')).toBe('github:owner/repo')
     expect(parseInstallTarget('dsh plugin --profile web add github:owner/repo#packages/sub')).toBe('github:owner/repo#packages/sub')
+    expect(parseInstallTarget('dsh plugin --profile web add github:owner/repo#v1.2.3')).toBe('github:owner/repo#v1.2.3')
+  })
+
+  it('accepts a pnpm monorepo subpath fragment with or without its leading slash', () => {
+    expect(parseInstallTarget('dsh plugin --profile web add github:Small-tailqwq/dsh-deep-whale#path:/maid-atelier'))
+      .toBe('github:Small-tailqwq/dsh-deep-whale#path:/maid-atelier')
+    expect(parseInstallTarget('dsh plugin --profile web add github:owner/repo#path:packages/bundle'))
+      .toBe('github:owner/repo#path:packages/bundle')
   })
 
   it('refuses a foreign command shape, a traversal, a metacharacter, and an unknown target form', () => {
@@ -150,6 +158,10 @@ describe('parseInstallTarget', () => {
       'dsh plugin --profile web add dsh-example$(whoami)',
       'dsh plugin --profile web add file:../elsewhere',
       'dsh plugin --profile web add https://example.com/plugin.tgz',
+      'dsh plugin --profile web add github:owner/repo#path:',
+      'dsh plugin --profile web add github:owner/repo#path:/',
+      'dsh plugin --profile web add github:owner/repo#path:../elsewhere',
+      'dsh plugin --profile web add github:owner/repo#path:/a/../b',
     ]) {
       expect(() => parseInstallTarget(command)).toThrow(PluginInstallTargetError)
     }

@@ -2,7 +2,7 @@
 
 English | [中文](plugin-catalog.zh.md)
 
-`@deepseek-ai/dsh-plugin-catalog` is the capability, not a data source: it owns the entry and query vocabulary (`PluginCatalogEntry`, `PluginCatalogQuery`, `PluginCatalogPage`) and the abstract `ctx.pluginCatalog` service whose `search({ query, category, limit })` filters a loaded index and whose `get(url)` resolves the exact entry a search returned. `@deepseek-ai/dsh-plugin-catalog-awesome` is the provider: one fetch of the published CC0 [`awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) index, validated once into that vocabulary and cached behind a TTL with an `If-None-Match` revalidation. `@deepseek-ai/dsh-plugin-catalog-tools` is the consumer: `plugin_search` reads the catalog, and `plugin_install` resolves an entry by URL, validates the entry's own install target, and runs it only after an approval grant.
+`@deepseek-ai/dsh-plugin-catalog` is the capability, not a data source: it owns the entry and query vocabulary (`PluginCatalogEntry`, `PluginCatalogQuery`, `PluginCatalogPage`) and the abstract `ctx.pluginCatalog` service whose `search({ query, category, limit })` filters a loaded index — a queryless search is the browse view, ordered by stars then downloads — and whose `get(url)` resolves the exact entry a search returned. `@deepseek-ai/dsh-plugin-catalog-awesome` is the provider: one fetch of the published CC0 [`awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) index, validated once into that vocabulary and cached behind a TTL with an `If-None-Match` revalidation. `@deepseek-ai/dsh-plugin-catalog-tools` is the consumer: `plugin_search` reads the catalog, and `plugin_install` resolves an entry by URL, validates the entry's own install target, and runs it only after an approval grant.
 
 ## Discovery
 
@@ -10,13 +10,13 @@ The provider never serves a partial index. A non-2xx answer, an unreachable host
 
 ## Install
 
-One implementation serves both planes. `@deepseek-ai/dsh-plugin-install` publishes `ctx.pluginInstall.install(url)`: it resolves the entry the URL names, hands the entry's own `install` command to `parseInstallTarget` — which accepts only `dsh plugin [--profile <name>] add <target>` and only an npm specifier or a `github:owner/repo[#subpath]` target, no parent-directory segment and no shell metacharacter — derives the profile from this build's own module path, and runs the accepted argv through the subprocess seam as an array. The command text is never executed and no command is synthesized from entry fields; the index cannot name the profile an install writes to.
+One implementation serves both planes. `@deepseek-ai/dsh-plugin-install` publishes `ctx.pluginInstall.install(url)`: it resolves the entry the URL names, hands the entry's own `install` command to `parseInstallTarget` — which accepts only `dsh plugin [--profile <name>] add <target>` and only an npm specifier or a `github:owner/repo` target with an optional commit-ish or `#path:/<subpath>` fragment, no parent-directory segment and no shell metacharacter — derives the profile from this build's own module path, and runs the accepted argv through the subprocess seam as an array. The command text is never executed and no command is synthesized from entry fields; the index cannot name the profile an install writes to.
 
 The agent path adds `ctx.approval`: `plugin_install` takes only the URL a search result carried, resolves the entry, asks for the decision, and calls the capability only on `allowed-once`. The installed plugin is not mounted until the process restarts, and both callers say so.
 
 ## The marketplace panel
 
-The workbench's `marketplace` panel is the human path to the same capability: it searches the catalog through the provider's Remote surface and calls `pluginInstall.installPlugin` after a two-step confirm, so the click is the operator's own gesture rather than an agent request. It never receives a command — the entry's install string stays on the host — and the `/api` browser trust fence still bounds who may reach the endpoint.
+The workbench's `marketplace` panel is the human path to the same capability: it opens on the catalog's most popular entries, searches through the provider's Remote surface, shows each summary in the reader's language, and calls `pluginInstall.installPlugin` after a two-step confirm, so the click is the operator's own gesture rather than an agent request. It never receives a command — the entry's install string stays on the host — and the `/api` browser trust fence still bounds who may reach the endpoint.
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

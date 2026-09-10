@@ -22,18 +22,6 @@
   }
 }
 
-/* Painted before the columns in document order, so the columns cover it where
-   they paint a surface and the conversation shows it where it does not. The
-   columns deliberately carry no z-index: a column that created a stacking
-   context would trap fixed-position dialogs registered inside it (the settings
-   modal lives in the sidebar's subtree) beneath the later columns. */
-.backgroundLayer {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
 
 .sidebarCol {
   position: relative;

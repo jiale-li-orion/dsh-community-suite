@@ -4,7 +4,7 @@
  * bodies and `workbench.viewer` for the file viewer chain — seats the shell
  * store, and injects the panel-tab projection plus the column transition.
  * Further contributions add the session-header toggle, register the built-in
- * file panel, and register the three media viewers.
+ * file panel, and register the media and text viewers.
  *
  * The host workbench service is the single authority for the shared view:
  * every gesture here calls it, and its `workbench/changed` push is projected
@@ -24,13 +24,12 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 import type {} from '@deepseek-ai/dsh-workbench/remote'
 import type { WorkbenchFileRef, WorkbenchPanelTab } from './contract/slots.ts'
-import type { IWallpaper, WallpaperChoice } from './wallpaper.ts'
 import { FilePanel } from './FilePanel.tsx'
 import { MarketplacePanel } from './MarketplacePanel.tsx'
-import { createWallpaper } from './wallpaper.ts'
-import { WallpaperBackground } from './WallpaperBackground.tsx'
-import { WallpaperPanel } from './WallpaperPanel.tsx'
 import { createMediaViewer, mediaTypeSelector } from './MediaViewer.tsx'
+import { TextViewer, textTypeSelector } from './TextViewer.tsx'
+import { ThemePanel } from './ThemePanel.tsx'
+import type { ThemePanelInjected } from './ThemePanel.tsx'
 import { en, NS, zh } from './locales.ts'
 import type { WorkbenchKey } from './locales.ts'
 import { createWorkbenchStore } from './stores.ts'
@@ -42,11 +41,10 @@ import { WorkbenchToggle } from './WorkbenchToggle.tsx'
 export type { IWorkbench } from './service.ts'
 export type { WorkbenchFileRef, WorkbenchPanelTab, WorkbenchPanelOwnerProps, WorkbenchViewerOwnerProps } from './contract/slots.ts'
 export type { MediaViewerProps } from './MediaViewer.tsx'
+export type { TextViewerProps } from './TextViewer.tsx'
+export type { ThemePanelInjected, ThemePanelProps } from './ThemePanel.tsx'
 export type { FilePanelInjected, FilePanelProps } from './FilePanel.tsx'
 export type { MarketplaceInjected, MarketplacePanelProps } from './MarketplacePanel.tsx'
-export type { IWallpaper, WallpaperChoice } from './wallpaper.ts'
-export type { WallpaperBackgroundInjected, WallpaperBackgroundProps } from './WallpaperBackground.tsx'
-export type { WallpaperPanelInjected, WallpaperPanelProps } from './WallpaperPanel.tsx'
 export type { WorkbenchShellInjected, WorkbenchShellProps } from './WorkbenchShell.tsx'
 export type { WorkbenchToggleInjected, WorkbenchToggleProps } from './WorkbenchToggle.tsx'
 
@@ -54,8 +52,6 @@ declare module '@deepseek-ai/cordis' {
   interface Context {
     /** The outward face only; the concrete service stays inside this plugin. */
     workbench: IWorkbench
-    /** The wallpaper face: the frame's background image, shared by the panel and the layer. */
-    wallpaper: IWallpaper
   }
 }
 
@@ -67,7 +63,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Required services (cordis fiber inject — the loader passes all module exports as an object plugin). */
-export const inject = ['slots', 'locale', 'layout', 'remote', 'remote.workbench', 'remote.pluginCatalog', 'remote.pluginInstall']
+export const inject = ['theme', 'slots', 'locale', 'layout', 'remote', 'remote.workbench', 'remote.pluginCatalog', 'remote.pluginInstall']
 
 /**
  * Project the panel registry into the shell's tab list. Registration order is
@@ -102,11 +98,10 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workbench: dictionaries')
 
   const controller = new WorkbenchController(ctx.layout, ctx.remote.workbench)
-  const wallpaper = createWallpaper()
-  ctx.effect(() => {
-    const disposeService = ctx.reflect.provide('wallpaper', wallpaper.service)
-    return () => { void disposeService() }
-  }, 'ui-workbench: wallpaper service')
+  // ui-theme exposes `getTheme` plus a `theme/change` event, not a bare
+  // observable, so the panel reads a store this plugin feeds from both.
+  const themeState = createSnapshotStore(ctx.theme.getTheme())
+  ctx.effect(() => ctx.on('theme/change', (snapshot) => { themeState.set(snapshot) }), 'ui-workbench: theme state')
   const panels = createSnapshotStore<readonly WorkbenchPanelTab[]>([])
   ctx.effect(() => {
     const project = (): void => { panels.set(projectTabs(ctx.slots.entries('workbench.panel'))) }
@@ -171,11 +166,24 @@ export function apply(ctx: ClientContext): void {
 
   ctx.slots.inject('workbench.panel', () => ctx.slots.register({
     name: 'workbench.panel',
+    id: 'theme',
+    order: 30,
+    label: () => zh['theme.title'],
+    locale: NS,
+    inject: (): ThemePanelInjected => ({
+      hooks: { theme: themeState },
+      set: (id: string) => { ctx.theme.setTheme(id) },
+    }),
+  }, ThemePanel))
+
+  ctx.slots.inject('workbench.panel', () => ctx.slots.register({
+    name: 'workbench.panel',
     id: 'marketplace',
     order: 20,
     label: () => zh['marketplace.title'],
     locale: NS,
     inject: () => ({
+      hooks: { locale: ctx.locale },
       search: async (query: { query?: string; category?: string; limit?: number }) => {
         const result = await ctx.remote.pluginCatalog.search(query)
         if (!result.ok) throw new Error(result.error.message)
@@ -189,26 +197,13 @@ export function apply(ctx: ClientContext): void {
     }),
   }, MarketplacePanel))
 
-  ctx.slots.inject('workbench.panel', () => ctx.slots.register({
-    name: 'workbench.panel',
-    id: 'wallpaper',
-    order: 30,
-    label: () => zh['wallpaper.title'],
+  // Text last: the media selectors decline every text type, so the chain order
+  // only decides which of two non-overlapping selectors is asked first.
+  ctx.slots.inject('workbench.viewer', () => ctx.slots.register({
+    name: 'workbench.viewer',
+    select: textTypeSelector,
     locale: NS,
-    inject: () => ({
-      list: listDir,
-      set: (choice: WallpaperChoice) => { wallpaper.service.set(choice) },
-      clear: () => { wallpaper.service.clear() },
-      hooks: { wallpaper: wallpaper.store },
-    }),
-  }, WallpaperPanel))
-
-  ctx.slots.inject('shell.background', () => ctx.slots.register({
-    name: 'shell.background',
-    id: 'wallpaper',
-    order: 0,
-    inject: () => ({ hooks: { wallpaper: wallpaper.store } }),
-  }, WallpaperBackground))
+  }, TextViewer))
 
   for (const family of ['image', 'audio', 'video'] as const) {
     ctx.slots.inject('workbench.viewer', () => ctx.slots.register({

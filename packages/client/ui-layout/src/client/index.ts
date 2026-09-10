@@ -96,14 +96,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * `id` is added beside the shipped entries instead of replacing them.
      */
     'shell.overlay': { kind: 'list'; scope: 'root' }
-    /**
-     * The frame's background layer: one full-bleed, click-through layer painted
-     * behind every column, so a feature can set the surface the conversation
-     * sits on (a wallpaper, a gradient, a texture) without touching the shell
-     * or any other column's DOM. Entries order among themselves; the columns
-     * always paint above this layer.
-     */
-    'shell.background': { kind: 'list'; scope: 'root' }
   }
 }
 
@@ -160,7 +152,6 @@ export function apply(ctx: ClientContext): void {
         'workbench': { kind: 'single', scope: 'root' },
         'details': { kind: 'single', scope: 'session' },
         'shell.overlay': { kind: 'list', scope: 'root' },
-        'shell.background': { kind: 'list', scope: 'root' },
       },
       // Exclusive store: the factory itself — the framework instantiates per
       // entry and delivers useStore/actions to AppFrame as standard props.

@@ -36,6 +36,7 @@ const ENTRY: PluginCatalogEntry = {
  * Build the composed props over injected catalog faces.
  * @param search - the injected search.
  * @param install - the injected install.
+ * @param active - the active locale the bound hook reports.
  * @returns composed props.
  */
 function props(
@@ -46,16 +47,46 @@ function props(
     profile: 'web',
     output: '',
   })),
+  active = 'zh',
 ): MarketplacePanelProps {
-  return { width: 560, search, install, t } as unknown as MarketplacePanelProps
+  return {
+    width: 560,
+    search,
+    install,
+    useLocale: (read: (snapshot: { active: string }) => unknown) => read({ active }),
+    t,
+  } as unknown as MarketplacePanelProps
 }
 
 describe('MarketplacePanel', () => {
-  it('shows the search box and the listing-is-not-a-review notice before any query', () => {
-    render(<MarketplacePanel {...props()} />)
+  it('opens on the catalog default page and shows the search box and the notice', async () => {
+    const search = vi.fn(() => Promise.resolve({ total: 1, entries: [ENTRY] }))
+    render(<MarketplacePanel {...props(search as MarketplacePanelProps['search'])} />)
     expect(screen.getByLabelText(zh['marketplace.search'])).toBeTruthy()
     expect(screen.getByText(zh['marketplace.notice'])).toBeTruthy()
-    expect(screen.queryByRole('listitem')).toBeNull()
+    // No query typed: the panel still asks for the most popular plugins.
+    await waitFor(() => { expect(search).toHaveBeenCalledWith({ query: undefined, limit: 20 }) })
+    expect(await screen.findByText('dsh-example')).toBeTruthy()
+  })
+
+  it('shows the Chinese summary under zh and the English one under en', async () => {
+    const { unmount } = render(<MarketplacePanel {...props()} />)
+    expect(await screen.findByText('一个示例插件。')).toBeTruthy()
+    unmount()
+
+    const { descriptionZh: _omitted, ...entryWithoutChinese } = ENTRY
+    const noChinese: PluginCatalogEntry = entryWithoutChinese
+    const search = vi.fn(() => Promise.resolve({ total: 1, entries: [noChinese] }))
+    render(<MarketplacePanel {...props(search as MarketplacePanelProps['search'], undefined, 'en')} />)
+    expect(await screen.findByText('An example plugin.')).toBeTruthy()
+    expect(screen.queryByText('一个示例插件。')).toBeNull()
+  })
+
+  it('falls back to the English summary when the index carries no Chinese one', async () => {
+    const { descriptionZh: _dropped, ...entryWithoutChinese } = ENTRY
+    const search = vi.fn(() => Promise.resolve({ total: 1, entries: [entryWithoutChinese] }))
+    render(<MarketplacePanel {...props(search as MarketplacePanelProps['search'])} />)
+    expect(await screen.findByText('An example plugin.')).toBeTruthy()
   })
 
   it('searches with the typed query and renders one row per entry', async () => {
@@ -64,9 +95,8 @@ describe('MarketplacePanel', () => {
     fireEvent.change(screen.getByLabelText(zh['marketplace.search']), { target: { value: 'example' } })
     fireEvent.submit(screen.getByLabelText(zh['marketplace.search']).closest('form')!)
     expect(await screen.findByText('dsh-example')).toBeTruthy()
-    expect(search).toHaveBeenCalledWith({ query: 'example', limit: 20 })
+    expect(search).toHaveBeenLastCalledWith({ query: 'example', limit: 20 })
     expect(screen.getByText('(example)')).toBeTruthy()
-    expect(screen.getByText('An example plugin.')).toBeTruthy()
     expect(screen.getByText('tools · 12★ · 34 downloads')).toBeTruthy()
     expect(screen.getByText(ENTRY.install)).toBeTruthy()
   })
@@ -77,7 +107,7 @@ describe('MarketplacePanel', () => {
     render(<MarketplacePanel {...props(search as MarketplacePanelProps['search'])} />)
     fireEvent.submit(screen.getByLabelText(zh['marketplace.search']).closest('form')!)
     expect(await screen.findByText('tools')).toBeTruthy()
-    expect(search).toHaveBeenCalledWith({ query: undefined, limit: 20 })
+    expect(search).toHaveBeenLastCalledWith({ query: undefined, limit: 20 })
   })
 
   it('reports an empty page and a failed search', async () => {

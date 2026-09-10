@@ -5,9 +5,10 @@
  * entry's own install string stays on the host, and the click is the human's
  * own consent (the agent path is the one that adds `ctx.approval`).
  */
-import { useState } from 'react'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { PluginCatalogPage, PluginCatalogQuery } from '@deepseek-ai/dsh-plugin-catalog/types'
+import { useEffect, useState } from 'react'
+import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { LocaleSnapshot } from '@deepseek-ai/dsh-client-locale/client'
+import type { PluginCatalogEntry, PluginCatalogPage, PluginCatalogQuery } from '@deepseek-ai/dsh-plugin-catalog/types'
 import type { PluginInstallResult } from '@deepseek-ai/dsh-plugin-install/types'
 import type { NS } from './locales.ts'
 import css from './MarketplacePanel.module.css'
@@ -26,6 +27,10 @@ export interface MarketplaceInjected {
    * @returns the completed install.
    */
   install: (url: string) => Promise<PluginInstallResult>
+  hooks: {
+    /** The active locale, so each summary renders in the reader's language. */
+    locale: HostObservable<LocaleSnapshot>
+  }
 }
 
 /** Full composed props for the marketplace panel. */
@@ -33,6 +38,17 @@ export type MarketplacePanelProps =
   & PropsRuntime<'workbench.panel'>
   & InjectFace<MarketplaceInjected>
   & PropsLocale<typeof NS>
+
+/**
+ * The summary to show for one entry: the Chinese one when the active locale is
+ * Chinese and the index carries it, otherwise the English summary.
+ * @param entry - the catalog entry.
+ * @param locale - the active locale id.
+ * @returns the summary to render.
+ */
+function summary(entry: PluginCatalogEntry, locale: string): string {
+  return locale === 'zh' ? entry.descriptionZh ?? entry.description : entry.description
+}
 
 /** One result row's popularity line. */
 function popularity(stars: number | null, downloads: number | null, category: string): string {
@@ -48,7 +64,8 @@ function popularity(stars: number | null, downloads: number | null, category: st
  * @param props - owner width, injected catalog faces, and the locale seat.
  * @returns the search box, results, and the install affordance.
  */
-export function MarketplacePanel({ search, install, t }: MarketplacePanelProps) {
+export function MarketplacePanel({ search, install, useLocale, t }: MarketplacePanelProps) {
+  const locale = useLocale(snapshot => snapshot.active)
   const [draft, setDraft] = useState('')
   const [page, setPage] = useState<PluginCatalogPage | undefined>(undefined)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -56,16 +73,18 @@ export function MarketplacePanel({ search, install, t }: MarketplacePanelProps) 
   const [confirming, setConfirming] = useState<string | undefined>(undefined)
   const [installed, setInstalled] = useState<PluginInstallResult | undefined>(undefined)
 
-  const runSearch = (): void => {
+  const runSearch = (query: string): void => {
     setError(undefined)
     setInstalled(undefined)
     setConfirming(undefined)
-    const query = draft.trim()
     void search({ ...query === '' ? {} : { query }, limit: 20 }).then(
       (next) => { setPage(next) },
       (cause: unknown) => { setError(cause instanceof Error ? cause.message : String(cause)) },
     )
   }
+
+  // The panel opens on the catalog's most popular plugins; a query narrows it.
+  useEffect(() => { runSearch('') }, [])
 
   const runInstall = (url: string): void => {
     setError(undefined)
@@ -84,7 +103,7 @@ export function MarketplacePanel({ search, install, t }: MarketplacePanelProps) 
     <div className={css.panel}>
       <form
         className={css.search}
-        onSubmit={(event) => { event.preventDefault(); runSearch() }}
+        onSubmit={(event) => { event.preventDefault(); runSearch(draft.trim()) }}
       >
         <input
           className={css.input}
@@ -106,7 +125,7 @@ export function MarketplacePanel({ search, install, t }: MarketplacePanelProps) 
         {(page?.entries ?? []).map(entry => (
           <li key={entry.url} className={css.row}>
             <div className={css.name}>{entry.name}<span className={css.owner}> ({entry.owner})</span></div>
-            <div className={css.description}>{entry.description}</div>
+            <div className={css.description}>{summary(entry, locale)}</div>
             <div className={css.meta}>{popularity(entry.stars, entry.downloads, entry.category)}</div>
             <div className={css.actions}>
               <code className={css.command} title={entry.install}>{entry.install}</code>

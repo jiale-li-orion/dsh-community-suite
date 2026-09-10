@@ -18,4 +18,4 @@ None; this package neither assembles nor sends a provider request.
 
 - **Restart required** — a plugin installed into the running profile is not mounted until the process restarts; the caller reports that, the service cannot reload the composition.
 - **No uninstall** — removing a plugin is a separate operation the catalog does not describe, so it is deferred rather than guessed.
-- **One target grammar** — npm specifiers and `github:owner/repo[#subpath]` only; any other install source needs an explicit decision, not a widened regex.
+- **One target grammar** — npm specifiers and `github:owner/repo` with an optional commit-ish or `#path:/<subpath>` fragment only; any other install source needs an explicit decision, not a widened regex.

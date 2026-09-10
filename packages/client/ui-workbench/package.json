@@ -52,10 +52,11 @@
     "@deepseek-ai/dsh-client-ui-conversation": "workspace:^",
     "@deepseek-ai/dsh-client-ui-layout": "workspace:^",
     "@deepseek-ai/dsh-client-ui-slots": "workspace:^",
-    "react": "^18.2.0",
-    "@deepseek-ai/dsh-workbench": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-theme": "workspace:^",
     "@deepseek-ai/dsh-plugin-catalog": "workspace:^",
-    "@deepseek-ai/dsh-plugin-install": "workspace:^"
+    "@deepseek-ai/dsh-plugin-install": "workspace:^",
+    "@deepseek-ai/dsh-workbench": "workspace:^",
+    "react": "^18.2.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
