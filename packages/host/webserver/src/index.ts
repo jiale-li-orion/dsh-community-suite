@@ -263,4 +263,9 @@ export class WebServer extends Service {
   }
 }
 
+// Response-encoding helpers for the routes that ship large text bodies; the
+// service class stays the module's plugin export.
+export { COMPRESSION_MIN_BYTES, selectEncoding, sendEncoded } from './encode.ts'
+export type { ResponseEncoding } from './encode.ts'
+
 export default WebServer

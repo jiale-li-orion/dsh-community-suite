@@ -29,7 +29,7 @@ import { dirname, join } from 'node:path'
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import type {} from '@deepseek-ai/dsh-host-webserver'
+import { sendEncoded } from '@deepseek-ai/dsh-host-webserver'
 import type { WebBootEntry, WebBootGraph } from './client/manifest.ts'
 
 export type {
@@ -444,11 +444,12 @@ export class ClientModuleRegistry extends Service {
     }
     try {
       const body = await readFile(path)
-      res.writeHead(200, {
+      // Bundles are the largest bodies this server ships, and a relayed client
+      // pays for every byte of them.
+      await sendEncoded(req, res, 200, body, {
         'content-type': isSourceMap ? 'application/json; charset=utf-8' : 'text/javascript; charset=utf-8',
         'cache-control': 'no-cache',
       })
-      res.end(body)
     } catch {
       // Registered but unreadable (bundle not built yet): loud 404 beats a silent SPA-fallback HTML page.
       res.writeHead(404)

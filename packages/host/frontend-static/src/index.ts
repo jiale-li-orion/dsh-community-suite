@@ -11,12 +11,12 @@
  * @module @deepseek-ai/dsh-host-frontend-static
  */
 
-import type { ServerResponse } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-host-webserver'
+import { sendEncoded } from '@deepseek-ai/dsh-host-webserver'
 
 /** Stable Cordis plugin name. */
 export const name = 'frontend-static'
@@ -54,7 +54,7 @@ const MIME: Record<string, string> = {
  * `/` and every SPA fallback.
  */
 export async function serveStatic(
-  pathname: string, res: ServerResponse, distRoot: string, distIndex: string,
+  req: IncomingMessage, pathname: string, res: ServerResponse, distRoot: string, distIndex: string,
   renderIndex: () => Promise<string>,
 ): Promise<void> {
   const target = resolve(normalize(join(distRoot, pathname)))
@@ -67,9 +67,9 @@ export async function serveStatic(
     return
   }
   const serveIndex = async (): Promise<void> => {
-    const body = await renderIndex()
-    res.writeHead(200, { 'content-type': MIME['.html'] })
-    res.end(body)
+    // The index body is produced per request by the registered taps, so it is
+    // encoded here rather than cached.
+    await sendEncoded(req, res, 200, await renderIndex(), { 'content-type': MIME['.html'] })
   }
   if (target === distRoot || target === distIndex) {
     await serveIndex()
@@ -77,8 +77,9 @@ export async function serveStatic(
   }
   try {
     const body = await readFile(target)
-    res.writeHead(200, { 'content-type': MIME[extname(target)] ?? 'application/octet-stream' })
-    res.end(body)
+    await sendEncoded(req, res, 200, body, {
+      'content-type': MIME[extname(target)] ?? 'application/octet-stream',
+    })
   } catch {
     // Miss (ENOENT/EISDIR) falls back to index.html with 200 (SPA routing).
     await serveIndex()
@@ -105,6 +106,6 @@ export function apply(ctx: Context, config: Config): void {
     }
     /* v8 ignore next -- node:http always sets url on server requests */
     const rawPath = new URL(req.url ?? '/', 'http://x').pathname
-    await serveStatic(decodeURIComponent(rawPath), res, distRoot, distIndex, renderIndex)
+    await serveStatic(req, decodeURIComponent(rawPath), res, distRoot, distIndex, renderIndex)
   }), 'frontend-static: fallback seat')
 }

@@ -140,12 +140,16 @@ describe('client bundle activation', () => {
     await route.handler({
       method: 'GET',
       url: `/plugins/${packageName}/client.js.map`,
+      headers: {},
     } as IncomingMessage, response)
 
     expect(status).toBe(200)
     expect(headers).toEqual({
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-cache',
+      // Covered responses vary on Accept-Encoding even when this body ships
+      // unchanged (it is below the compression threshold).
+      'vary': 'accept-encoding',
     })
     expect(body).toBe(map)
   })

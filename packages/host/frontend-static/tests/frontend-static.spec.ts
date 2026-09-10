@@ -7,6 +7,8 @@
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { request as httpRequest } from 'node:http'
+import { gunzipSync } from 'node:zlib'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -83,6 +85,28 @@ async function request(port: number, path: string, init?: RequestInit): Promise<
   }
 }
 
+/** One raw response: status, headers, and the undecoded body. */
+interface RawResponse {
+  status: number
+  headers: Record<string, string | string[] | undefined>
+  body: Buffer
+}
+
+/** GET one path over a raw socket, so the response encoding is observable (fetch would decode it). */
+async function rawRequest(port: number, path: string, acceptEncoding: string): Promise<RawResponse> {
+  return new Promise((resolve, reject) => {
+    const call = httpRequest({ host: '127.0.0.1', port, path, headers: { 'accept-encoding': acceptEncoding } }, (response) => {
+      const chunks: Buffer[] = []
+      response.on('data', (chunk: Buffer) => chunks.push(chunk))
+      response.on('end', () => {
+        resolve({ status: response.statusCode ?? 0, headers: response.headers, body: Buffer.concat(chunks) })
+      })
+    })
+    call.on('error', reject)
+    call.end()
+  })
+}
+
 describe('real Loader composition', () => {
   it('serves the dist with SPA fallback, taps, traversal rejection, and method gating', { timeout: 60_000 }, async () => {
     const loaded = await loadComposition()
@@ -129,5 +153,27 @@ describe('real Loader composition', () => {
     await frontendEntry!.fiber?.dispose()
     expect((await request(port, '/no/such/route')).status).toBe(404)
     expect(() => server.registerFallback(() => {})).not.toThrow()
+  })
+
+  it('compresses text assets for a client that accepts gzip and leaves others alone', { timeout: 60_000 }, async () => {
+    const loaded = await loadComposition()
+    const port = loaded.webServer.port
+    const source = `export const payload = "${'a'.repeat(4096)}"`
+    await writeFile(join(root!, 'dist', 'payload.js'), source)
+
+    const compressed = await rawRequest(port, '/payload.js', 'gzip, deflate, br')
+    expect(compressed.status).toBe(200)
+    expect(compressed.headers['content-encoding']).toBe('gzip')
+    expect(compressed.headers['vary']).toBe('accept-encoding')
+    expect(gunzipSync(compressed.body).toString('utf8')).toBe(source)
+
+    const identity = await rawRequest(port, '/payload.js', 'identity')
+    expect(identity.headers['content-encoding']).toBeUndefined()
+    expect(identity.body.toString('utf8')).toBe(source)
+
+    // A body below the threshold ships unchanged even when compression is accepted.
+    const small = await rawRequest(port, '/app.js', 'gzip')
+    expect(small.headers['content-encoding']).toBeUndefined()
+    expect(small.body.toString('utf8')).toBe('export {}')
   })
 })
