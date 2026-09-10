@@ -71,8 +71,8 @@ describe('ThemePanel', () => {
     expect(set).toHaveBeenCalledWith('light')
   })
 
-  it('marks a registered theme as current and offers the system row', () => {
-    const { props: composed, set } = props({ ...SNAPSHOT, preference: 'bloom-aurora' })
+  it('marks the concrete preference as current and offers the system row', () => {
+    const { props: composed, set } = props({ ...SNAPSHOT, preference: 'dark' })
     render(<ThemePanel {...composed} />)
     expect(screen.getAllByText(zh['theme.active'])).toHaveLength(1)
     // Only the system row is unmarked here, so it is the one apply button.
