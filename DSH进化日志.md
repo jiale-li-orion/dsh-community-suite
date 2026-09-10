@@ -335,6 +335,43 @@
 - **一个自己造出来的回归（重要）**：`DSH_SNAPSHOT=replay pnpm run test:web` 报 **36 个失败**（`settings-chrome`、`models-settings`、`agent-preset-authoring`、`plugin-config`、两份 onboarding、`cordis-tool-round`），全部是 30s 点击超时，报错都指向「`_6_0dBa_scrollBody` 拦截了指针事件」。根因是 Phase 7 给四条栏位加了 `position: relative; z-index: 1`——设置模态框注册在 `sidebar.settings`（侧栏子树里，`position: fixed; z-index: 1000`），栏位一建立堆叠上下文就把它永久压在后面的会话列之下，z-index 再大也出不来。修法是**只删四条 `z-index: 1`**：背景图层本来就在文档顺序上排在栏位之前，栏位自然盖住它、透明处露出它，模态框则重新回到框架的堆叠上下文里。单独跑 `settings-chrome.e2e.ts` 从 6 失败变为 **8/8 通过**。
 - 验证：`ui-workbench` + `ui-conversation` 38 文件 / 510 测试、`ui-workbench` 范围 per-file 覆盖率含新文件 `listing.ts` 100%、`test:gui` 287 文件 / 3902 通过、`lint` 0/0、`verify-client-bundles` 41/41、`doc-sync` 28/28；实机在 3080 上点进 `assets/` 设置图片并截图确认（彩色探针图：会话区均值 R 249.8 → 219.6，侧栏保持自己的表面色）。
 
+## 2026-09-10
+
+### 00:20–00:40 · 市场装不了 monorepo 皮肤：放宽 `#path:` 片段；装了两套社区皮肤
+
+- **用户实测报错**：在插件市场点安装 `dsh-deep-whale#maid-atelier`（⭐1974）失败——`install target "github:Small-tailqwq/dsh-deep-whale#path:/maid-atelier" is neither an npm specifier nor a github:owner/repo reference`。`parseInstallTarget` 的 `GITHUB_SPEC` 只认 `#<commit-ish>`，不认 pnpm 的 monorepo 子目录片段。
+- **按证据放宽**：抓了 CC0 索引全量统计（3408 条，`install` 命令 100% 匹配 `dsh plugin [--profile <name>] add <target>`）：npm 1792、`github:owner/repo` 1476、**`#path:/<子路径>` 140**、`#semver:` 0、git/http/别名 0。所以只加 `#path:` 这一种形态（可带或不带前导 `/`），其余不放宽；`..`、空片段、shell 元字符照旧拒绝，报错文案改成点明可接受形态。`plugin-install` 测试 10 个（新增 2 个接受 + 5 个拒绝用例）。
+- **顺手把新门禁用在真实第三方包上**：装完先用 `verify-client-bundles` 的同一套逻辑（vm 里执行注册信封 + 比对模块表 + `dsh.client.inject` 边）预检。
+  - `@dsh-external/dsh-client-ui-skin-maid-atelier`：OK（7.2 MB bundle，只 require 表内词，inject 为空）。
+  - `@kubor/dsh-bloom-theme`：OK（OKLCH 莫兰迪四变体，纯 token，无 peer 依赖）。
+  - `dsh-dream-skin`：**拒绝**——它的 bundle 在 `load({...})` 之外还留了一个顶层 IIFE，执行时立刻 `document.createElement("style")`、扫 `[role="dialog"] nav button` 并在 `document.body` 上挂 `MutationObserver`；这违反「执行 bundle 只注册 factory」，且不属于任何 fiber、无法随 dispose 回收。已装又卸载（`dsh plugin --profile web remove dsh-dream-skin`），要装回来一条命令即可。
+- 现状：`~/.dsh/profiles/web/package.json` 的 bundles 追加了 `@dsh-external/dsh-client-ui-skin-maid-atelier` 与 `@kubor/dsh-bloom-theme`；`dsh --profile web --dump-config` 组合成功（两行落在末尾）；**需要重启进程才会生效**，且市场面板里的 `#path:` 目标也要等重启后才会被新的校验器接受。
+
+### 15:38 · 记录阶段性开发 spec、启动故障核查与外观插件审查
+
+- **开发计划已保存**：[阶段性开发计划 Spec v0.1](进化/阶段性开发计划.spec.md)。依据进化日志、灵感及两版架构材料，划分 E0 访问基线 → E1 移动 Web/PWA → E2 内容接入（交付 A）→ E3 最小设备协议 → E4 薄 Android 能力（交付 B）→ E5 多节点/物理能力评估。已区分现有工作台与 PWA manifest、待补移动体验、浏览器本地偏好及服务端共享状态；包含依赖、验收、代码入口和初始工期估算，功能尚未实施。编写 spec 时 `pnpm run doc-sync` 为 28 通过、0 失败，32 个本地引用及格式检查通过；lint 的首轮因沙箱 IPC 限制失败，宿主重试最终结果未取得，不记为通过。
+- **启动故障与恢复**：用户报告 `web boot: 36 entries did not activate`，多个插件等待 `slots`、`connection`、`typert`、`remote` 等基础服务。核查时宿主 `127.0.0.1:3080` 返回 HTTP 200；独立浏览器能加载会话列表和输入框，连续三次重新打开均未出现失败页面。用户随后确认刷新已恢复。本次未重启服务、未修改启动代码，根因尚未确定，不能把恢复归因于某项修复，也不能认定由皮肤或构建造成。
+- **验证范围**：`node --import tsx/esm scripts/verify-client-bundles.ts` 检查仓库内 41 个 bundle 通过；这不等于第三方插件生命周期合规。独立浏览器访问 Tailscale `:3081` 入口发生 CDP 导航超时，未完成该入口验证，不能据此判断远程服务失效。检查结束已关闭本次创建的浏览器会话。
+- **壁纸与女仆皮肤职责冲突**：内置壁纸注册在 `shell.background`；安装的 `@dsh-external/dsh-client-ui-skin-maid-atelier@0.0.1` 在会话列内另建带完整背景的 `character-stage`，未通过同一背景选择机制协调。源码与实页层级显示该背景可覆盖框架底层壁纸。皮肤还把 `--dsw-alias-bg-base` 设为 `transparent`（实页 computed style 已确认），而[壁纸遮罩](packages/client/ui-workbench/src/client/WallpaperPanel.module.css)正使用该变量，原本的可读性遮罩因此失去颜色。
+- **更正“Bloom 纯 token”判断**：安装的 `@kubor/dsh-bloom-theme@0.9.0` 不只提供配色。其 `src/client.ts` 顶层 IIFE 注入 CSS/控件、挂观察器并检查更新；localhost/127.0.0.1 下每 3 秒 GET 自己的脚本，内容变化后调用 `location.reload()`，实页已观察到连续轮询。`src/dom.ts` 还扫描并标记 `<think>` 文本。定时器、全局观察器等没有对应 Cordis effect disposer，存在卸载残留；本次未执行卸载实验。前次预检的“OK”不能作为纯主题或可安全热卸载的结论。
+- **内置壁纸的状态问题（源码审查）**：[WallpaperPanel](packages/client/ui-workbench/src/client/WallpaperPanel.tsx)将壁纸 URL 绑定 `sessionId + path`，会话删除或文件移动会使背景失效；选择保存在浏览器 localStorage，不会自动同步到手机。面板切换会话时没有重置目录与旧列表，可能用旧工作区路径访问新会话；列目录失败后直接返回错误视图，清除/返回入口也不可见。[WallpaperBackground](packages/client/ui-workbench/src/client/WallpaperBackground.tsx)记住失败 URL，同一 URL 在组件存活期间持续隐藏，缺少重试恢复。这些问题尚未新增回归测试或修复。
+- **后续建议，尚未实施**：主题负责颜色，皮肤负责装饰，壁纸服务统一管理背景；用户自选壁纸优先于皮肤默认背景。先处理 Bloom 的自动刷新与资源清理，再修壁纸目录/失败恢复，随后统一外观设置和背景优先级。本次只做审查，没有卸载第三方插件或修改其源码。
+
+### 15:40–16:10 · 三条体验反馈的落地
+
+- **① 文件没有可用预览 → 补文本查看器 + 放宽类型表**。根因有两层：`workbench.viewer` 链只有 image/audio/video 三个选择器，且 host 的 `contentTypeForPath` 只认 24 个扩展名，`.ts`/`.yml`/`.log` 之类全落成 `application/octet-stream`（连"文本"都不算）。新增 `TextViewer`（选 `text/*` 与 `application/json`，`fetch` 字节路由后渲染 `<pre>`，超 `TEXT_PREVIEW_LIMIT=200000` 字符截断并提示，卸载即 abort）并把类型表扩到代码/配置/标记语言等 60+ 扩展名——**全部映射到非可执行类型**（`.html` 是 `text/plain`，不是 `text/html`，字节路由按表发 `Content-Type`）。实机验证：点 `AGENTS.md` 渲染出 15987 字符。
+- **② 市场**：打开即列默认页（原来必须点搜索）、按 star 排序、按阅读者语言显示摘要。provider 的 `search` 在无关键词时按 star → 下载量 → 名称排序（索引原序是生成顺序，不是热度）；面板挂载时自动拉取一页；`ui-workbench` 注册把 `ctx.locale` 作为 inject `hooks` 交给面板，面板按 `active` 选 `descriptionZh`（浏览器是英文时显示英文，这是设计）。安装失败里 `#path:` 那类已在 00:20 条目修掉。
+- **③ 壁纸面板去掉，只留主题**：用户反馈"在文件夹里选图片当背景没啥用，还不如主题"。删掉 `WallpaperPanel`/`WallpaperBackground`/`wallpaper.ts` 与其两个 spec、面板与 `shell.background` 条目、`ctx.wallpaper` 服务、`shell.background` 座位（ui-layout 的 SlotMap/AppFrame/CSS）、`selectWallpaperEntries`、本地化键、README/子系统页的段落与该特性的 Agent Note 三件套（历史留在本日志）。会话列根节点恢复自己的底色（座位没了，那层透明就没意义了）。工作台现在只有「文件」「插件市场」两个面板。
+- 验证：`ui-workbench`（含新 `TextViewer`）per-file 覆盖率 100%、`packages/workbench` + `ui-workbench` + `ui-layout` + `ui-conversation` 51 文件 / 651 测试、`test:gui` 286 文件 / 3899 通过（`ui-primitives` 的 code-block 懒加载用例单独跑通过，属既有 flake）、`lint` 0/0、`doc-sync` 28/28、`verify-client-bundles` 41/41；实机确认壁纸页消失、文本预览可用、市场无需搜索即出结果。
+
+### 16:10–16:35 · 工作台「主题」面板（GUI 切换，含恢复默认）
+
+- **新面板 `theme`（order 30，接替原来的壁纸位）**：列出 `ctx.theme` 注册表里的全部主题 + `默认（跟随系统）`，当前项标「当前」，其余给「应用」按钮；应用走的是 `ctx.theme.setTheme`——与设置里「外观」行同一个偏好、同一个 owner，不做第二份状态。
+- **接线细节**：`ThemeRuntime` 只有 `getTheme()` 与 `theme/change` 事件，**不是** bare observable，所以插件在 `apply` 里用一个 `SnapshotStore` 承接（初值 `getTheme()` + 订阅事件），再把它作为 inject `hooks` 交给面板（面板侧 `useTheme`）；`ui-workbench` 的 inject 增加 `theme`。面板的 inject 面显式标注类型，否则注册处推断出来的 face 不带 `hooks`。
+- **实机**：刷新后工作台是「文件 / 插件市场 / 主题」；主题页当前显示 `Default (follow system)` / `light` / `dark`（dark 为当前）。**社区皮肤没有登记进原生注册表**——bloom 走 `body[data-bloom-variant]`、女仆皮走 `data-dsh-maid-atelier`，所以它们不在这张表里（要用它们自己的设置入口切）；我的面板对"愿意用原生注册表的主题"自动生效。
+- **顺带确认「极光」来源**：是 **bloom-theme 的 `aurora` 变体**——`body[data-bloom-variant="aurora"]::before` 上两条斜向渐变丝带 + 60px blur + 28s 漂移动画（`z-index:-1`，画在应用内容之下）。当前 body 是 `data-bloom-variant="mist"`，所以要把变体切到 aurora 才会看到；不想要就卸掉 bloom 或换成别的变体。
+- 验证：`ui-workbench` 81 测试（含新 `ThemePanel` 4 个）与 per-file 覆盖率 100%、`typecheck` 两面 0、`verify-client-bundles` 41/41；实机截图确认三栏与主题页。
+
 ## 待办与注意
 
 - 工作台五阶段全部落地并本地提交：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`、可靠性门禁 = `03da2eb` + `3391814`（日志两次单独提交 `60b7e78`、`55a2c19`）；`origin/main` 仍停在 `33b890f`（未 push）。
