@@ -81,6 +81,7 @@
     "@deepseek-ai/dsh-plugin-catalog": "workspace:^",
     "@deepseek-ai/dsh-plugin-catalog-awesome": "workspace:^",
     "@deepseek-ai/dsh-plugin-install": "workspace:^",
+    "@deepseek-ai/dsh-client-ui-connection-status": "workspace:^",
     "@deepseek-ai/dsh-client-ui-jobs": "workspace:^",
     "@deepseek-ai/dsh-client-ui-workbench": "workspace:^",
     "@deepseek-ai/dsh-client-ui-theme": "workspace:^",

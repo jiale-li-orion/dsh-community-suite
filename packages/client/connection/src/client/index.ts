@@ -49,6 +49,14 @@ export interface HostDescriptionSource {
   subscribe(listener: () => void): () => void
 }
 
+/** Observable connection phase, published for surfaces that report connection loss. */
+export interface ConnectionStateSource {
+  /** Latest phase; absent until the stream loop starts. */
+  getSnapshot(): ConnectionState | undefined
+  /** Subscribe to phase changes. */
+  subscribe(listener: () => void): () => void
+}
+
 /** Required services (none — this is the wire root). */
 export const inject: string[] = []
 
@@ -64,6 +72,8 @@ export interface ConnectionHandle {
   readonly isLoopback: boolean
   /** Generation-scoped Host facts, including native path-open capability. */
   readonly hostDescription: HostDescriptionSource
+  /** Connection phase, for surfaces that report loss and recovery. */
+  readonly connectionState: ConnectionStateSource
   /** Generic logical RPC channels over the same Connection transport. */
   readonly rpc: ClientConnectionRpc
   /**
@@ -90,6 +100,19 @@ export function apply(ctx: Context): void {
   let started = false
   let description: HostDescription | undefined
   const descriptionListeners = new Set<() => void>()
+  let phase: ConnectionState | undefined
+  const phaseListeners = new Set<() => void>()
+  const publishPhase = (next: ConnectionState | undefined): void => {
+    if (Object.is(phase, next)) return
+    phase = next
+    for (const listener of [...phaseListeners]) {
+      try {
+        listener()
+      } catch (error) {
+        console.error('[web-runtime] connection-state listener threw:', error)
+      }
+    }
+  }
   const publishDescription = (next: HostDescription | undefined): void => {
     if (Object.is(description, next)) return
     description = next
@@ -111,6 +134,13 @@ export function apply(ctx: Context): void {
         return () => { descriptionListeners.delete(listener) }
       },
     },
+    connectionState: {
+      getSnapshot: () => phase,
+      subscribe: (listener) => {
+        phaseListeners.add(listener)
+        return () => { phaseListeners.delete(listener) }
+      },
+    },
     rpc,
     start(sinks, config) {
       if (started) throw new Error('connection: the stream loop is already owned by another consumer')
@@ -127,6 +157,7 @@ export function apply(ctx: Context): void {
           sinks.onConnected?.(next)
         },
         onStateChange: (state) => {
+          publishPhase(state)
           if (state === 'reconnecting') publishDescription(undefined)
           sinks.onStateChange?.(state)
         },
@@ -136,6 +167,7 @@ export function apply(ctx: Context): void {
         stop: () => {
           controller.stop()
           publishDescription(undefined)
+          publishPhase(undefined)
         },
       }
     },
