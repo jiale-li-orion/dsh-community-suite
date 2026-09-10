@@ -461,9 +461,22 @@
 - **钉子**：`packages/client/runtime/tests/client-apply.client.spec.ts` 新增用例，在真实 runtime 测试台上驱动「一代连接死亡 → 下一代握手完成」，断言两半：读取确实重建了（`session.list` 被再次调用），且**一个用户手势拥有的动作都没重发**（prompt / cancel / create / fork / rename / selectModel / updateQueue / respond / subagent 调用 / goal 与 settings 变更 / credentials / host.openPath）。这条会在将来有人往 `connection/reset` 里塞"自动重发"时立刻变红。
 - **计划已同步**：`进化/阶段性开发计划.spec.md` 的 E1 六项勾选全部按证据更新，并明确写出唯一悬置项（组装场景 `mobile-workbench.e2e.ts`）与 E0 遗留的真机项（断网重连、停服务后手机不可达），后者与横幅的真机触发合并执行。
 
+### 00:20–01:10 · 手机侧排障全过程与结论：瓶颈在"浏览器这一层"
+
+这一轮从"手机连不上"一路查到根因，结论改变了下一步方向。
+
+- **症状演进**：`-105`（ERR_NAME_NOT_RESOLVED）→ 换 `https://100.77.160.68/` 报 `-107`（SSL 协议错误）→ 换 `http://100.77.160.68:3082/` 得 Go 的 `404 page not found`。
+- **三条探测拼出的结论**：`tailscale ping`（disco，145ms）与 `--tsmp`（WireGuard 数据面，169ms）都通，说明**隧道好**；`-107` 说明 **TCP 已经连上服务端**（只有握手后才会报 SSL 协议错，用 IP 失败是因为证书只签了域名、SNI 对不上）；`:3082` 的 404 是 **tailscaled 自己答的**（serve 只按主机名匹配）。合起来：**服务端与隧道全程正常，唯一坏的是手机的名字解析**。
+- **应急入口**：`:3081` 是 Windows 侧**裸 TCP 转发**（不做主机名匹配），且 DSH 信任列表里已含裸 IP `100.77.160.68`，因此 `http://100.77.160.68:3081/` 可用——`e0_smoke.py` 对该 authority 13 项全过。代价是明文 HTTP（非安全上下文：附件上传、剪贴板、PWA 安装受影响；链路本身仍在 WireGuard 内加密）。**手机实测经该入口建立连接并可用。**
+- **结局**：**重启手机后 DNS 恢复**，手机走回正式 HTTPS 入口（服务端可见 tailscaled 持有连接）。处置顺序已按"彻底程度"重排并写进部署记录：重启手机 → 查 VPN 槽位 → Chrome 使用安全 DNS 关闭并划掉重开 → 私人 DNS 置自动。
+- **关键新信息（用户提供）**：手机用的是 **vivo 自带浏览器，不是 Chrome**。这解释了余下全部现象——**它不遵守 `cache-control`（所以我做的 bundle 内容寻址缓存在它上面不生效）、"添加到桌面"走的是网页快捷方式而不是 PWA 安装（所以我做的图标用不上）、长连接在后台被回收、DNS 走它自己的解析层**。同一台机器上我用 Chromium 实测：第二次加载 **44 个 bundle 全部命中缓存、网络传输 0 字节**，说明服务端的缓存策略是对的，**瓶颈在浏览器这一层**。
+- **方向决定（用户确认）**：做**轻量 APK 薄壳**，把浏览器这层自己接管。要解决的正是这四个痛点：① 缓存（客户端 bundle 打进 APK 当本地资源，不依赖浏览器缓存）；② 图标（真正的 launcher icon 来自 APK）；③ 稳定性（前台服务持有长连接，不被回收）；④ DNS（App 内回环代理做域名→tailnet IP 本地映射，系统 DNS 不参与；回环地址在规范里**算安全上下文**，所以剪贴板、`crypto.randomUUID()`、附件上传也一并恢复）。
+- **工具链已确认可用**：Java 21、Gradle 9.1.0（`~/.gradle/wrapper/dists` 已解压）、Android SDK（build-tools 36.0.0 / platforms 34-36 / cmdline-tools / NDK 28.2）、Google Maven 与 Maven Central 均可达、AndroidX 依赖已有本地缓存。
+- **本轮已落地**：`apps/android-shell/` 骨架（纯 Java + 系统 WebView、零第三方依赖、Launcher 图标由 PWA 图标集生成）。**编译尚未验证**（首次 `assembleDebug` 被中断），下一步就是把它编出来并在手机上装。
+
 ## 待办与注意
 
-### 提交账目（全部已推送；`main` = `31779c1`，`codex/e0-mobile-baseline` 已并入 main 并删除）
+### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）
 
 - 工作台：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`（该特性的面板/座位已于 16:10 那轮移除）。
 - 可靠性：`03da2eb`（客户端 bundle 门禁 + 生成器拒绝保留 Remote 名）、`3391814`（图边检查）、`e93eedb`（保留名清单收回分析器自持）。
