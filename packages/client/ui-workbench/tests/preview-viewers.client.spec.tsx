@@ -10,6 +10,8 @@ import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { CodeViewer, codeTypeSelector } from '../src/client/CodeViewer.tsx'
 import type { CodeViewerProps } from '../src/client/CodeViewer.tsx'
 import { MarkdownViewer, markdownTypeSelector } from '../src/client/MarkdownViewer.tsx'
+import { PdfViewer, pdfTypeSelector } from '../src/client/PdfViewer.tsx'
+import type { PdfViewerProps } from '../src/client/PdfViewer.tsx'
 import type { MarkdownViewerProps } from '../src/client/MarkdownViewer.tsx'
 import { isMarkdownFile, languageForFile } from '../src/client/preview-language.ts'
 import type { WorkbenchViewerOwnerProps } from '../src/client/contract/slots.ts'
@@ -56,6 +58,21 @@ describe('preview selection', () => {
     expect(languageForFile('Makefile')).toBe('makefile')
     expect(languageForFile('notes.txt')).toBeUndefined()
     expect(languageForFile('noextension')).toBeUndefined()
+  })
+
+  it('claims PDFs and frames them with a way out for hosts without a viewer', () => {
+    expect(pdfTypeSelector(owner('doc.pdf', 'application/pdf'))).toBe('application/pdf')
+    expect(pdfTypeSelector(owner('doc', 'application/pdf'))).toBe('application/pdf')
+    expect(pdfTypeSelector(owner('doc.txt'))).toBeNull()
+
+    const props = { ...owner('doc.pdf', 'application/pdf'), matched: 'application/pdf', t } as unknown as PdfViewerProps
+    const { container } = render(<PdfViewer {...props} />)
+    const frame = container.querySelector('iframe')
+    expect(frame?.getAttribute('src')).toBe('/workbench/file?path=/w/doc.pdf')
+    // A platform with no inline PDF viewer still has the file one click away.
+    const fallback = screen.getByRole('link')
+    expect(fallback.getAttribute('href')).toBe('/workbench/file?path=/w/doc.pdf')
+    expect(fallback.getAttribute('download')).toBe('doc.pdf')
   })
 
   it('declines files it cannot highlight so the text entry takes them', () => {

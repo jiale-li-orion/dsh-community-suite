@@ -28,6 +28,7 @@ import { CodeViewer, codeTypeSelector } from './CodeViewer.tsx'
 import { createFilePanelStore } from './file-panel-store.ts'
 import { FilePanel } from './FilePanel.tsx'
 import { MarkdownViewer, markdownTypeSelector } from './MarkdownViewer.tsx'
+import { PdfViewer, pdfTypeSelector } from './PdfViewer.tsx'
 import { MarketplacePanel } from './MarketplacePanel.tsx'
 import { createMediaViewer, mediaTypeSelector } from './MediaViewer.tsx'
 import { TextViewer, textTypeSelector } from './TextViewer.tsx'
@@ -45,6 +46,7 @@ export type { IWorkbench } from './service.ts'
 export type { WorkbenchFileRef, WorkbenchPanelTab, WorkbenchPanelOwnerProps, WorkbenchViewerOwnerProps } from './contract/slots.ts'
 export type { CodeViewerProps } from './CodeViewer.tsx'
 export type { MarkdownViewerProps } from './MarkdownViewer.tsx'
+export type { PdfViewerProps } from './PdfViewer.tsx'
 export type { MediaViewerProps } from './MediaViewer.tsx'
 export type { TextViewerProps } from './TextViewer.tsx'
 export type { ThemePanelInjected, ThemePanelProps } from './ThemePanel.tsx'
@@ -227,6 +229,12 @@ export function apply(ctx: ClientContext): void {
     select: codeTypeSelector,
     locale: NS,
   }, CodeViewer))
+
+  ctx.slots.inject('workbench.viewer', () => ctx.slots.register({
+    name: 'workbench.viewer',
+    select: pdfTypeSelector,
+    locale: NS,
+  }, PdfViewer))
 
   // Text last: the media selectors decline every text type, so the chain order
   // only decides which of two non-overlapping selectors is asked first.

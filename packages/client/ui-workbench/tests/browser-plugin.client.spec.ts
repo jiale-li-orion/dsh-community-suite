@@ -195,7 +195,7 @@ describe('ui-workbench browser half', () => {
     const entries = ctx.slots.entries('workbench.viewer')
     // Markdown and source are registered before text: all three elect
     // `text/plain`, so registration order is what decides which renders.
-    expect(entries).toHaveLength(6)
+    expect(entries).toHaveLength(7)
     const selectors = entries.map(entry => entry.select as (owner: { name: string; mediaType: string }) => string | null)
     const elected = (mediaType: string, name = 'a.bin'): readonly (string | null)[] =>
       selectors.map(select => select({ name, mediaType })).filter(match => match !== null)
@@ -206,10 +206,12 @@ describe('ui-workbench browser half', () => {
     expect(elected('video/mp4')).toEqual(['video/mp4'])
     expect(elected('application/json')).toEqual(['application/json'])
     expect(elected('application/octet-stream')).toEqual([])
+    expect(elected('application/pdf', 'doc.pdf')).toEqual(['application/pdf'])
     // A text file is claimed by the richest viewer that can render it.
     expect(firstClaimant('text/plain', 'README.md')).toBe(0)
     expect(firstClaimant('text/plain', 'main.ts')).toBe(1)
-    expect(firstClaimant('text/plain', 'notes.txt')).toBe(2)
+    // Markdown, source, PDF, then the plain text catch-all.
+    expect(firstClaimant('text/plain', 'notes.txt')).toBe(3)
     await fiber.dispose()
     expect(ctx.slots.entries('workbench.viewer')).toHaveLength(0)
   })
