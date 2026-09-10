@@ -406,14 +406,26 @@
 
 用户要求：桌面启动块（`DshTile.exe`）实时显示 DeepSeek 账户余额，并且**余额对 agent 可见**（agent 也要能读到）。实现顺序排在 E1 之前。余额来源与鉴权方式见本轮后续条目。
 
+### 21:35–21:50 · 桌面启动块实时显示 DeepSeek 余额（agent 读同一份快照）
+
+用户需求：启动块显示账户余额，**并且余额对 agent 可见**。顺序上排在 E1 之前。
+
+- **数据来源**：DeepSeek 官方 `GET https://api.deepseek.com/user/balance`（[API 文档](https://api-docs.deepseek.com/api/get-user-balance/)），返回 `balance_infos[]`（currency / total_balance / granted / topped_up）。密钥只存在于 WSL（`~/.bashrc` 的 `DEEPSEEK_API_KEY`），Windows 侧没有——所以**发请求的必须是 WSL 那一侧**。
+- **一个抓取者、一份快照、两个读者**：新增 `进化/fetch_balance.py`（只读接口 + 原子写快照：临时文件 + `os.replace`）与 `进化/test_fetch_balance.py`（8 用例：货币选择、非 JSON、缺 `balance_infos`、失败时**保留旧快照**、密钥解析回退、Bearer 头、密钥绝不回显）。启动块用 `wsl.exe -- python3 <仓库路径>/进化/fetch_balance.py --out <盘符转 WSL 的路径>` 调用它，脚本把快照写成本目录的 `balance.json`，启动块再**读同一个文件**画牌子——所以屏幕上那个数字和 agent 读到的字节完全一致。
+- **余额对 agent 可见的路径**：`/mnt/c/Users/29461/Desktop/dsh-web/balance.json`（= WSL 视角）。本轮实测读到 `CNY 15.59`。这是 16:00 那条"可见"约定的落地位置，后续会话直接读这个文件即可，不必再抓接口。
+- **失败语义**：抓取失败**不覆盖**旧快照，牌子改成琥珀色并显示年龄（"5 分钟前"）；没有快照时显示"余额不可用"。图标区太小（<150px）不画牌子，免得不清楚。
+- **改动落点**：`DshTile.cs`（新增 `BalanceWatcher` 后台线程 + `DrawBalance` 牌子绘制 + 右键菜单「余额：¥xx（点此刷新）」「显示余额」开关 + `tile.ini` 的 `balance` / `balanceseconds` / `balancescript`），用 `csc` 直接编译（无新依赖，只多了一个 `using System.Diagnostics;`）；`README.md` 增加「账户余额」一节。**DshTile.cs/README.md 不在仓库里**（桌面部署目录），改动不回仓库。
+- **验证**：`tile.log` 出现 `[balance] CNY 15.59`；`PrintWindow` 抓到窗口位图，左下角牌子显示 `¥15.59`（与右下角把手、右上角换肤按钮同一套视觉）。
+
 ## 待办与注意
 
-### 提交账目（全部已推送，`origin/main` = `14590ef`）
+### 提交账目（全部已推送，`origin/main` = `14590ef`；E0 分支 `codex/e0-mobile-baseline` = `f82a8fc`）
 
 - 工作台：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`（该特性的面板/座位已于 16:10 那轮移除）。
 - 可靠性：`03da2eb`（客户端 bundle 门禁 + 生成器拒绝保留 Remote 名）、`3391814`（图边检查）、`e93eedb`（保留名清单收回分析器自持）。
 - 层叠：`2229d4e`（栏位不再困住 fixed 对话框）、`2bf7c07`（壁纸面板目录导航 + 会话列底色）、`14590ef`（非侧栏栏位封顶 z-index 0，修好社区主题面板的 Apply）。
 - 体验：`2442158`（文本预览 + 市场默认页/中文摘要 + 删壁纸面板）、`5293c23`/`100525a`（主题面板与「系统原皮」命名）、`9843b1b`（皮肤行开关）。
+- E0 移动访问（分支 `codex/e0-mobile-baseline`）：`e1b482a`（上一轮日志与重启清单）、`eab2493`（E0 部署与验收记录 + 只读探测工具 + 两份探测结果）、`f82a8fc`（把 oxlint 抑制收窄到被测的非 Error 拒绝用例）。E1 的窄屏单面板改动**未提交**，补丁存于 `.artifacts/e1-narrow-single-panel.patch`。
 - 日志与共享文档按约定单独提交（`60b7e78`、`55a2c19`、`4c018b8`、`9a47072`、`f60c3a5` 等）。
 
 ### 重启清单（本次重启后应看到）
@@ -425,6 +437,10 @@
 5. 想验证组合：`node --import tsx/esm apps/cli/src/bin.ts --profile web --dump-config | grep -E '^- id:|^# =='`。
 
 ### 约束与已知事项
+
+- **账户余额（agent 可读）**：桌面启动块每 60 秒刷新一次，快照固定写在 `/mnt/c/Users/29461/Desktop/dsh-web/balance.json`；想知道余额直接读它，别去抓接口。抓取器是 `进化/fetch_balance.py`（密钥解析：环境变量 → `~/.bashrc` 的 `export DEEPSEEK_API_KEY=...`）。
+- **这台机器的代理**：WSL 里 `HTTP(S)_PROXY` 指向 Clash（`127.0.0.1:7897`），而 `no_proxy` **不含 `100.*`**，所以任何 `*.ts.net` / tailnet 探测都必须显式绕开代理（`curl --noproxy '*'`），否则拿到的是代理的 502 而不是服务的回答。探测本机 loopback 时同理：`no_proxy` 里的 `127.*` 对 Python 不生效，要写成 `127.0.0.1`。
+- **WSL 够不到 Tailscale Serve**：mirrored 网络下 WSL 也持有 `100.77.160.68/32`，该地址在 WSL 内被当成**本机地址**（`ip route get` → `dev lo`），所以 HTTPS 入口的探测只能在 Windows 侧跑。
 
 - **栏位层叠归框架**：栏位之间只有文档顺序；非侧栏栏位取 `z-index: 0` 堆叠上下文封顶内部 z-index，侧栏不带 z-index——注册在侧栏子树里的 fixed 对话框（设置模态框、社区主题面板）才能压过会话列。给任何栏位加 z-index 前先读 `AppFrame.module.css` 的注释。
 - **社区外观包不走原生注册表**：`dsh-theme` 用 `data-dsh-*`、女仆皮用 `data-dsh-maid-atelier`、`@eternalnight/dsh-theme` 用 `overrideTokens`；所以「主题」列表只列原生注册的主题（目前只有系统原皮三行），皮肤靠行级开关切换（改 profile patch，重启生效）。
