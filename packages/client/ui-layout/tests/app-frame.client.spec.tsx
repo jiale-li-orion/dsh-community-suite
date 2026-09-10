@@ -15,7 +15,7 @@ import { act, cleanup, render } from '@testing-library/react'
 import { useSyncExternalStore } from 'react'
 import { AppFrame } from '@deepseek-ai/dsh-client-ui-layout/src/client/AppFrame.tsx'
 import type { AppFrameProps } from '@deepseek-ai/dsh-client-ui-layout/src/client/AppFrame.tsx'
-import { SIDEBAR_COLLAPSED } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
+import { SIDEBAR_COLLAPSED, SIDEBAR_DEFAULT, WORKBENCH_DEFAULT } from '@deepseek-ai/dsh-client-ui-layout/src/client/columns.ts'
 import { createLayoutStore } from '@deepseek-ai/dsh-client-ui-layout/src/client/stores.ts'
 import type {
   SessionId, SessionListState, WorkspaceListState,
@@ -100,6 +100,12 @@ function tracks(frame: HTMLElement): number[] {
   const m = /^(\d+)px minmax\(0, 1fr\) (\d+)px (\d+)px$/.exec(frame.style.gridTemplateColumns)
   if (m === null) throw new Error(`unexpected template: ${frame.style.gridTemplateColumns}`)
   return [Number(m[1]), Number(m[2]), Number(m[3])]
+}
+
+function singleTrack(frame: HTMLElement): number[] {
+  const m = /^(\d+)px minmax\(0, 1fr\)$/.exec(frame.style.gridTemplateColumns)
+  if (m === null) throw new Error(`unexpected single-panel template: ${frame.style.gridTemplateColumns}`)
+  return [Number(m[1])]
 }
 
 function drag(handle: Element, fromX: number, toX: number): void {
@@ -329,6 +335,72 @@ describe('AppFrame — workbench column', () => {
     expect(tracks(frame)).toEqual([280, 380, 0])
     expect(instance.getSnapshot().workbench).toBe(560)
     expect(instance.getSnapshot().details).toBe(360)
+  })
+})
+
+describe('AppFrame — narrow single-panel workbench', () => {
+  it('presents the open workbench as the single panel instead of deriving it to zero', () => {
+    // At this width the concession chain cannot fit the center beside the
+    // workbench (rail + CENTER_MIN + WORKBENCH_MIN already exceeds the
+    // viewport), so the frame presents the requested column on its own.
+    frameWidth = 390
+    const { frame, instance, slotCalls, getByTestId } = mountFrame()
+    expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0, 0])
+    act(() => { instance.actions.openWorkbench() })
+    expect(singleTrack(frame)).toEqual([SIDEBAR_COLLAPSED])
+    expect(frame.hasAttribute('data-single-panel')).toBe(true)
+    expect(frame.hasAttribute('data-workbench-collapsed')).toBe(false)
+    expect(slotCalls.filter(c => c.key === 'workbench').at(-1)!.props)
+      .toEqual({ collapsed: false, width: 390 - SIDEBAR_COLLAPSED })
+    // The conversation stays mounted behind the panel: its session state must
+    // survive the trip back.
+    expect(getByTestId('center-content')).toBeTruthy()
+  })
+
+  it('returns to the four-column frame when the workbench closes', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.openWorkbench() })
+    expect(singleTrack(frame)).toEqual([SIDEBAR_COLLAPSED])
+    act(() => { instance.actions.closeWorkbench() })
+    expect(tracks(frame)).toEqual([SIDEBAR_COLLAPSED, 0, 0])
+    expect(frame.hasAttribute('data-single-panel')).toBe(false)
+  })
+
+  it('resizes the single panel with the viewport without writing the preference', () => {
+    frameWidth = 390
+    const { instance, slotCalls } = mountFrame()
+    act(() => { instance.actions.openWorkbench() })
+    frameWidth = 430
+    act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
+    expect(slotCalls.filter(c => c.key === 'workbench').at(-1)!.props)
+      .toEqual({ collapsed: false, width: 430 - SIDEBAR_COLLAPSED })
+    expect(instance.getSnapshot().workbench).toBe(WORKBENCH_DEFAULT)
+  })
+
+  it('restores the shared column width once the frame is wide again', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.openWorkbench() })
+    expect(instance.getSnapshot().workbench).toBe(WORKBENCH_DEFAULT)
+    frameWidth = 1920
+    act(() => { fireResize?.(); vi.advanceTimersByTime(20) })
+    expect(tracks(frame)).toEqual([SIDEBAR_DEFAULT, WORKBENCH_DEFAULT, 0])
+    expect(frame.hasAttribute('data-single-panel')).toBe(false)
+  })
+
+  it('offers no resize handle for a panel that fills the frame', () => {
+    frameWidth = 390
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.openWorkbench() })
+    expect(frame.querySelectorAll('[class*="handle"]')).toHaveLength(0)
+  })
+
+  it('leaves the wide frame on the concession chain', () => {
+    const { frame, instance } = mountFrame()
+    act(() => { instance.actions.openWorkbench() })
+    expect(frame.hasAttribute('data-single-panel')).toBe(false)
+    expect(tracks(frame)).toEqual([SIDEBAR_DEFAULT, WORKBENCH_DEFAULT, 0])
   })
 })
 

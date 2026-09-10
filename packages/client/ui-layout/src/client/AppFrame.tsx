@@ -153,6 +153,21 @@ export function AppFrame({
   const colsRef = useRef(cols)
   colsRef.current = cols
 
+  // Below the breakpoint the center and the workbench cannot share the frame:
+  // the rail plus CENTER_MIN plus WORKBENCH_MIN already exceeds the viewport,
+  // so the concession chain derives the workbench to zero and the session-header
+  // toggle stops having a visible effect on this client. Narrow therefore
+  // presents the requested workbench as the single panel, with the shell's own
+  // close control as the way back to the conversation.
+  //
+  // Presentation only: it reads the shared workbench preference and never
+  // writes it, so a viewport change (rotation, window resize) cannot close,
+  // open or reselect the workbench another client is showing. Only a human
+  // gesture commits, and that still goes through the host service.
+  const singlePanel = narrow && panels.workbench > 0
+  const workbenchCollapsed = singlePanel ? false : cols.workbench === 0
+  const workbenchWidth = singlePanel ? Math.max(0, viewport - cols.sidebar) : cols.workbench
+
   // The drag base is the rendered width captured at drag start (grabbing a
   // concession-clamped panel must not jump back to the stored preference);
   // it stays frozen for the whole gesture so dx deltas do not compound.
@@ -181,10 +196,13 @@ export function AppFrame({
       ref={frameRef}
       className={css.frame}
       style={{
-        gridTemplateColumns: `${cols.sidebar}px minmax(0, 1fr) ${cols.workbench}px ${cols.details}px`,
+        gridTemplateColumns: singlePanel
+          ? `${cols.sidebar}px minmax(0, 1fr)`
+          : `${cols.sidebar}px minmax(0, 1fr) ${cols.workbench}px ${cols.details}px`,
       }}
       data-sidebar-collapsed={sidebarCollapsed || undefined}
-      data-workbench-collapsed={cols.workbench === 0 || undefined}
+      data-single-panel={singlePanel || undefined}
+      data-workbench-collapsed={workbenchCollapsed || undefined}
       data-details-collapsed={cols.details === 0 || undefined}
       data-dragging={dragging || undefined}
     >
@@ -209,17 +227,19 @@ export function AppFrame({
             width, exactly like an unoccupied details column. */}
         <CenterColumn>{renderSlot('conversation', {})}</CenterColumn>
         <WorkbenchColumn>
-          {renderSlot('workbench', { collapsed: cols.workbench === 0, width: cols.workbench })}
+          {renderSlot('workbench', { collapsed: workbenchCollapsed, width: workbenchWidth })}
         </WorkbenchColumn>
         <DetailsColumn>{renderSlot('details', {})}</DetailsColumn>
       </>
       <div className={css.overlayLayer} data-shell-overlay>
         {renderSlot('shell.overlay', {})}
       </div>
-      {/* The collapsed rail is fixed-width: no resize handle while closed. */}
+      {/* The collapsed rail is fixed-width: no resize handle while closed. A
+          single panel fills the remaining track, so neither of its neighbours
+          has a border to drag. */}
       {!sidebarCollapsed && <DragHandle side="sidebar" left={cols.sidebar} onStart={onSidebarStart} onDrag={onSidebarDrag} onEnd={onDragEnd} />}
-      {cols.workbench > 0 && <DragHandle side="workbench" left={viewport - cols.details - cols.workbench} onStart={onWorkbenchStart} onDrag={onWorkbenchDrag} onEnd={onDragEnd} />}
-      {cols.details > 0 && <DragHandle side="details" left={viewport - cols.details} onStart={onDetailsStart} onDrag={onDetailsDrag} onEnd={onDragEnd} />}
+      {!singlePanel && cols.workbench > 0 && <DragHandle side="workbench" left={viewport - cols.details - cols.workbench} onStart={onWorkbenchStart} onDrag={onWorkbenchDrag} onEnd={onDragEnd} />}
+      {!singlePanel && cols.details > 0 && <DragHandle side="details" left={viewport - cols.details} onStart={onDetailsStart} onDrag={onDetailsDrag} onEnd={onDragEnd} />}
     </div>
   )
 }

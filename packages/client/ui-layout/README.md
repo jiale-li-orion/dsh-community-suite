@@ -8,6 +8,8 @@ AppFrame always mounts the conversation, workbench, and details columns; a conne
 
 The `/client` exports are the plugin body (`apply`/`inject`), `LayoutController`, and the five owner-share interfaces. AppFrame, the panel store, and the concession solver remain package-internal.
 
+Below the auto-collapse breakpoint the frame presents one panel at a time: an open workbench takes the track beside the rail instead of being derived to zero width, the conversation stays mounted behind it, and the shell's own close control returns to the session. That presentation reads the shared workbench preference without writing it, so a viewport change never opens, closes, or reselects the workbench another client is showing; only a gesture commits, through the host service.
+
 ## Model Experience
 
 None, as the layout shell manages browser viewing state; nothing here reaches a model request.

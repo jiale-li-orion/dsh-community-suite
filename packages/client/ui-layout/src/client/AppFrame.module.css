@@ -72,6 +72,15 @@
   border-left: none;
 }
 
+/* Narrow single-panel presentation (AppFrame.tsx `singlePanel`): the frame has
+   two tracks, so the workbench — the only occupant left in flow — takes the one
+   beside the rail. The conversation stays mounted at `display: none` to keep its
+   session state, and the details column has no width to occupy at this size. */
+.frame[data-single-panel] .centerCol,
+.frame[data-single-panel] .detailsCol {
+  display: none;
+}
+
 /* The details subtree stays mounted at zero width, so its border must not paint
    a 1px seam. The collapsed sidebar instead retains a bordered compact rail. */
 .frame[data-details-collapsed] .detailsCol {
