@@ -372,6 +372,14 @@
 - **顺带确认「极光」来源**：是 **bloom-theme 的 `aurora` 变体**——`body[data-bloom-variant="aurora"]::before` 上两条斜向渐变丝带 + 60px blur + 28s 漂移动画（`z-index:-1`，画在应用内容之下）。当前 body 是 `data-bloom-variant="mist"`，所以要把变体切到 aurora 才会看到；不想要就卸掉 bloom 或换成别的变体。
 - 验证：`ui-workbench` 81 测试（含新 `ThemePanel` 4 个）与 per-file 覆盖率 100%、`typecheck` 两面 0、`verify-client-bundles` 41/41；实机截图确认三栏与主题页。
 
+### 16:40–17:20 · 皮肤开关（profile 行级）＋系统原皮命名
+
+- **背景**：社区的主题/皮肤**都不走框架原生主题注册表**——`dsh-theme` 靠 123 处 `data-dsh-*`、女仆皮靠 `data-dsh-maid-atelier`（实测把属性删掉也不关）、`@eternalnight/dsh-theme` 走 `overrideTokens`。所以"整合"只能落在两处：原生注册表（即时切换）与 **profile 行开关（重启生效）**。
+- **皮肤开关（host 能力）**：`@deepseek-ai/dsh-plugin-install` 新增 `skins.ts`（读 profile 的 bundle 清单 → 解析每个外观 bundle 的 `cordis.patch.yml` 里 insert 的行 id；再按 profile patch 里是否存在 `- id: <row>
+  disabled: true` 判断启用状态）与两个 Remote：`listSkins`、`setSkinEnabled`。切换=重写 `~/.dsh/profiles/web/cordis.patch.yml`（停用写 disabled 块，启用删掉该块，回到 bundle 原样）；未知行给带 code 的拒绝。文件算术 21 个测试含 per-file 覆盖率 100%。
+- **面板**：主题页改名「外观」性质——上面是 **系统原皮·跟随系统 / 系统原皮·亮色 / 系统原皮·暗色** + 注册表里的社区主题（即时切换），下面是**皮肤**分组：列出已安装的外观行，一行一个启用/停用按钮，写明「重启后生效」。
+- **本次 profile 变动**：删 `@kubor/dsh-bloom-theme`（用户：没 UI 效果），装 `dsh-theme`（30 款 CSS 主题）与 `@eternalnight/dsh-theme`。**必须重启**：删 bloom 后运行中的进程仍按旧组合要它的 bundle，浏览器现在报 `Failed to load plugins`（profile 与运行进程漂移，不是代码问题）。重启前已验证：`--dump-config` 组合通过；两个新 bundle 过模块表检查 OK（`dsh-theme` 的 `dsh.client.inject` 写了服务名 `slots`，是信息性错误，不影响加载）。
+
 ## 待办与注意
 
 - 工作台五阶段全部落地并本地提交：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`、可靠性门禁 = `03da2eb` + `3391814`（日志两次单独提交 `60b7e78`、`55a2c19`）；`origin/main` 仍停在 `33b890f`（未 push）。
