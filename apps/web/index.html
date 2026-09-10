@@ -2,7 +2,9 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- minimum-scale is part of the contract: a WebView host clamps zoom-out to
+         the page's own minimum, so without it the page can only be enlarged. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.4, maximum-scale=5, user-scalable=yes" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>DeepSeek Harness</title>
