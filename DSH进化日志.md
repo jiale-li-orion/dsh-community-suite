@@ -414,8 +414,9 @@
 - **一个抓取者、一份快照、两个读者**：新增 `进化/fetch_balance.py`（只读接口 + 原子写快照：临时文件 + `os.replace`）与 `进化/test_fetch_balance.py`（8 用例：货币选择、非 JSON、缺 `balance_infos`、失败时**保留旧快照**、密钥解析回退、Bearer 头、密钥绝不回显）。启动块用 `wsl.exe -- python3 <仓库路径>/进化/fetch_balance.py --out <盘符转 WSL 的路径>` 调用它，脚本把快照写成本目录的 `balance.json`，启动块再**读同一个文件**画牌子——所以屏幕上那个数字和 agent 读到的字节完全一致。
 - **余额对 agent 可见的路径**：`/mnt/c/Users/29461/Desktop/dsh-web/balance.json`（= WSL 视角）。本轮实测读到 `CNY 15.59`。这是 16:00 那条"可见"约定的落地位置，后续会话直接读这个文件即可，不必再抓接口。
 - **失败语义**：抓取失败**不覆盖**旧快照，牌子改成琥珀色并显示年龄（"5 分钟前"）；没有快照时显示"余额不可用"。图标区太小（<150px）不画牌子，免得不清楚。
-- **改动落点**：`DshTile.cs`（新增 `BalanceWatcher` 后台线程 + `DrawBalance` 牌子绘制 + 右键菜单「余额：¥xx（点此刷新）」「显示余额」开关 + `tile.ini` 的 `balance` / `balanceseconds` / `balancescript`），用 `csc` 直接编译（无新依赖，只多了一个 `using System.Diagnostics;`）；`README.md` 增加「账户余额」一节。**DshTile.cs/README.md 不在仓库里**（桌面部署目录），改动不回仓库。
-- **验证**：`tile.log` 出现 `[balance] CNY 15.59`；`PrintWindow` 抓到窗口位图，左下角牌子显示 `¥15.59`（与右下角把手、右上角换肤按钮同一套视觉）。
+- **改动落点**：`DshTile.cs`（新增 `BalanceWatcher` 后台线程 + `DrawBalance` 气泡绘制 + 右键菜单「余额：¥xx（点此刷新）」「显示余额」开关 + `tile.ini` 的 `balance` / `balanceseconds` / `balancescript`），用 `csc` 直接编译（无新依赖，只多了一个 `using System.Diagnostics;`）；`README.md` 增加「账户余额」一节。**DshTile.cs/README.md 不在仓库里**（桌面部署目录），改动不回仓库。
+- **气泡样式**：第一版是我手画的深色小牌子，用户反馈丑，改为**用户提供的云朵素材**（`bubble-source.jpg`，1920×640，黑底 JPEG）——`make-bubble.py` 把它抠成透明 PNG：亮度做辉光渐变，但「余额：」是深色字，纯亮度抠图会把字一起抠掉，所以另用**膨胀过的亮度包络**把云体内部整体标为不透明，辉光区再按亮度衰减并做 un-premultiply（否则深色光晕叠在壁纸上是黑边）。量出的标签几何写进代码注释：冒号右端在 35.5% 宽、字形垂直中心 54.5%、字高 22.5% 高——数字就画在「余额：」后面，字色取标签本身的 `#44576F`。左键点气泡（不拖动）= 立刻刷新，拖动仍然是移动启动块。
+- **验证**：`tile.log` 出现 `[balance] CNY 15.32`；`PrintWindow` 抓到窗口位图，气泡显示「余额：¥15.32」，云朵边缘透明、无黑底方块。
 
 ## 待办与注意
 
