@@ -47,11 +47,13 @@ function props(snapshot: ThemeSnapshot = SNAPSHOT): { props: ThemePanelProps; se
 }
 
 describe('ThemePanel', () => {
-  it('lists the system preference and every registered theme', () => {
+  it('lists the three stock preferences and every registered community theme', () => {
     render(<ThemePanel {...props().props} />)
     expect(screen.getByText(zh['theme.system'])).toBeTruthy()
-    expect(screen.getByText('light')).toBeTruthy()
-    expect(screen.getByText('dark')).toBeTruthy()
+    expect(screen.getByText(zh['theme.light'])).toBeTruthy()
+    expect(screen.getByText(zh['theme.dark'])).toBeTruthy()
+    // The registered built-ins are the stock rows above, not duplicates.
+    expect(screen.queryByText('light')).toBeNull()
     expect(screen.getByText('bloom-aurora')).toBeTruthy()
   })
 
@@ -61,6 +63,12 @@ describe('ThemePanel', () => {
     // is not — only the preference matches a row id here.
     expect(screen.getAllByText(zh['theme.active'])).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: zh['theme.apply'] })).toHaveLength(3)
+  })
+
+  it('marks the stock light preference on its own row', () => {
+    const { props: composed } = props({ ...SNAPSHOT, preference: 'light' })
+    render(<ThemePanel {...composed} />)
+    expect(screen.getAllByText(zh['theme.active'])).toHaveLength(1)
   })
 
   it('applies the clicked theme through the injected setter', () => {

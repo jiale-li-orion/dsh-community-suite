@@ -37,12 +37,16 @@ export type ThemePanelProps =
  */
 export function ThemePanel({ set, useTheme, t }: ThemePanelProps) {
   const preference = useTheme(snapshot => snapshot.preference)
-  // `system` follows the OS scheme, so the two built-ins plus every registered
-  // theme are the concrete choices; `system` is the way back to no theme.
+  // The three stock preferences first — they are the way back to no community
+  // theme — then every theme a plugin registered on top of the stock palette.
   const themes = useTheme(snapshot => snapshot.themes)
   const rows = [
     { id: 'system', label: t('theme.system') },
-    ...themes.map(theme => ({ id: theme.id, label: theme.id })),
+    { id: 'light', label: t('theme.light') },
+    { id: 'dark', label: t('theme.dark') },
+    ...themes
+      .filter(theme => theme.id !== 'light' && theme.id !== 'dark')
+      .map(theme => ({ id: theme.id, label: theme.id })),
   ]
   return (
     <div className={css.panel}>
