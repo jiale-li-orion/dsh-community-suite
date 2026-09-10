@@ -434,21 +434,29 @@
 - **验证**：新包 8 测试（overlay 注册 + fiber 拆除的 HMR 安全、两侧字典与撤回、node 半边、invariant 配套、三种相位渲染）；`test:gui` 288 文件 / 3920 通过；`verify-client-bundles` **42** 个 bundle；`--dump-config` 组合自检确认 `ui-connection-status` 行已在 web profile 里，**profile 软链已顺带修复**（这一步需要写 `~/.dsh/profiles`，沙箱外）。
 - **注意**：新增插件行属于 profile 组合，**要重启 `dsh web` 才会出现**（客户端 bundle 热重载不够）。重启前的两项自检已跑过，可以直接重启。
 
+### 23:35–00:10 · E1 第三步：首屏 gzip（`ce300ae` + `fce8774`）
+
+- **实测**：对运行中的服务量首屏载荷——**11.68 MiB / 48 个请求，全部未压缩**；其中 **7.09 MiB 是女仆皮那一个 bundle**（`@dsh-external/dsh-client-ui-skin-maid-atelier`）。手机经东京 DERP 中继时，"Loading plugins" 卡很久就是这个原因。
+- **改法**：`dsh-host-webserver` 导出两条「发实体」路由共用的编码器——`sendEncoded(req,res,status,body,headers)` 在客户端接受、类型是文本、实体超过 1024 字节时 gzip，否则原样发送；`selectEncoding` 是背后的纯决策函数。`dsh-host-frontend-static`（SPA dist）与 `client/modules`（`/plugins/<id>/client.js` 及其 sourcemap）改用它。**只做 gzip**：brotli 只再多省约十分之一，但每次请求要多花几倍 CPU，而这两条路由还没有"预压缩体"缓存层。所有被覆盖的响应都带 `vary: accept-encoding`（**包括原样发送的**），否则共享缓存可能把压缩体交给没要求压缩的客户端。
+- **收益**：同一份载荷 **11.68 MiB → 6.25 MiB（少 47%）**。剩下的主要是女仆皮（7.09 → 5.26 MiB，大头是内联图片数据，压不动）——**把它移出首屏是比压缩更大的收益**（去掉它之后剩余部分约 1 MiB），列为下一项。
+- **验证**：`webserver` 6 个新单元用例（gzip 解码回原文、`q=0` 拒绝、`*` 通配、小实体不压、非文本不压且不声明 vary）；`frontend-static` 真实 HTTP 端到端（raw socket 观测 `content-encoding: gzip` + `vary` + gunzip 还原、identity 原样）；`test:gui` 289 文件 / 3928 通过；host 侧 36 文件 / 497 通过；lint 0。typecheck 曾报一处（`MIME['.html']` 可能是 `undefined`），已改成 `HTML_TYPE` 常量一处归属。
+- **注意**：同样**要重启 `dsh web` 才生效**（host 代码）。与连接横幅那一条是同一次重启。
+
 ## 待办与注意
 
-### 提交账目（全部已推送；`main` = `bc35b20`，`codex/e0-mobile-baseline` 已并入 main 并删除）
+### 提交账目（全部已推送；`main` = `fce8774`，`codex/e0-mobile-baseline` 已并入 main 并删除）
 
 - 工作台：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`（该特性的面板/座位已于 16:10 那轮移除）。
 - 可靠性：`03da2eb`（客户端 bundle 门禁 + 生成器拒绝保留 Remote 名）、`3391814`（图边检查）、`e93eedb`（保留名清单收回分析器自持）。
 - 层叠：`2229d4e`（栏位不再困住 fixed 对话框）、`2bf7c07`（壁纸面板目录导航 + 会话列底色）、`14590ef`（非侧栏栏位封顶 z-index 0，修好社区主题面板的 Apply）。
 - 体验：`2442158`（文本预览 + 市场默认页/中文摘要 + 删壁纸面板）、`5293c23`/`100525a`（主题面板与「系统原皮」命名）、`9843b1b`（皮肤行开关）。
 - E0 移动访问（分支 `codex/e0-mobile-baseline`）：`e1b482a`（上一轮日志与重启清单）、`eab2493`（E0 部署与验收记录 + 只读探测工具 + 两份探测结果）、`f82a8fc`（把 oxlint 抑制收窄到被测的非 Error 拒绝用例）。E1 的窄屏单面板改动**未提交**，补丁存于 `.artifacts/e1-narrow-single-panel.patch`。
-- E1：`ff620ce`（窄屏单面板工作台）、`bc35b20`（连接断开横幅 + connection 发布相位）、`0dec08a`（日志）。
+- E1：`ff620ce`（窄屏单面板工作台）、`bc35b20`（连接断开横幅 + connection 发布相位）、`ce300ae`/`fce8774`（首屏 gzip，-47% 字节）、`0dec08a`/`118446f`（日志）。
 - 日志与共享文档按约定单独提交（`60b7e78`、`55a2c19`、`4c018b8`、`9a47072`、`f60c3a5` 等）。
 
 ### 重启清单（本次重启后应看到）
 
-1. 浏览器不再报 `Failed to load plugins`（上一轮删 bloom 造成的 profile/进程漂移）。
+1. 浏览器不再报 `Failed to load plugins`（上一轮删 bloom 造成的 profile/进程漂移）；连接断开时顶部出现「连接已断开，正在重连…」横幅（`ui-connection-status` 行，组合自检已过）；首屏资源变成 gzip 传输（`content-encoding: gzip`，总字节约 11.7 → 6.3 MiB）。
 2. `~/.dsh/profiles/web` 的 bundles：`dsh-base` / `dsh-web-app` / `archived-sessions` / `dsh-client-ui-skin-maid-atelier` / `dsh-theme` / `@eternalnight/dsh-theme`；`@kubor/dsh-bloom-theme` 已移除。
 3. 工作台三页：**文件**（`.md`/`.ts`/`.json` 等现在有文本预览）、**插件市场**（打开即出默认页、按 star 排序、按语言显示摘要）、**主题**（系统原皮三行 + 注册表主题 + 皮肤启用/停用开关）。
 4. 社区包自带入口：`@eternalnight/dsh-theme` 的 **Theme** 按钮（Built-in / Image / Video + Apply，已修好可点）；`dsh-theme` 的设置入口。
