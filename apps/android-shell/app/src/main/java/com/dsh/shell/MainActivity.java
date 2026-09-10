@@ -102,7 +102,8 @@ public class MainActivity extends Activity {
      */
     private String startOrigin() {
         try {
-            proxy = new LoopbackProxy(0, UPSTREAM_HOST, UPSTREAM_ADDRESS, UPSTREAM_PORT);
+            proxy = new LoopbackProxy(0, UPSTREAM_HOST, UPSTREAM_ADDRESS, UPSTREAM_PORT,
+                    new GatewayCache(new java.io.File(getFilesDir(), "gateway-cache")));
             proxy.start();
             Log.i(TAG, "gateway " + proxy.origin() + " -> " + UPSTREAM_HOST + " (" + UPSTREAM_ADDRESS + ":" + UPSTREAM_PORT + ")");
             return proxy.origin();
