@@ -24,7 +24,10 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 import type {} from '@deepseek-ai/dsh-workbench/remote'
 import type { WorkbenchFileRef, WorkbenchPanelTab } from './contract/slots.ts'
+import { CodeViewer, codeTypeSelector } from './CodeViewer.tsx'
+import { createFilePanelStore } from './file-panel-store.ts'
 import { FilePanel } from './FilePanel.tsx'
+import { MarkdownViewer, markdownTypeSelector } from './MarkdownViewer.tsx'
 import { MarketplacePanel } from './MarketplacePanel.tsx'
 import { createMediaViewer, mediaTypeSelector } from './MediaViewer.tsx'
 import { TextViewer, textTypeSelector } from './TextViewer.tsx'
@@ -40,6 +43,8 @@ import { WorkbenchToggle } from './WorkbenchToggle.tsx'
 
 export type { IWorkbench } from './service.ts'
 export type { WorkbenchFileRef, WorkbenchPanelTab, WorkbenchPanelOwnerProps, WorkbenchViewerOwnerProps } from './contract/slots.ts'
+export type { CodeViewerProps } from './CodeViewer.tsx'
+export type { MarkdownViewerProps } from './MarkdownViewer.tsx'
 export type { MediaViewerProps } from './MediaViewer.tsx'
 export type { TextViewerProps } from './TextViewer.tsx'
 export type { ThemePanelInjected, ThemePanelProps } from './ThemePanel.tsx'
@@ -161,6 +166,7 @@ export function apply(ctx: ClientContext): void {
     order: 10,
     label: () => zh['files.title'],
     locale: NS,
+    store: createFilePanelStore,
     inject: () => ({ list: listDir, preview: (file: WorkbenchFileRef) => { controller.preview(file) } }),
   }, FilePanel))
 
@@ -206,6 +212,21 @@ export function apply(ctx: ClientContext): void {
       },
     }),
   }, MarketplacePanel))
+
+  // Markdown and source before the plain text entry: every one of them elects
+  // the same host media type (`text/plain`), so only the order decides, and
+  // text is the catch-all for what has no richer preview.
+  ctx.slots.inject('workbench.viewer', () => ctx.slots.register({
+    name: 'workbench.viewer',
+    select: markdownTypeSelector,
+    locale: NS,
+  }, MarkdownViewer))
+
+  ctx.slots.inject('workbench.viewer', () => ctx.slots.register({
+    name: 'workbench.viewer',
+    select: codeTypeSelector,
+    locale: NS,
+  }, CodeViewer))
 
   // Text last: the media selectors decline every text type, so the chain order
   // only decides which of two non-overlapping selectors is asked first.

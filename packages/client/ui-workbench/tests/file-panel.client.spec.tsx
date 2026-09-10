@@ -6,9 +6,11 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useSyncExternalStore } from 'react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 import { FilePanel } from '../src/client/FilePanel.tsx'
+import { createFilePanelStore } from '../src/client/file-panel-store.ts'
 import type { FilePanelProps } from '../src/client/FilePanel.tsx'
 import { zh } from '../src/client/locales.ts'
 
@@ -46,17 +48,30 @@ const NESTED: WorkbenchListing = {
 function props(
   list: FilePanelProps['list'],
   sessionId: string | null = 'session-1',
-): { props: FilePanelProps; preview: ReturnType<typeof vi.fn> } {
+): { props: FilePanelProps; preview: ReturnType<typeof vi.fn>; store: ReturnType<ReturnType<typeof createFilePanelStore>['create']> } {
   const preview = vi.fn()
+  // The panel declares its own store for the hidden-entry preference, so the
+  // test drives a real instance through the standard engine path.
+  const store = createFilePanelStore().create()
+  // A store hook subscribes: reading a snapshot once would leave the panel
+  // unable to react to its own toggle.
+  const subscribe = (listener: () => void): (() => void) => store.subscribe(listener)
+  const snapshot = (): { showHidden: boolean } => store.getSnapshot()
+  function useStore<T>(read: (state: { showHidden: boolean }) => T): T {
+    return read(useSyncExternalStore(subscribe, snapshot))
+  }
   return {
     props: {
       useSessions: (read: (state: { current: string | undefined }) => unknown) =>
         read({ current: sessionId ?? undefined }),
+      useStore,
+      actions: store.actions,
       list,
       preview,
       t,
     } as unknown as FilePanelProps,
     preview,
+    store,
   }
 }
 
@@ -86,6 +101,30 @@ describe('FilePanel', () => {
     expect(screen.getByText('2.0 KB')).toBeTruthy()
     expect(screen.getByText('2.0 MB')).toBeTruthy()
     expect(screen.getByRole('button', { name: /socket/ }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('hides dot-prefixed entries until the toggle asks for them', async () => {
+    const list = vi.fn(() => Promise.resolve({
+      root: '/w',
+      path: '/w',
+      fileRoute: '/workbench/file',
+      entries: [
+        { name: '.git', type: 'directory', path: '/w/.git' },
+        { name: '.env', type: 'file', path: '/w/.env', size: 20, mediaType: 'text/plain' },
+        { name: 'README.md', type: 'file', path: '/w/README.md', size: 6, mediaType: 'text/plain' },
+      ],
+    } satisfies WorkbenchListing))
+    const built = props(list)
+    render(<FilePanel {...built.props} />)
+    expect(await screen.findByText('README.md')).toBeTruthy()
+    // Configuration is not what someone opens a file tree for.
+    expect(screen.queryByText('.git')).toBeNull()
+    expect(screen.queryByText('.env')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: zh['files.showHidden'] }))
+    expect(built.store.getSnapshot().showHidden).toBe(true)
+    expect(screen.getByText('.git')).toBeTruthy()
+    expect(screen.getByText('.env')).toBeTruthy()
   })
 
   it('shows the empty notice for a directory with no children', async () => {

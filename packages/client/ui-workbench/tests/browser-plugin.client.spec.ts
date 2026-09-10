@@ -190,18 +190,26 @@ describe('ui-workbench browser half', () => {
     expect(ctx.slots.entries('workbench')).toHaveLength(0)
   })
 
-  it('registers the media and text viewers, each electing its own types, and removes them with the fiber', async () => {
+  it('registers the markdown, source, text and media viewers, and removes them with the fiber', async () => {
     const { ctx, fiber } = await bench()
     const entries = ctx.slots.entries('workbench.viewer')
-    expect(entries).toHaveLength(4)
-    const selectors = entries.map(entry => entry.select as (owner: { mediaType: string }) => string | null)
-    const elected = (mediaType: string): readonly (string | null)[] =>
-      selectors.map(select => select({ mediaType })).filter(match => match !== null)
-    // Non-overlapping selectors: each type is elected by exactly one entry.
+    // Markdown and source are registered before text: all three elect
+    // `text/plain`, so registration order is what decides which renders.
+    expect(entries).toHaveLength(6)
+    const selectors = entries.map(entry => entry.select as (owner: { name: string; mediaType: string }) => string | null)
+    const elected = (mediaType: string, name = 'a.bin'): readonly (string | null)[] =>
+      selectors.map(select => select({ name, mediaType })).filter(match => match !== null)
+    const firstClaimant = (mediaType: string, name: string): number =>
+      selectors.findIndex(select => select({ name, mediaType }) !== null)
+    // Media types are elected by exactly one entry.
     expect(elected('image/png')).toEqual(['image/png'])
     expect(elected('video/mp4')).toEqual(['video/mp4'])
     expect(elected('application/json')).toEqual(['application/json'])
     expect(elected('application/octet-stream')).toEqual([])
+    // A text file is claimed by the richest viewer that can render it.
+    expect(firstClaimant('text/plain', 'README.md')).toBe(0)
+    expect(firstClaimant('text/plain', 'main.ts')).toBe(1)
+    expect(firstClaimant('text/plain', 'notes.txt')).toBe(2)
     await fiber.dispose()
     expect(ctx.slots.entries('workbench.viewer')).toHaveLength(0)
   })

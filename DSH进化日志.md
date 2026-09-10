@@ -474,6 +474,17 @@
 - **工具链已确认可用**：Java 21、Gradle 9.1.0（`~/.gradle/wrapper/dists` 已解压）、Android SDK（build-tools 36.0.0 / platforms 34-36 / cmdline-tools / NDK 28.2）、Google Maven 与 Maven Central 均可达、AndroidX 依赖已有本地缓存。
 - **本轮已落地**：`apps/android-shell/` 骨架（纯 Java + 系统 WebView、零第三方依赖、Launcher 图标由 PWA 图标集生成）。**编译尚未验证**（首次 `assembleDebug` 被中断），下一步就是把它编出来并在手机上装。
 
+### 01:20–02:00 · 文件预览补全（复用已有渲染器）＋工作台隐藏项开关
+
+用户反馈：很多文件渲染不对、不好看，应该内置渲染器，PDF/Markdown 等常用类型要支持语法高亮与预览；并要求工作台默认隐藏 `.开头` 的文件/文件夹。
+
+- **先查已有的，不引第二套依赖**：客户端本来就有完整的 Markdown 渲染 + Shiki 语法高亮 + KaTeX（`packages/client/ui-primitives` 导出 `MarkdownText`/`CodeBlock`/`JsonBlock`），助手消息就是用它渲染的。所以这次**没有新增任何依赖**。
+- **挂进查看器链而不是改查看器**：`workbench.viewer` 是一条 chain 座位，每个条目用 `select(owner)` 认领类型。新增两个条目：**Markdown 预览**（`.md/.markdown/.mdx` 或 `text/markdown`）与**源码预览**（按扩展名映射语法，`.ts/.py/.yml/Dockerfile/...`）。注册顺序在通用文本查看器**之前**——因为主机侧刻意把 `.md`/`.ts` 都报成 `text/plain`（可执行类型一律不发），三者认领的是同一个媒体类型，**只有顺序能决定谁渲染**；文本查看器成为兜底。
+- **顺带清理**：三个查看器原本各有一份 fetch+abort 逻辑，抽成 `use-file-text.ts`；`TextViewer` 改为共用。选择器返回 `string | undefined`（而不是 `null`）以**消掉组件里永不可达的兜底分支**——覆盖率门禁因此干净（新文件全部 100% 行/分支）。
+- **隐藏项开关**：`.开头` 的项默认不列出（配置类文件，不该占据文件树的主要注意力），面板顶部有「显示隐藏项」开关；偏好放在**文件面板自己的 store**（`createFilePanelStore`），所以关闭再打开工作台仍然记得，且不污染共享的工作台视图状态。
+- **验证**：`ui-workbench` 92 测试通过（新增：Markdown/源码选择器认领与拒绝、语法映射（含 `Dockerfile`/`Makefile` 按文件名）、三种读取状态、隐藏项过滤与开关）；`test:gui` 290 文件 / 3938 通过；lint 0。
+- **仍未做**：**PDF 预览**。`.pdf` 主机侧已按 `application/pdf` 发出，但没有任何查看器认领它——需要引入 PDF 渲染库（pdf.js 一类，体积约 1-2 MB），属于**新增依赖的决策**，所以留待用户确认后再做。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）

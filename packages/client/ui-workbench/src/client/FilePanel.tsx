@@ -8,9 +8,10 @@
  */
 import { useEffect, useState } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 import type { WorkbenchFileRef } from './contract/slots.ts'
+import type { createFilePanelStore } from './file-panel-store.ts'
 import { parentPath } from './listing.ts'
 import type { NS } from './locales.ts'
 import css from './FilePanel.module.css'
@@ -38,6 +39,7 @@ export interface FilePanelInjected {
 export type FilePanelProps =
   & PropsRuntime<'workbench.panel'>
   & InjectFace<FilePanelInjected>
+  & PropsStore<ReturnType<typeof createFilePanelStore>>
   & PropsLocale<typeof NS>
 
 /** Human-readable size for a file row. */
@@ -53,8 +55,9 @@ function formatSize(bytes: number | undefined): string {
  * @param props - owner width, injected listing reader, and the locale seat.
  * @returns the current directory's entries, or the empty/error state.
  */
-export function FilePanel({ useSessions, list, preview, t }: FilePanelProps) {
+export function FilePanel({ useSessions, useStore, actions, list, preview, t }: FilePanelProps) {
   const sessionId = useSessions(state => state.current)
+  const showHidden = useStore(state => state.showHidden)
   const [path, setPath] = useState<string | null>(null)
   const [listing, setListing] = useState<WorkbenchListing | undefined>(undefined)
   const [error, setError] = useState<string | undefined>(undefined)
@@ -79,9 +82,21 @@ export function FilePanel({ useSessions, list, preview, t }: FilePanelProps) {
   // host path: the URL is the same value the host registered.
   const fileUrl = (entryPath: string): string =>
     `${listing.fileRoute}?${new URLSearchParams({ sessionId, path: entryPath }).toString()}`
+  const visible = listing.entries.filter(entry => showHidden || !entry.name.startsWith('.'))
   return (
     <div className={css.panel}>
-      <div className={css.path} title={listing.path}>{parent === null ? t('files.root') : listing.path}</div>
+      <div className={css.header}>
+        <div className={css.path} title={listing.path}>{parent === null ? t('files.root') : listing.path}</div>
+        <button
+          type="button"
+          className={css.hiddenToggle}
+          aria-pressed={showHidden}
+          data-active={showHidden || undefined}
+          onClick={() => { actions.setShowHidden(!showHidden) }}
+        >
+          {t('files.showHidden')}
+        </button>
+      </div>
       <ul className={css.list}>
         {parent !== null && (
           <li>
@@ -91,7 +106,7 @@ export function FilePanel({ useSessions, list, preview, t }: FilePanelProps) {
             </button>
           </li>
         )}
-        {listing.entries.map(entry => (
+        {visible.map(entry => (
           <li key={entry.path}>
             <button
               type="button"
