@@ -452,16 +452,25 @@
 - **顺带修掉一个真 bug**：`frontend-static` 的 MIME 表没有 `.png`/`.woff`/`.woff2`/`.ttf`——**manifest 图标被当成 `application/octet-stream` 发**（Chrome 会因此拒绝安装），构建里全部 59 个字体文件也都在发 octet-stream。按 dist 实际内容补齐，并加了回归断言。
 - **验证**：PWA 构建产物测试 3 条通过（manifest 钉死 + 每个命名图标确为 dist 里真实 PNG 而不是 SPA fallback 页）；`frontend-static` 真实 HTTP 用例新增 png/woff2 类型断言；lint 0、host typecheck 0。
 
+### 00:45– · E1 收口：草稿保留与重连不重发（`31779c1`）
+
+计划 §5 最后一条的后半句（"本地保留未发送草稿，但不在恢复网络时自动发送消息、批准请求或安装插件"）**在构造上本来就成立**，这一轮把它查清并钉住：
+
+- **草稿**：草稿在 `ui-conversation/src/client/input/` 的输入机里（客户端对象层），`machine.ts`/`hub.ts` **没有任何 `connection`/`reset` 处理**——断线路径根本不会碰到它。
+- **重连不重发**：`onConnected` 会发 `connection/reset`，逐个查了全部 12 个监听者：全是 `refresh`/`resync`/`load` 之类的**重新读取**，没有一处发送、提交、批准或安装。
+- **钉子**：`packages/client/runtime/tests/client-apply.client.spec.ts` 新增用例，在真实 runtime 测试台上驱动「一代连接死亡 → 下一代握手完成」，断言两半：读取确实重建了（`session.list` 被再次调用），且**一个用户手势拥有的动作都没重发**（prompt / cancel / create / fork / rename / selectModel / updateQueue / respond / subagent 调用 / goal 与 settings 变更 / credentials / host.openPath）。这条会在将来有人往 `connection/reset` 里塞"自动重发"时立刻变红。
+- **计划已同步**：`进化/阶段性开发计划.spec.md` 的 E1 六项勾选全部按证据更新，并明确写出唯一悬置项（组装场景 `mobile-workbench.e2e.ts`）与 E0 遗留的真机项（断网重连、停服务后手机不可达），后者与横幅的真机触发合并执行。
+
 ## 待办与注意
 
-### 提交账目（全部已推送；`main` = `beebecd`，`codex/e0-mobile-baseline` 已并入 main 并删除）
+### 提交账目（全部已推送；`main` = `31779c1`，`codex/e0-mobile-baseline` 已并入 main 并删除）
 
 - 工作台：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`（该特性的面板/座位已于 16:10 那轮移除）。
 - 可靠性：`03da2eb`（客户端 bundle 门禁 + 生成器拒绝保留 Remote 名）、`3391814`（图边检查）、`e93eedb`（保留名清单收回分析器自持）。
 - 层叠：`2229d4e`（栏位不再困住 fixed 对话框）、`2bf7c07`（壁纸面板目录导航 + 会话列底色）、`14590ef`（非侧栏栏位封顶 z-index 0，修好社区主题面板的 Apply）。
 - 体验：`2442158`（文本预览 + 市场默认页/中文摘要 + 删壁纸面板）、`5293c23`/`100525a`（主题面板与「系统原皮」命名）、`9843b1b`（皮肤行开关）。
 - E0 移动访问（分支 `codex/e0-mobile-baseline`）：`e1b482a`（上一轮日志与重启清单）、`eab2493`（E0 部署与验收记录 + 只读探测工具 + 两份探测结果）、`f82a8fc`（把 oxlint 抑制收窄到被测的非 Error 拒绝用例）。E1 的窄屏单面板改动**未提交**，补丁存于 `.artifacts/e1-narrow-single-panel.patch`。
-- E1：`ff620ce`（窄屏单面板工作台）、`bc35b20`（连接断开横幅 + connection 发布相位）、`ce300ae`/`fce8774`（首屏 gzip，-47% 字节）、`e2ab729`（bundle 内容寻址缓存）、`beebecd`（PWA 可安装 + dist MIME 表补齐）、日志若干。
+- E1：`ff620ce`（窄屏单面板工作台）、`bc35b20`（连接断开横幅 + connection 发布相位）、`ce300ae`/`fce8774`（首屏 gzip，-47% 字节）、`e2ab729`（bundle 内容寻址缓存）、`beebecd`（PWA 可安装 + dist MIME 表补齐）、`31779c1`（重连只重读的回归钉子 + 计划状态）、日志若干。
 - 日志与共享文档按约定单独提交（`60b7e78`、`55a2c19`、`4c018b8`、`9a47072`、`f60c3a5` 等）。
 
 ### 重启清单（本次重启后应看到）
