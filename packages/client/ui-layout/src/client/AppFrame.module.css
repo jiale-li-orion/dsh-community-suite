@@ -23,6 +23,14 @@
 }
 
 
+/* The frame owns column order, so each column paints in document order and no
+   column carries a z-index of its own: a column that created a stacking context
+   would trap a fixed dialog a plugin registered inside it (the settings modal and
+   several community theme pickers live under `sidebar.settings`). The non-sidebar
+   columns instead take a stacking context at 0, which caps their internal
+   z-indexes (the composer seat, dropdowns) so a decoration or skin that lifts the
+   sidebar's own root above 0 keeps its dialogs above the conversation column. */
+
 .sidebarCol {
   position: relative;
   min-width: 0;
@@ -33,6 +41,7 @@
 
 .centerCol {
   position: relative;
+  z-index: 0;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -41,6 +50,7 @@
 
 .detailsCol {
   position: relative;
+  z-index: 0;
   min-width: 0;
   overflow: hidden;
   border-left: 1px solid var(--dsw-alias-border-l2);
@@ -50,6 +60,7 @@
    paints the same separator, because either neighbour may be closed. */
 .workbenchCol {
   position: relative;
+  z-index: 0;
   min-width: 0;
   overflow: hidden;
   border-left: 1px solid var(--dsw-alias-border-l2);

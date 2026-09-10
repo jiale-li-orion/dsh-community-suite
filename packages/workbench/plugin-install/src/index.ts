@@ -126,7 +126,10 @@ export class PluginInstallService extends TypertRemoteService {
    */
   @Remote('listSkins')
   async listSkins(): Promise<readonly PluginSkinRow[]> {
-    return listRows(profileDirectory(resolveProfile(import.meta.url, this.configuredProfile)))
+    // The profile reads are small and synchronous; the promise keeps the Remote
+    // boundary one asynchronous operation either way.
+    const rows = listRows(profileDirectory(resolveProfile(import.meta.url, this.configuredProfile)))
+    return await Promise.resolve(rows)
   }
 
   /**
@@ -149,7 +152,7 @@ export class PluginInstallService extends TypertRemoteService {
       )
     }
     setRowEnabled(directory, id, enabled)
-    return { id, enabled, profile }
+    return await Promise.resolve({ id, enabled, profile })
   }
 
   /** Spawn the installer and collect its exit facts. */
