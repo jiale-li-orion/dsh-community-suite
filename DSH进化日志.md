@@ -426,15 +426,24 @@
 - **验证**：`packages/client/ui-layout` 73 测试通过（含 6 个新用例：单面板呈现、关闭后回四栏、缩放不写偏好、变宽恢复共享宽度、不出现拖动手柄）；`test:gui` 287 文件 / 3912 通过；实机 390 CSS px 下打开工作台，实测 `data-single-panel=true`、轨道 `56px 334px`、会话列 `display:none`、工作台显示；随后点关闭恢复原状（原本就是关闭的）。
 - **未做（下一轮）**：计划 §5 点名的组装场景 `apps/web/tests/mobile-workbench.e2e.ts`；PWA manifest/安装测试扩展；断线重连提示与草稿保留；首屏载荷优化（11.7 MiB、无压缩）。
 
+### 23:00–23:35 · E1 第二步：连接断开横幅（`bc35b20`）
+
+- **问题**：断线原本**完全不可见**。`ConnectionController` 只把 `reconnecting` 报告给唯一可启动流循环的消费者，而 runtime 有意静默丢掉该代的作用域交互状态、下次握手后重建——中继后面接入的手机上，症状就是"应用卡死"，输入框里还留着没发出去的草稿。而且这个相位对外根本读不到：`start()` 对第二个消费者直接抛错，`hostDescription` 断线时只撤回、不说明状态。
+- **改法**：① connection 插件把本来就算出来的相位发布为 `ConnectionHandle.connectionState`（由同一个喂 sink 的 `onStateChange` 更新，循环停止时清空；循环未启动时"不存在"，不对连通性作断言）。② 新增最小客户端插件 `@deepseek-ai/dsh-client-ui-connection-status`，把相位渲染进 ui-layout 的 **`shell.overlay`**（横跨框架的增量座位，此前无消费者）：连接正常什么都不渲染，断开时一行 `status` 实时区域。**只做呈现**——重连不重发消息、不重新批准、不安装插件，需要丢弃/重建的状态仍归 runtime 所有。
+- **被否决的方案**（写进 Agent Note `2026-09-10-connection-phase-banner`）：让横幅自己 `start()`；并进 ui-layout；用失败的 RPC 或停滞的流去推断断线。
+- **验证**：新包 8 测试（overlay 注册 + fiber 拆除的 HMR 安全、两侧字典与撤回、node 半边、invariant 配套、三种相位渲染）；`test:gui` 288 文件 / 3920 通过；`verify-client-bundles` **42** 个 bundle；`--dump-config` 组合自检确认 `ui-connection-status` 行已在 web profile 里，**profile 软链已顺带修复**（这一步需要写 `~/.dsh/profiles`，沙箱外）。
+- **注意**：新增插件行属于 profile 组合，**要重启 `dsh web` 才会出现**（客户端 bundle 热重载不够）。重启前的两项自检已跑过，可以直接重启。
+
 ## 待办与注意
 
-### 提交账目（全部已推送，`origin/main` = `14590ef`；E0 分支 `codex/e0-mobile-baseline` = `f82a8fc`）
+### 提交账目（全部已推送；`main` = `bc35b20`，`codex/e0-mobile-baseline` 已并入 main 并删除）
 
 - 工作台：Phase 1 = `0e3d00a`、Phase 2 = `482eee4`、Phase 3+4 = `85ebade`、Phase 5 = `c1a687a`、knip 修 = `f38415d`；Phase 6 市场 = `302e118`、Phase 7 壁纸 = `0ec733c`（该特性的面板/座位已于 16:10 那轮移除）。
 - 可靠性：`03da2eb`（客户端 bundle 门禁 + 生成器拒绝保留 Remote 名）、`3391814`（图边检查）、`e93eedb`（保留名清单收回分析器自持）。
 - 层叠：`2229d4e`（栏位不再困住 fixed 对话框）、`2bf7c07`（壁纸面板目录导航 + 会话列底色）、`14590ef`（非侧栏栏位封顶 z-index 0，修好社区主题面板的 Apply）。
 - 体验：`2442158`（文本预览 + 市场默认页/中文摘要 + 删壁纸面板）、`5293c23`/`100525a`（主题面板与「系统原皮」命名）、`9843b1b`（皮肤行开关）。
 - E0 移动访问（分支 `codex/e0-mobile-baseline`）：`e1b482a`（上一轮日志与重启清单）、`eab2493`（E0 部署与验收记录 + 只读探测工具 + 两份探测结果）、`f82a8fc`（把 oxlint 抑制收窄到被测的非 Error 拒绝用例）。E1 的窄屏单面板改动**未提交**，补丁存于 `.artifacts/e1-narrow-single-panel.patch`。
+- E1：`ff620ce`（窄屏单面板工作台）、`bc35b20`（连接断开横幅 + connection 发布相位）、`0dec08a`（日志）。
 - 日志与共享文档按约定单独提交（`60b7e78`、`55a2c19`、`4c018b8`、`9a47072`、`f60c3a5` 等）。
 
 ### 重启清单（本次重启后应看到）
