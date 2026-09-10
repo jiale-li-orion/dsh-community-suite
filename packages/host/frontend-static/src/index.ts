@@ -37,14 +37,22 @@ export const Config: z<Config> = z.object({
 /** Content type of the index document, shared by the MIME table and the index response. */
 const HTML_TYPE = 'text/html; charset=utf-8'
 
+// Extensions the built dist actually contains. A served type the browser
+// refuses is a silent failure — a manifest icon declared as
+// application/octet-stream blocks installation, and a font with the wrong type
+// is not applied — so the table covers the dist rather than a guess at it.
 const MIME: Record<string, string> = {
   '.html': HTML_TYPE,
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
   '.json': 'application/json',
   '.map': 'application/json',
   '.webmanifest': 'application/manifest+json',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
 }
 
 /**

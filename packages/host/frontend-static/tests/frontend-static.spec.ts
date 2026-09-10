@@ -39,6 +39,8 @@ async function loadComposition(): Promise<Context> {
   await writeFile(join(dist, 'app.js'), 'export {}')
   await writeFile(join(dist, 'blob.bin'), 'BLOB')
   await writeFile(join(dist, 'manifest.webmanifest'), '{}')
+  await writeFile(join(dist, 'icon.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+  await writeFile(join(dist, 'ui.woff2'), 'FONT')
   const configPath = join(root, 'cordis.yml')
   await writeFile(configPath, [
     "- name: '@deepseek-ai/dsh-host-webserver'",
@@ -129,6 +131,12 @@ describe('real Loader composition', () => {
 
     // Unknown extension ships as octet-stream.
     expect(await request(port, '/blob.bin')).toMatchObject({ status: 200, type: 'application/octet-stream', body: 'BLOB' })
+
+    // A manifest icon and a web font carry their real types: Chrome refuses to
+    // install a manifest whose icon is octet-stream, and it drops a font that
+    // arrives as one.
+    expect((await request(port, '/icon.png')).type).toBe('image/png')
+    expect((await request(port, '/ui.woff2')).type).toBe('font/woff2')
 
     // `/`, the index path, and any miss all render index.html (SPA routing)
     // through the registered index taps.
