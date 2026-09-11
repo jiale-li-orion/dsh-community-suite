@@ -23,6 +23,7 @@ const ROOT: WorkbenchListing = {
   root: '/w',
   path: '/w',
   fileRoute: '/workbench/file',
+  uploadRoute: '/workbench/upload',
   entries: [
     { name: 'README.md', type: 'file', path: '/w/README.md', size: 6, mediaType: 'text/plain; charset=utf-8' },
     { name: 'src', type: 'directory', path: '/w/src' },
@@ -36,6 +37,7 @@ const NESTED: WorkbenchListing = {
   root: '/w',
   path: '/w/src',
   fileRoute: '/workbench/file',
+  uploadRoute: '/workbench/upload',
   entries: [{ name: 'index.ts', type: 'file', path: '/w/src/index.ts', size: 10 }],
 }
 
@@ -108,6 +110,7 @@ describe('FilePanel', () => {
       root: '/w',
       path: '/w',
       fileRoute: '/workbench/file',
+      uploadRoute: '/workbench/upload',
       entries: [
         { name: '.git', type: 'directory', path: '/w/.git' },
         { name: '.env', type: 'file', path: '/w/.env', size: 20, mediaType: 'text/plain' },
@@ -128,7 +131,7 @@ describe('FilePanel', () => {
   })
 
   it('shows the empty notice for a directory with no children', async () => {
-    const list = vi.fn(() => Promise.resolve({ root: '/w', path: '/w', fileRoute: '/workbench/file', entries: [] } satisfies WorkbenchListing))
+    const list = vi.fn(() => Promise.resolve({ root: '/w', path: '/w', fileRoute: '/workbench/file', uploadRoute: '/workbench/upload', entries: [] } satisfies WorkbenchListing))
     render(<FilePanel {...props(list).props} />)
     expect(await screen.findByText(zh['files.empty'])).toBeTruthy()
   })
@@ -153,6 +156,7 @@ describe('FilePanel', () => {
       root: '/w',
       path: '/w/src/deep',
       fileRoute: '/workbench/file',
+      uploadRoute: '/workbench/upload',
       entries: [{ name: 'leaf.ts', type: 'file', path: '/w/src/deep/leaf.ts', size: 3 }],
     }
     const nestedWithDir: WorkbenchListing = {
@@ -193,6 +197,7 @@ describe('FilePanel', () => {
       root: '/w',
       path: '/w',
       fileRoute: '/workbench/file',
+      uploadRoute: '/workbench/upload',
       entries: [{ name: 'blob', type: 'file', path: '/w/blob' }],
     } satisfies WorkbenchListing))
     const { props: panelProps, preview } = props(list)

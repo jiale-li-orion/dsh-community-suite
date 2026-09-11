@@ -673,6 +673,16 @@ machine can.
 - **阶段 2（下一步）**：客户端插件——输入框左下角的上传按钮（`conversation.input.left` 座位）、调系统文件选择器、上传后把引用写进草稿；手机端复用 APK 已接好的系统选择器。
 - **需要重启**：宿主侧路由与 listing 字段要重启后生效。
 
+### 20:00–21:00 · E2 文件上传（阶段 2）：输入框里的上传按钮
+
+- **家选在 `ui-workbench`**（而不是新建包或塞进 `ui-conversation`）：它既**拥有工作区**（知道 listing 里的两个路由），又能注册到别人的座位 ✓——塞进会话包会让会话耦合工作台，新建包则要跑客户端目录生成器并再批一次 install。
+- **座位是现成的**：`conversation.input.left`（输入框左下角工具行）✓，正是用户要的位置；`inputActions`（草稿动作）由 standard-kit **自动发给每个会话作用域座位组件** ✓，所以按钮能直接改写草稿，无需跨包耦合。
+- **实现**：`UploadButton.tsx`（按钮 + 隐藏的 `<input type=file multiple>` + 失败提示 `role=alert`）+ `createUploadEntry(upload)` 工厂（该座位注册不接受 inject 面，用闭包绑定动作）+ 抽出的 `upload-action.ts`（可单测：POST 字节 → 返回写入路径）。
+- **行为**：选中的每个文件依次上传，成功后把引用**追加到草稿**（保留已输入内容、另起一行），失败**如实报错**且不写引用；清空 input 值以便重选同一文件。
+- **验证**：`ui-workbench` **108 测试**通过（新增按钮行为 5 条 + 上传动作 3 条 + 面板缩放面 1 条）；`UploadButton.tsx` 与 `upload-action.ts` **覆盖率 100%**、index.ts 行覆盖 100%（剩余未覆盖是**先前既有**的皮肤失败分支）；lint 0；全仓 typecheck 通过；**浏览器实测**：按钮出现在 `Access mode` 之后（即 `+` 与权限 chip 右侧 ✓），文件输入 `multiple` ✓。
+- **端到端还差一次重启**：实测点击后走到 `workbench/listDir` 被**结果校验拒绝**——因为**运行中的宿主进程是阶段 1 之前的**，它的 listing 里没有 `uploadRoute`，而新客户端 schema 要求它 ✓（两侧产物都已含该字段）。重启后即可通过。
+- **手机端无需额外工作**：APK 早已接好系统文件选择器（`onShowFileChooser`）✓，按钮点开的就是同一套选择器。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）

@@ -41,6 +41,8 @@ import { WorkbenchController } from './service.ts'
 import type { IWorkbench } from './service.ts'
 import { WorkbenchShell } from './WorkbenchShell.tsx'
 import { WorkbenchBarAction, WorkbenchToggle } from './WorkbenchToggle.tsx'
+import { createUploadEntry } from './UploadButton.tsx'
+import { createUploadAction } from './upload-action.ts'
 
 export type { IWorkbench } from './service.ts'
 export type { WorkbenchFileRef, WorkbenchPanelTab, WorkbenchPanelOwnerProps, WorkbenchViewerOwnerProps } from './contract/slots.ts'
@@ -54,6 +56,9 @@ export type { FilePanelInjected, FilePanelProps } from './FilePanel.tsx'
 export type { MarketplaceInjected, MarketplacePanelProps } from './MarketplacePanel.tsx'
 export type { WorkbenchShellInjected, WorkbenchShellProps } from './WorkbenchShell.tsx'
 export type { WorkbenchBarActionProps, WorkbenchToggleInjected, WorkbenchToggleProps } from './WorkbenchToggle.tsx'
+export type { UploadButtonProps, UploadInjected } from './UploadButton.tsx'
+export { createUploadAction } from './upload-action.ts'
+export type { ListingReader } from './upload-action.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -254,6 +259,16 @@ export function apply(ctx: ClientContext): void {
       locale: NS,
     }, createMediaViewer(family)))
   }
+
+  // The composer's upload control: it hands this session a file picked on this
+  // device, and the workspace is this plugin's subject, so the control lives
+  // here rather than in the composer.
+  const upload = createUploadAction(listDir)
+  ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
+    name: 'conversation.input.left',
+    id: 'workbench-upload',
+    locale: NS,
+  }, createUploadEntry(upload)))
 
   // The same trigger serves the narrow frame's page bar: opening the workbench
   // page means committing the shared view, which only this plugin owns.

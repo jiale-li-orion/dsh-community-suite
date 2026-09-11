@@ -42,7 +42,15 @@ function headerEntryIds(ctx: Context): (string | undefined)[] {
 function fakeLayout() {
   // setMobilePage is part of the face because the page bar's action moves this
   // client's page as well as committing the shared view.
-  return { openWorkbench: vi.fn(), closeWorkbench: vi.fn(), toggleWorkbench: vi.fn(), setMobilePage: vi.fn() }
+  return {
+    openWorkbench: vi.fn(),
+    closeWorkbench: vi.fn(),
+    toggleWorkbench: vi.fn(),
+    setMobilePage: vi.fn(),
+    uiScales: () => [0.8, 1],
+    uiScale: () => 0.8,
+    setUiScale: vi.fn(),
+  }
 }
 
 /**
@@ -192,6 +200,21 @@ describe('ui-workbench browser half', () => {
     expect(ctx.slots.spec('workbench.viewer')).toEqual({ kind: 'chain', scope: 'root' })
     await fiber.dispose()
     expect(ctx.slots.entries('workbench')).toHaveLength(0)
+  })
+
+  it('hands the appearance panel the interface scale on this device', async () => {
+    const { ctx } = await bench()
+    // The panel offers the steps and applies the choice; the device's own value
+    // is what it starts from.
+    const face = injectedOf(ctx, 'workbench.panel', 'theme') as {
+      scales: () => readonly number[]
+      scale: () => number
+      setScale: (value: number) => void
+    }
+    expect(face.scales()).toEqual([0.8, 1])
+    expect(face.scale()).toBe(0.8)
+    face.setScale(1)
+    expect((ctx.layout as unknown as { setUiScale: ReturnType<typeof vi.fn> }).setUiScale).toHaveBeenCalledWith(1)
   })
 
   it('contributes the workbench page action to the narrow frame bar', async () => {
