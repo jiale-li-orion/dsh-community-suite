@@ -46,3 +46,5 @@ worktrees/
 
 # The shell installer is a local build artifact, served but never committed.
 apps/web/public/*.apk
+# Session uploads are workspace data, not repository content.
+uploads/
