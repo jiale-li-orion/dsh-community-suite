@@ -27,10 +27,16 @@ export interface WorkbenchShellInjected {
 
 /**
  * Column width below which the preview replaces the panel instead of sitting
- * beside it. Two panes need room to be usable; under this the file is a page of
- * its own, which is what a phone column is.
+ * beside it.
+ *
+ * The value has to sit between the two widths this column actually has: a
+ * narrow frame gives it the viewport (a phone, so 360-430), and a wide frame
+ * gives it the drag preference, whose contract default is 560 and whose floor
+ * is 320. A threshold above the default would push every desktop preview into
+ * the single-pane branch, which is exactly the panel-less preview a desktop
+ * user reads as a cut-off document.
  */
-const SPLIT_MIN_WIDTH = 640
+const SPLIT_MIN_WIDTH = 480
 
 /** Full composed props: runtime owner share + render shares + store + inject + locale. */
 export type WorkbenchShellProps =
