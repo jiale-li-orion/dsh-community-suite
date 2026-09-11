@@ -384,6 +384,24 @@ describe('AppFrame — narrow frame pages', () => {
     expect(getByTestId('workbench-content')).toBeTruthy()
   })
 
+  it('carries the session details on the list page rather than a fourth page', () => {
+    frameWidth = 390
+    const { instance, slotCalls } = mountFrame()
+    act(() => { instance.actions.setMobilePage('list') })
+    // The details seat renders where the list does: a phone navigates three
+    // pages, and the details belong to the session the list is showing.
+    expect(slotCalls.map(call => call.key)).toContain('details')
+    expect(slotCalls.filter(call => call.key === 'details').at(-1)!.props).toEqual({})
+  })
+
+  it('omits the details section while no session is current', () => {
+    frameWidth = 390
+    selectedSession.current = undefined
+    const { instance, slotCalls } = mountFrame()
+    act(() => { instance.actions.setMobilePage('list') })
+    expect(slotCalls.map(call => call.key)).not.toContain('details')
+  })
+
   it('leaves the list page once a session is chosen', () => {
     frameWidth = 390
     const { frame, instance, rerenderFrame } = mountFrame()

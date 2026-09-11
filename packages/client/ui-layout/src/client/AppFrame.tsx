@@ -247,7 +247,20 @@ export function AppFrame({
         {/* Every page stays mounted: switching pages must not cost a session its
             scroll position or a panel its listing. */}
         <div className={css.mobileBody}>
-          <div className={css.mobileSidebar}>{renderSlot('sidebar', { collapsed: false, width: viewport })}</div>
+          {/* The list page carries the session's details below the list: a
+              fourth page would be a fourth thing to navigate, and the details
+              belong to the session the list is showing. */}
+          <div className={css.mobileSidebar}>
+            <div className={css.mobileListBody}>
+              {renderSlot('sidebar', { collapsed: false, width: viewport })}
+            </div>
+            {detailsSession !== undefined && (
+              <details className={css.mobileDetails}>
+                <summary className={css.mobileDetailsSummary}>{t('mobile.details')}</summary>
+                <div className={css.mobileDetailsBody}>{renderSlot('details', {})}</div>
+              </details>
+            )}
+          </div>
           <CenterColumn>{renderSlot('conversation', {})}</CenterColumn>
           <WorkbenchColumn>
             {renderSlot('workbench', { collapsed: workbenchCollapsed, width: workbenchWidth })}

@@ -238,8 +238,35 @@
 
 .mobileSidebar {
   position: relative;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: var(--dsw-specific-sidebar-fill);
+}
+
+.mobileListBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Collapsed by default: the list is what someone opened this page for. */
+.mobileDetails {
+  flex: none;
+  max-height: 45%;
+  overflow: auto;
+  border-top: 1px solid var(--dsw-alias-border-l1);
+}
+
+.mobileDetailsSummary {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.mobileDetailsBody {
+  padding: 0 8px 8px;
 }
 
 /* A narrow page is the whole screen, so it owns its background: without one, a

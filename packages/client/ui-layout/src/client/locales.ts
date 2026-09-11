@@ -11,6 +11,7 @@ export const zh = {
   'mobile.openList': '打开会话列表',
   'mobile.back': '返回会话',
   'mobile.untitled': '未命名会话',
+  'mobile.details': '当前会话详情',
 }
 
 /** English dictionary, key-identical to the Chinese source of truth. */
@@ -18,6 +19,7 @@ export const en: Record<LayoutKey, string> = {
   'mobile.openList': 'Open the session list',
   'mobile.back': 'Back to the conversation',
   'mobile.untitled': 'Untitled session',
+  'mobile.details': 'Session details',
 }
 
 /** Key domain of the `layout` namespace (zh is the source of truth). */
