@@ -452,6 +452,18 @@ describe('workbench upload route — which device sent the file', () => {
 })
 
 describe('workbench upload route — one ingest, one file', () => {
+  it.each(['constructor', '__proto__', 'toString'])('persists and replays the opaque ingest id %s', async (id) => {
+    const { base, root } = await bench()
+    const url = uploadUrl(base, 'notes.txt', SESSION, 'mobile-app', id)
+    const first = await fetch(url, { method: 'POST', body: 'hello' })
+    expect(await first.json()).toEqual({ path: 'uploads/mobile-app/notes.txt', bytes: 5 })
+    expect(await readFile(join(root, 'uploads/mobile-app/notes.txt'), 'utf8')).toBe('hello')
+    const index = JSON.parse(await readFile(join(root, 'uploads/.dsh/ingest.json'), 'utf8')) as object
+    expect(Object.hasOwn(index, id)).toBe(true)
+    const repeat = await fetch(url, { method: 'POST' })
+    expect(await repeat.json()).toEqual({ path: 'uploads/mobile-app/notes.txt', bytes: 5, repeat: true })
+  })
+
   it('answers a repeated ingest id with the original result instead of a second copy', async () => {
     const { base, root } = await bench()
     const first = await fetch(uploadUrl(base, 'photo.jpg', SESSION, 'mobile-app', 'pick-1'), {
@@ -503,6 +515,34 @@ describe('workbench upload route — one ingest, one file', () => {
 })
 
 describe('workbench upload route — an index that says nothing usable', () => {
+  it.each([
+    { path: 'uploads/mobile-app/old.txt' },
+    null,
+    42,
+    { path: '../../outside.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'mobile-app', receivedAt: 1 },
+    { path: 'uploads/mobile-app/old.txt', bytes: -1, sha256: 'a'.repeat(64), device: 'mobile-app', receivedAt: 1 },
+    { path: 'uploads/mobile-app/old.txt', bytes: 5, sha256: 'invalid', device: 'mobile-app', receivedAt: 1 },
+    { path: 'uploads/mobile-app/old.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'desktop-browser', receivedAt: 1 },
+    { path: 'uploads/mobile-app/old.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'mobile-app', receivedAt: 'yesterday' },
+  ])('does not report an invalid disk record as a completed upload: %j', async (record) => {
+    const { base, root } = await bench()
+    await mkdir(join(root, 'uploads/.dsh'), { recursive: true })
+    await writeFile(join(root, 'uploads/.dsh/ingest.json'), JSON.stringify({ pick: record }))
+    const response = await fetch(uploadUrl(base, 'notes.txt', SESSION, 'mobile-app', 'pick'), { method: 'POST', body: 'hello' })
+    expect(await response.json()).toEqual({ path: 'uploads/mobile-app/notes.txt', bytes: 5 })
+    expect(await readFile(join(root, 'uploads/mobile-app/notes.txt'), 'utf8')).toBe('hello')
+  })
+
+  it('rebuilds an array index as a keyed object so a subsequent retry can find its record', async () => {
+    const { base, root } = await bench()
+    await mkdir(join(root, 'uploads/.dsh'), { recursive: true })
+    await writeFile(join(root, 'uploads/.dsh/ingest.json'), '[]')
+    const url = uploadUrl(base, 'notes.txt', SESSION, 'mobile-app', 'pick')
+    await fetch(url, { method: 'POST', body: 'hello' })
+    const repeat = await fetch(url, { method: 'POST' })
+    expect(await repeat.json()).toEqual({ path: 'uploads/mobile-app/notes.txt', bytes: 5, repeat: true })
+  })
+
   it('treats an index holding a non-object as empty instead of failing the upload', async () => {
     const { base, root } = await bench()
     const unreadable = join(root, 'uploads', '.dsh')

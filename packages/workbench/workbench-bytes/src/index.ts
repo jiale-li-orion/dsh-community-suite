@@ -40,7 +40,7 @@ const UPLOAD_DIR = 'uploads'
  */
 const UNKNOWN_DEVICE = 'unknown'
 
-/** Shape of a client-supplied ingest id: opaque, bounded, safe as a JSON key. */
+/** Allowed characters and length of a client-supplied opaque ingest id. */
 const INGEST_ID = /^[A-Za-z0-9._-]{1,128}$/
 
 /** Directory holding the ingest index, beside the files it describes. */
@@ -50,9 +50,8 @@ const INGEST_DIR = '.dsh'
 const INGEST_INDEX = 'ingest.json'
 
 /**
- * What one accepted upload is recorded as. The digest lets a repeat be compared
- * against the original rather than trusted, and the receipt time is what an
- * expiry policy would read later.
+ * Metadata of an accepted upload. Replays use the id; the digest records the
+ * accepted bytes without claiming to verify a subsequent request body.
  */
 interface IngestRecord {
   /** Workspace-relative path the bytes were written to. */
@@ -177,25 +176,40 @@ async function writeBody(
  * @param dir - the uploads directory.
  * @returns the recorded ingests, or an empty index when none is readable.
  */
-function readIndex(dir: string): Record<string, IngestRecord> {
+function readIndex(dir: string): Map<string, IngestRecord> {
   try {
     const parsed: unknown = JSON.parse(readFileSync(join(dir, INGEST_DIR, INGEST_INDEX), 'utf8'))
-    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, IngestRecord> : {}
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return new Map()
+    return new Map(Object.entries(parsed).filter((entry): entry is [string, IngestRecord] =>
+      INGEST_ID.test(entry[0]) && isIngestRecord(entry[1])))
   } catch {
     // An absent or unreadable index means no ingest has been recorded yet; the
     // files themselves remain the authority on what was received.
-    return {}
+    return new Map()
   }
 }
 
+/** Validate persisted metadata before using it to answer a completed-upload retry. */
+function isIngestRecord(value: unknown): value is IngestRecord {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  if (typeof record.path !== 'string' || typeof record.device !== 'string') return false
+  if (record.device !== UNKNOWN_DEVICE && !CLIENT_DEVICES.includes(record.device as ClientDevice)) return false
+  const prefix = `${UPLOAD_DIR}/${record.device}/`
+  if (!record.path.startsWith(prefix) || plainFileName(record.path.slice(prefix.length)) === undefined) return false
+  return typeof record.bytes === 'number' && Number.isSafeInteger(record.bytes) && record.bytes >= 0
+    && typeof record.sha256 === 'string' && /^[a-f0-9]{64}$/.test(record.sha256)
+    && typeof record.receivedAt === 'number' && Number.isSafeInteger(record.receivedAt) && record.receivedAt >= 0
+}
+
 /**
- * Record one ingest, replacing the index atomically enough for a single host.
+ * Write accepted metadata. This write is not a crash-safe transaction with the uploaded file.
  * @param dir - the uploads directory.
  * @param index - the index to write.
  */
-function writeIndex(dir: string, index: Record<string, IngestRecord>): void {
+function writeIndex(dir: string, index: Map<string, IngestRecord>): void {
   mkdirSync(join(dir, INGEST_DIR), { recursive: true })
-  writeFileSync(join(dir, INGEST_DIR, INGEST_INDEX), `${JSON.stringify(index, null, 2)}\n`)
+  writeFileSync(join(dir, INGEST_DIR, INGEST_INDEX), `${JSON.stringify(Object.fromEntries(index), null, 2)}\n`)
 }
 
 /**
@@ -265,7 +279,7 @@ export async function receiveWorkbenchUpload(
   // answered from what the whole directory received, whichever bucket it names.
   const indexDir = dirname(dir)
   if (ingestId !== null) {
-    const recorded = readIndex(indexDir)[ingestId]
+    const recorded = readIndex(indexDir).get(ingestId)
     if (recorded !== undefined) {
       // The repeat may carry no body at all, so the answer is sent before the
       // request stream is read: same bytes in, same result out.
@@ -283,13 +297,13 @@ export async function receiveWorkbenchUpload(
   const written = `${UPLOAD_DIR}/${device}/${path.slice(dir.length + 1)}`
   if (ingestId !== null) {
     const index = readIndex(indexDir)
-    index[ingestId] = {
+    index.set(ingestId, {
       path: written,
       bytes,
       sha256: createHash('sha256').update(readFileSync(path)).digest('hex'),
       device,
       receivedAt: Date.now(),
-    }
+    })
     writeIndex(indexDir, index)
   }
   res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
