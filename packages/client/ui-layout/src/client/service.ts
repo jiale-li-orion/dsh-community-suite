@@ -10,6 +10,7 @@
  */
 import type { BoundActions } from '@deepseek-ai/dsh-client-ui-slots'
 import type { createLayoutStore } from './stores.ts'
+import { applyUiScale, readUiScale, rememberUiScale, UI_SCALES } from './ui-scale.ts'
 
 /** The layout store's bound action set (framework-baked, draft params peeled). */
 export type PanelActions = BoundActions<ReturnType<typeof createLayoutStore>>
@@ -21,6 +22,15 @@ export type PanelActions = BoundActions<ReturnType<typeof createLayoutStore>>
  * only).
  */
 export interface ILayout {
+  /** @returns the offered interface scales, smallest first. */
+  uiScales(): readonly number[]
+  /** @returns the interface scale this device renders at. */
+  uiScale(): number
+  /**
+   * Set and remember the interface scale for this device.
+   * @param scale - one of the offered steps.
+   */
+  setUiScale(scale: number): void
   /**
    * Show one page in a narrow frame.
    * @param page - the page a narrow frame should show.
@@ -43,6 +53,30 @@ export interface ILayout {
 /** Cross-plugin panel-action face (ctx.layout). */
 export class LayoutController implements ILayout {
   #panels: PanelActions | undefined
+  #scale: number | undefined
+
+  /** @returns the offered interface scales, smallest first. */
+  uiScales(): readonly number[]
+  /** @returns the offered interface scales, smallest first. */
+  uiScales(): readonly number[] {
+    return UI_SCALES
+  }
+
+  /** @returns the interface scale this device renders at. */
+  uiScale(): number {
+    this.#scale ??= readUiScale()
+    return this.#scale
+  }
+
+  /**
+   * Set and remember the interface scale for this device.
+   * @param scale - one of the offered steps.
+   */
+  setUiScale(scale: number): void {
+    this.#scale = scale
+    applyUiScale(scale, document.documentElement)
+    rememberUiScale(scale)
+  }
 
   /**
    * Adopt the root entry's bound store actions. Called from the root

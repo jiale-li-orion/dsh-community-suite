@@ -181,6 +181,9 @@ export function apply(ctx: ClientContext): void {
     inject: (): ThemePanelInjected => ({
       hooks: { theme: themeState },
       set: (id: string) => { ctx.theme.setTheme(id) },
+      scales: () => ctx.layout.uiScales(),
+      scale: () => ctx.layout.uiScale(),
+      setScale: (value: number) => { ctx.layout.setUiScale(value) },
       skins: async () => {
         const result = await ctx.remote.pluginInstall.listSkins()
         if (!result.ok) throw new Error(result.error.message)

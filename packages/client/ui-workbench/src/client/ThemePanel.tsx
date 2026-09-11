@@ -22,6 +22,21 @@ export interface ThemePanelInjected {
    */
   set: (id: string) => void
   /**
+   * List the interface scales this build offers, smallest first.
+   * @returns the offered steps.
+   */
+  scales: () => readonly number[]
+  /**
+   * Read the interface scale this device renders at.
+   * @returns the current scale.
+   */
+  scale: () => number
+  /**
+   * Set the interface scale for this device.
+   * @param value - one of the offered steps.
+   */
+  setScale: (value: number) => void
+  /**
    * List the appearance rows the installed bundles insert.
    * @returns one entry per row, with its current enablement.
    */
@@ -50,13 +65,16 @@ export type ThemePanelProps =
  * @param props - owner width, the injected appearance faces, and the locale seat.
  * @returns the theme rows and the skin switches.
  */
-export function ThemePanel({ set, skins, setSkin, useTheme, t }: ThemePanelProps) {
+export function ThemePanel({ set, scales, scale, setScale, skins, setSkin, useTheme, t }: ThemePanelProps) {
   const preference = useTheme(snapshot => snapshot.preference)
   // The three stock preferences first — they are the way back to no community
   // theme — then every theme a plugin registered on top of the stock palette.
   const themes = useTheme(snapshot => snapshot.themes)
   const [skinRows, setSkinRows] = useState<readonly PluginSkinRow[] | undefined>(undefined)
   const [error, setError] = useState<string | undefined>(undefined)
+  // The scale is written by this control alone, so the panel's copy is the
+  // applied value read once at mount.
+  const [current, setCurrent] = useState(scale)
   useEffect(() => {
     let live = true
     void skins().then(
@@ -100,6 +118,26 @@ export function ThemePanel({ set, skins, setSkin, useTheme, t }: ThemePanelProps
           </li>
         ))}
       </ul>
+      <div className={css.section}>{t('scale.title')}</div>
+      <ul className={css.list}>
+        {scales().map(step => (
+          <li key={step} className={css.row}>
+            <button
+              type='button'
+              className={css.apply}
+              data-active={Math.abs(step - current) < 0.001 || undefined}
+              onClick={() => {
+                setScale(step)
+                setCurrent(step)
+              }}
+            >
+              {String(Math.round(step * 100))}%
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className={css.notice}>{t('scale.hint')}</p>
+
       <div className={css.section}>{t('theme.skins')}</div>
       <ul className={css.list}>
         {(skinRows ?? []).map(row => (

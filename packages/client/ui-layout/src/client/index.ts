@@ -14,6 +14,7 @@ import type { PanelActions } from './service.ts'
 import { AppFrame } from './AppFrame.tsx'
 import { createLayoutStore } from './stores.ts'
 import { LayoutController } from './service.ts'
+import { applyUiScale } from './ui-scale.ts'
 import { en, NS, zh, type LayoutKey } from './locales.ts'
 import { ThemePresenter } from './theme-presenter.ts'
 
@@ -157,6 +158,12 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => {
     const disposeService = ctx.reflect.provide('layout', layout)
     ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-layout: dictionaries')
+    // The device's interface scale is applied before the first paint of the
+    // frame it sizes, and retracted with the fiber that applied it.
+    ctx.effect(() => {
+      applyUiScale(layout.uiScale(), document.documentElement)
+      return () => { document.documentElement.style.removeProperty('zoom') }
+    }, 'ui-layout: interface scale')
     const disposeRegistration = ctx.slots.register({
       name: 'root',
       children: {

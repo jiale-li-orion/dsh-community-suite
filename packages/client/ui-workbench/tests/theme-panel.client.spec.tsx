@@ -41,14 +41,23 @@ function props(
     enabled: true,
     profile: 'web',
   }),
-): { props: ThemePanelProps; set: ReturnType<typeof vi.fn>; setSkin: ReturnType<typeof vi.fn> } {
+): {
+  props: ThemePanelProps
+  set: ReturnType<typeof vi.fn>
+  setSkin: ReturnType<typeof vi.fn>
+  setScale: ReturnType<typeof vi.fn>
+} {
   const store = createSnapshotStore<ThemeSnapshot>(snapshot)
   const set = vi.fn()
   const recorder = vi.fn(setSkin)
+  const scale = vi.fn()
   return {
     props: {
       width: 560,
       set,
+      scales: () => [0.8, 1],
+      scale: () => 1,
+      setScale: scale,
       skins,
       setSkin: recorder,
       useTheme: (read: (value: ThemeSnapshot) => unknown) => read(store.getSnapshot()),
@@ -56,6 +65,7 @@ function props(
     } as unknown as ThemePanelProps,
     set,
     setSkin: recorder,
+    setScale: scale,
   }
 }
 
@@ -130,5 +140,14 @@ describe('ThemePanel', () => {
     expect(screen.getAllByRole('button', { name: zh['theme.apply'] })).toHaveLength(3)
     fireEvent.click(screen.getAllByRole('button', { name: zh['theme.apply'] })[0]!)
     expect(set).toHaveBeenCalledWith('system')
+  })
+
+  it('offers the interface scales and applies the chosen one', () => {
+    const built = props()
+    render(<ThemePanel {...built.props} />)
+    // The panel's copy of the current value starts from the applied one.
+    expect(screen.getByRole('button', { name: '100%' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '80%' }))
+    expect(built.setScale).toHaveBeenCalledWith(0.8)
   })
 })
