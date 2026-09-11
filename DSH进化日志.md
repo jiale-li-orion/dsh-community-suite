@@ -773,6 +773,21 @@ machine can.
 - 计划修正：原先“幂等完成”只证明已完成上传的顺序重试。并发相同 ID、共享工作区的会话隔离、文件与索引事务提交、索引损坏恢复、文件移动或修改后的重放仍有缺口。E2 改为 1 完成、4 部分、1 未做，不再折算百分比。MIME、过期策略、粘贴/分享入口继续待办；APK 分享尚未实现。
 - 全仓文档检查未通过：`doc-sync` 的 9 类失败来自交接已有文件，分别为 client catalog、export JSDoc、config catalog、doc graphs、Markdown links、README Model Experience、Agent Note format、type equivalence、README limitations。本次未把这些历史问题混入局部修复；后续先修文档基线，再完善上传恢复语义，之后补 MIME 与分享入口。
 
+### 23:40 · 合并 Codex 的 E2 分支并验证（含一条流程铁律）
+
+**流程铁律（我这次理解错了，用户纠正）**：**Codex 自己提交到新分支，由我负责合并回唯一的 `main`** —— main 是唯一的主线，分支是它的临时上游。我这次把"尚未合并、推送"只读成"没推" ✗，于是把分支的提交留在了分支上、还去推了一个本来就同步的 main ✗。**正确动作：`git checkout main && git merge --ff-only <branch> && git push origin main`。**
+
+**对交接工作的独立验证（不靠他们的报告）**：
+
+- 他们的修复 `1ca30bf` **补的是我的洞** ✓：我原来的 `readIndex` **信任索引内容**，一份被改坏的索引可以让路由把**并不存在的文件当成"上传成功"回放** ✗。逐条校验（路径落在该来源桶内且为纯文件名、字节数为非负整数、摘要 64 位十六进制、来源属闭集、id 合法）方向正确 ✓。
+- `workbench-bytes` **56 测试**通过 ✓（我的 44 + 他们的 12）；他们的组装场景用**正确的 runner**（`vitest.web.config.ts`）跑，**通过** ✓。
+
+**我犯的两个错（已更正）**：① 我断言"没有任何 runner 覆盖那个场景" ✗ —— `vitest.web.config.ts` 就是 ✓，e2e 配置里**明写了为何排除**（需要构建产物）；我那个错误的配置放宽**已还原** ✓。② 推错分支（见上）✗。
+
+**我发现并修掉的两个真问题（`96892f9`）**：① 新场景**两侧编译面都没登记** ✗ → 客户端面连带编译 `scaffold.ts` → **全仓 typecheck 9 个错误**、**推送被 pre-push 挡下** ✓；按既有约定补上（主机面收录、客户端面排除）✓。② 登记后立刻暴露**真实类型错误**（`exactOptionalPropertyTypes` 下不能显式传 `undefined` 给 `body`）✓ → 改为省略该属性 ✓（这也正是"重试不带请求体"的语义）。
+
+**顺带发现的仓库卫生问题**：`tsc -b tsconfig.host.json` 会给**若干包的 `src/` 里吐构建产物**（`packages/boot/cmdline/src/*.js`、`packages/session/session-persistence-jsonl/src/*` …），**且未被 gitignore** → `git status` 会长期显脏 ✗。我清掉了 **76 个**未跟踪产物 ✓（只删未跟踪文件，不碰源 ✓）。仓库自带的 `pnpm run typecheck` 没有这个副作用 ✓。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）
