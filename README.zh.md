@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-DSH Community Suite 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的社区维护发行版。本仓库以官方 `dsh-v0.1.0-rc.7` 为基础，将会话上下文增强、归档会话 Web bundle 和 7 个锚定 agent 预设整理在同一个仓库中。
+DSH Community Suite 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的社区维护发行版。本仓库以官方 `dsh-v0.1.0-rc.7` 为基础，将会话上下文增强、归档会话 Web bundle、7 个锚定 agent 预设和一套移动端个人工作台整理在同一个仓库中。
 
 DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper)。
 
@@ -14,6 +14,8 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 
 ## 近期更新
 
+- **2026-09-11 — 手机与 PC 操作同一个会话。** 窄屏客户端呈现三页（会话／会话列表／工作台），同一时刻只显示其中一页；文字与控件按小屏缩放；流连接代际死亡时显示一行"连接中断"。手机上选中的文件落在会话工作区的 `uploads/<来源>/`，用的是输入框当场生成的接入 id；工作台里有一个按发送方分组的「上传」面板；Markdown、源码、PDF、图片、音频与视频都能就地预览。发出提示的客户端类别（`mobile-app`、`mobile-browser`、`desktop-browser`）记在那条持久化用户消息上，并在每轮向模型陈述一次。见[窄屏单面板 note](.agents/notes/implemented/architecture/2026-09-10-narrow-single-panel-workbench.md)与[客户端来源 note](.agents/notes/implemented/feature/2026-09-11-model-visible-client-origin.md)。
+- **2026-09-11 — Android 薄壳 App**（`apps/android-shell/`）。范围严格限定在**手机自带浏览器给不了的那一层**：按 host 广播的修订哈希做本地缓存、launcher 图标、前台服务保活，以及一个回环代理（保留 host 的 TLS 身份、绕开系统 DNS 解析层）。它不承载 LLM 密钥、不复制会话存储、不改 Agent Loop。
 - **2026-09-09 — 工具结果的图片进入模型上下文。** 工具结果里的图片现在跟随其 `role: tool` 消息、由一条 user 消息承载，因此 `read_image` 的输出以及任何含有它的历史在原生路由上都能继续使用。见[工具结果图片 note](.agents/notes/implemented/feature/2026-09-09-llm-deepseek-tool-result-images.md)。
 - **2026-09-08 — 按模型声明输入模态。** `llm-deepseek` 的每个 catalog 配置项自行声明 `inputModalities`；省略表示 `[text]`，只有声明了 `image` 的配置项才会把用户图片送到协议上。见[输入模态 note](.agents/notes/implemented/feature/2026-09-08-llm-deepseek-catalog-input-modalities.md)。
 - **2026-09-08 — 运行说明重构**为「环境要求 / 首次启动 / 后续启动与更新」三节。
@@ -25,9 +27,11 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 - **锚定 agent**：7 个可独立安装的 agent 组合，提供受控的首轮工具面、上下文门控、wire-think 路由、压缩感知的阶段提升、默认会话 prefab 播种、跨平台 shell 路径与稳健的指令发现；来源为 [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
 - **DeepSeek 图片输入**：内置的 `llm-deepseek` 适配器按模型声明输入模态，并把用户上传的图片与工具产生的图片都以 `image_url` data URL 送到模型。
 - **Human-Agent 共享工作台**：一个可停靠的栏位，面板与文件查看器都经声明的槽位注册（`workbench.panel`、`workbench.viewer`）；浏览器与 agent 修改同一份 host 持有的视图（`ctx.workbench` 加转发的 `workbench/changed` 事件）；一条受围栏保护的字节路由以 `Range`／`206`／`416` 流式提供工作区文件。全部为 rc.7 seam 上的一手包；设计参考 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（面板与文件查看器注册表）、[kendu76/dsh-music-player](https://github.com/kendu76/dsh-music-player)（host 持有、两个平面共同修改的意图）、[tsonglew/dsh-media-preview](https://github.com/tsonglew/dsh-media-preview)（Range／流式处理器）。未搬运任何社区代码。
+- **移动端个人工作台**：手机是**同一个会话**的一等客户端，而不是第二个产品——一条顶栏下的三页结构、同一时刻只显示一页；为窄屏准备的界面缩放；输入框里的上传控件把文件经受围栏保护的 host 路由送进会话工作区；接入 id 让重复上传返回第一次的结果而不是存第二份；按发送方分组的「上传」面板；Markdown、源码、PDF、图片、音频与视频的就地预览。移动端呈现只**读**共享的工作台视图，从不写它。
+- **Android 薄壳**：`apps/android-shell/`，范围限定在手机浏览器无法被配置成的四件事——本地资源、launcher 图标、前台服务、回环代理。它存在的原因是这个目标手机的自带浏览器不遵守 `cache-control`、装不了 PWA、会回收长连接、并走自己的 DNS 解析层——这些都不是 Web API 的能力缺口。
 - **插件目录**：一个 `marketplace` 工作台面板，加上 `plugin_search` 与 `plugin_install` 两个工具，都建立在 CC0 的 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 索引之上。两条路径共用一份安装能力：面板里确认过的点击就是人的手势，工具则额外走 `ctx.approval`；无论哪条，条目自带的目标都要先校验、再以 argv 数组执行。安装目标校验与「搜索/安装」拆分参考 [DshMarketPlace/dsh-plugins-store](https://github.com/DshMarketPlace/dsh-plugins-store)；索引在运行时作为数据消费，绝不重新生成或镜像。
 
-已审计但有意未落地的部分：agent 自写工作台扩展（设计参考 [saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile)）与 Android／桌面客户端（[ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android)、[ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui)，以及仅允许设计研究的 AGPL-3.0／GPL-3.0 项目）。相关决策与每条已落地行的回滚方式记录在工作台 [Agent Notes](.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.md)。
+已审计但有意未落地的部分：agent 自写工作台扩展（设计参考 [saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile)）、完整的 Android／桌面客户端（[ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android)、[ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui)，以及仅允许设计研究的 AGPL-3.0／GPL-3.0 项目），以及让 agent 调用手机自身摄像头、文件或位置的设备能力协议——上面的薄壳 App 只承载浏览器那一层，没有实现该协议。相关决策与每条已落地行的回滚方式记录在工作台 [Agent Notes](.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.md)。
 
 完整功能审计与兼容边界见[社区优化](docs/community-optimizations.md)（[中文](docs/community-optimizations.zh.md)）；精确的上游修订与许可证见[社区来源记录](COMMUNITY_SOURCES.md)。
 
@@ -104,6 +108,9 @@ community/
 ├── patches/
 └── install.mjs
 packages/
+apps/android-shell/
+apps/cli/
+apps/web/
 docs/community-optimizations.md
 COMMUNITY_SOURCES.md
 ```
