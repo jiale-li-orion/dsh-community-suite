@@ -10,7 +10,8 @@
  * @module @deepseek-ai/dsh-workbench-bytes
  */
 
-import { createReadStream, createWriteStream, existsSync, mkdirSync, rmSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import z from '@deepseek-ai/schemastery'
 import type { IncomingMessage, ServerResponse } from 'node:http'
@@ -38,6 +39,33 @@ const UPLOAD_DIR = 'uploads'
  * the root, so a file's origin is never implied by where it happens to sit.
  */
 const UNKNOWN_DEVICE = 'unknown'
+
+/** Shape of a client-supplied ingest id: opaque, bounded, safe as a JSON key. */
+const INGEST_ID = /^[A-Za-z0-9._-]{1,128}$/
+
+/** Directory holding the ingest index, beside the files it describes. */
+const INGEST_DIR = '.dsh'
+
+/** File the ingest index is kept in, inside {@link INGEST_DIR}. */
+const INGEST_INDEX = 'ingest.json'
+
+/**
+ * What one accepted upload is recorded as. The digest lets a repeat be compared
+ * against the original rather than trusted, and the receipt time is what an
+ * expiry policy would read later.
+ */
+interface IngestRecord {
+  /** Workspace-relative path the bytes were written to. */
+  path: string
+  /** Size of the written body. */
+  bytes: number
+  /** SHA-256 of the written body. */
+  sha256: string
+  /** Client class that sent it, or the unknown bucket's name. */
+  device: string
+  /** Epoch milliseconds the host accepted it. */
+  receivedAt: number
+}
 
 /**
  * Largest body the upload route accepts when the deployment configures nothing.
@@ -145,6 +173,32 @@ async function writeBody(
 }
 
 /**
+ * Read the ingest index of one uploads directory.
+ * @param dir - the uploads directory.
+ * @returns the recorded ingests, or an empty index when none is readable.
+ */
+function readIndex(dir: string): Record<string, IngestRecord> {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(join(dir, INGEST_DIR, INGEST_INDEX), 'utf8'))
+    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, IngestRecord> : {}
+  } catch {
+    // An absent or unreadable index means no ingest has been recorded yet; the
+    // files themselves remain the authority on what was received.
+    return {}
+  }
+}
+
+/**
+ * Record one ingest, replacing the index atomically enough for a single host.
+ * @param dir - the uploads directory.
+ * @param index - the index to write.
+ */
+function writeIndex(dir: string, index: Record<string, IngestRecord>): void {
+  mkdirSync(join(dir, INGEST_DIR), { recursive: true })
+  writeFileSync(join(dir, INGEST_DIR, INGEST_INDEX), `${JSON.stringify(index, null, 2)}\n`)
+}
+
+/**
  * Accept one uploaded file into the session workspace's uploads directory.
  * Exported for the route test, which drives it through the real server.
  * @param ctx - context carrying the services named by {@link inject}.
@@ -183,6 +237,13 @@ export async function receiveWorkbenchUpload(
     return
   }
   const device = declared ?? UNKNOWN_DEVICE
+  // A client that can retry names its attempt, so a repeat is answered with the
+  // original result instead of a second copy of the same bytes.
+  const ingestId = url.searchParams.get('ingestId')
+  if (ingestId !== null && !INGEST_ID.test(ingestId)) {
+    refuse(res, 400, 'ingestId must be 1-128 characters of [A-Za-z0-9._-]')
+    return
+  }
   const name = plainFileName(requested)
   if (name === undefined) {
     refuse(res, 400, 'name must be a plain file name')
@@ -200,14 +261,39 @@ export async function receiveWorkbenchUpload(
   }
   const dir = dirname(ctx.fs.processPath(target))
   mkdirSync(dir, { recursive: true })
+  // One index for the session's uploads, not one per bucket: a repeat is
+  // answered from what the whole directory received, whichever bucket it names.
+  const indexDir = dirname(dir)
+  if (ingestId !== null) {
+    const recorded = readIndex(indexDir)[ingestId]
+    if (recorded !== undefined) {
+      // The repeat may carry no body at all, so the answer is sent before the
+      // request stream is read: same bytes in, same result out.
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+      res.end(JSON.stringify({ path: recorded.path, bytes: recorded.bytes, repeat: true }))
+      return
+    }
+  }
   const path = freePath(dir, name)
   const bytes = await writeBody(req, path, maxBytes)
   if (bytes === undefined) {
     refuse(res, 413, `body exceeds ${String(maxBytes)} bytes`)
     return
   }
+  const written = `${UPLOAD_DIR}/${device}/${path.slice(dir.length + 1)}`
+  if (ingestId !== null) {
+    const index = readIndex(indexDir)
+    index[ingestId] = {
+      path: written,
+      bytes,
+      sha256: createHash('sha256').update(readFileSync(path)).digest('hex'),
+      device,
+      receivedAt: Date.now(),
+    }
+    writeIndex(indexDir, index)
+  }
   res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-  res.end(JSON.stringify({ path: `${UPLOAD_DIR}/${device}/${path.slice(dir.length + 1)}`, bytes }))
+  res.end(JSON.stringify({ path: written, bytes }))
 }
 
 /** Answer one request with a plain-text status and no body. */

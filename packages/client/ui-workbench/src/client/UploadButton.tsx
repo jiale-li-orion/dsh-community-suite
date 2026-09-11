@@ -21,9 +21,10 @@ export interface UploadInjected {
    * Put one picked file into the session workspace.
    * @param sessionId - the session whose workspace receives it.
    * @param file - the file the person chose.
+   * @param ingestId - this attempt's id, so a repeat is answered, not duplicated.
    * @returns the workspace-relative path the file was written to.
    */
-  upload: (sessionId: SessionId, file: File) => Promise<string>
+  upload: (sessionId: SessionId, file: File, ingestId: string) => Promise<string>
 }
 
 /** The composer tool-row seat and the copy; the upload action arrives separately. */
@@ -64,7 +65,8 @@ export function UploadButton({ session, input, inputActions, upload, t }: Upload
     setFailed(undefined)
     const landed: string[] = []
     try {
-      for (const file of picked) landed.push(await upload(session.sessionId, file))
+      // One id per pick: retrying this selection reuses it, a new selection does not.
+      for (const file of picked) landed.push(await upload(session.sessionId, file, crypto.randomUUID()))
       const references = landed.map(path => t('upload.reference', { path })).join('\n')
       const draft = input.draft.trimEnd()
       inputActions.setDraft(draft === '' ? references : `${draft}\n${references}`)

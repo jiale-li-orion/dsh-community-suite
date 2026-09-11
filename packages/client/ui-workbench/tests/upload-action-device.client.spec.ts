@@ -27,8 +27,8 @@ describe('createUploadAction with a declared device', () => {
       return Promise.resolve(new Response(JSON.stringify({ path: 'uploads/mobile-app/x.jpg' }), { status: 200 }))
     })
     const listDir = (() => Promise.resolve(LISTING)) as never
-    await createUploadAction(listDir)(SESSION, new File(['x'], 'x.jpg'))
-    expect(calls[0]).toBe('/workbench/upload?sessionId=session-upload&name=x.jpg&device=mobile-app')
+    await createUploadAction(listDir)(SESSION, new File(['x'], 'x.jpg'), 'pick-1')
+    expect(calls[0]).toBe('/workbench/upload?sessionId=session-upload&name=x.jpg&ingestId=pick-1&device=mobile-app')
     vi.unstubAllGlobals()
   })
 })

@@ -276,9 +276,20 @@ describe('workbench-bytes invariant companion', () => {
   })
 })
 
-/** Build one upload URL for a named file, optionally declaring the sender. */
-function uploadUrl(base: string, name: string, sessionId = SESSION, device?: string): string {
-  const params = new URLSearchParams({ sessionId, name, ...(device === undefined ? {} : { device }) })
+/** Build one upload URL for a named file, optionally declaring sender and ingest id. */
+function uploadUrl(
+  base: string,
+  name: string,
+  sessionId = SESSION,
+  device?: string,
+  ingestId?: string,
+): string {
+  const params = new URLSearchParams({
+    sessionId,
+    name,
+    ...(device === undefined ? {} : { device }),
+    ...(ingestId === undefined ? {} : { ingestId }),
+  })
   return `${base}${WORKBENCH_UPLOAD_PATH}?${params.toString()}`
 }
 
@@ -437,5 +448,74 @@ describe('workbench upload route — which device sent the file', () => {
     const { base } = await bench()
     const response = await fetch(uploadUrl(base, 'x.txt', SESSION, 'tablet'), { method: 'POST', body: 'x' })
     expect(response.status).toBe(400)
+  })
+})
+
+describe('workbench upload route — one ingest, one file', () => {
+  it('answers a repeated ingest id with the original result instead of a second copy', async () => {
+    const { base, root } = await bench()
+    const first = await fetch(uploadUrl(base, 'photo.jpg', SESSION, 'mobile-app', 'pick-1'), {
+      method: 'POST',
+      body: 'jpeg bytes',
+    })
+    expect(await first.json()).toEqual({ path: 'uploads/mobile-app/photo.jpg', bytes: 10 })
+
+    // The retry carries no body: the host must not need one to answer.
+    const repeat = await fetch(uploadUrl(base, 'photo.jpg', SESSION, 'mobile-app', 'pick-1'), { method: 'POST' })
+    expect(repeat.status).toBe(200)
+    expect(await repeat.json()).toEqual({ path: 'uploads/mobile-app/photo.jpg', bytes: 10, repeat: true })
+    expect(existsSync(join(root, 'uploads', 'mobile-app', 'photo-2.jpg'))).toBe(false)
+  })
+
+  it('records what it accepted, so a retry and an audit read the same facts', async () => {
+    const { base, root } = await bench()
+    await fetch(uploadUrl(base, 'notes.txt', SESSION, 'desktop-browser', 'pick-2'), { method: 'POST', body: 'hello' })
+    const index = JSON.parse(await readFile(join(root, 'uploads', '.dsh', 'ingest.json'), 'utf8')) as Record<string, {
+      path: string
+      bytes: number
+      sha256: string
+      device: string
+      receivedAt: number
+    }>
+    const record = index['pick-2']!
+    expect(record.path).toBe('uploads/desktop-browser/notes.txt')
+    expect(record.bytes).toBe(5)
+    expect(record.device).toBe('desktop-browser')
+    expect(record.sha256).toBe('2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824')
+    expect(record.receivedAt).toBeGreaterThan(0)
+  })
+
+  it('keeps two ingests of the same bytes apart when they are different picks', async () => {
+    const { base, root } = await bench()
+    await fetch(uploadUrl(base, 'shot.png', SESSION, 'mobile-app', 'pick-a'), { method: 'POST', body: 'same' })
+    await fetch(uploadUrl(base, 'shot.png', SESSION, 'mobile-app', 'pick-b'), { method: 'POST', body: 'same' })
+    expect(existsSync(join(root, 'uploads', 'mobile-app', 'shot.png'))).toBe(true)
+    expect(existsSync(join(root, 'uploads', 'mobile-app', 'shot-2.png'))).toBe(true)
+  })
+
+  it('refuses an ingest id that is not an opaque token', async () => {
+    const { base } = await bench()
+    for (const id of ['has space', 'a'.repeat(129), 'slash/es']) {
+      const response = await fetch(uploadUrl(base, 'x.txt', SESSION, 'mobile-app', id), { method: 'POST', body: 'x' })
+      expect(response.status).toBe(400)
+    }
+  })
+})
+
+describe('workbench upload route — an index that says nothing usable', () => {
+  it('treats an index holding a non-object as empty instead of failing the upload', async () => {
+    const { base, root } = await bench()
+    const unreadable = join(root, 'uploads', '.dsh')
+    await mkdir(unreadable, { recursive: true })
+    await writeFile(join(unreadable, 'ingest.json'), 'null\n')
+    const response = await fetch(uploadUrl(base, 'notes.txt', SESSION, 'mobile-app', 'pick-3'), {
+      method: 'POST',
+      body: 'hello',
+    })
+    // The files are the authority on what was received; a corrupt index is
+    // replaced by the record this upload writes.
+    expect((await response.json() as { path: string }).path).toBe('uploads/mobile-app/notes.txt')
+    const index = JSON.parse(await readFile(join(unreadable, 'ingest.json'), 'utf8')) as Record<string, unknown>
+    expect(Object.keys(index)).toEqual(['pick-3'])
   })
 })

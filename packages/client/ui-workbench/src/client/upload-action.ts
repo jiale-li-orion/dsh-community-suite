@@ -17,7 +17,7 @@ export type ListingReader = (sessionId: SessionId, path: string | null) => Promi
  * @returns the action the composer control calls.
  */
 export function createUploadAction(listDir: ListingReader) {
-  return async (sessionId: SessionId, file: File): Promise<string> => {
+  return async (sessionId: SessionId, file: File, ingestId: string): Promise<string> => {
     const listing = await listDir(sessionId, null)
     // The class is this page's own, sampled once, and it is what tells a reader
     // which device the file came from.
@@ -25,6 +25,9 @@ export function createUploadAction(listDir: ListingReader) {
     const params = new URLSearchParams({
       sessionId,
       name: file.name,
+      // The host answers a repeat of this id from the first result, so a retry
+      // of one pick cannot become two files.
+      ingestId,
       ...(device === undefined ? {} : { device }),
     })
     const response = await fetch(`${listing.uploadRoute}?${params.toString()}`, {
