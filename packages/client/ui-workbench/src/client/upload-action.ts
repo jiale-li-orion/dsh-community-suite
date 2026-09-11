@@ -4,6 +4,7 @@
  * @module @deepseek-ai/dsh-client-ui-workbench/client/upload-action
  */
 
+import { resolvedClientDevice } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 
@@ -18,7 +19,14 @@ export type ListingReader = (sessionId: SessionId, path: string | null) => Promi
 export function createUploadAction(listDir: ListingReader) {
   return async (sessionId: SessionId, file: File): Promise<string> => {
     const listing = await listDir(sessionId, null)
-    const params = new URLSearchParams({ sessionId, name: file.name })
+    // The class is this page's own, sampled once, and it is what tells a reader
+    // which device the file came from.
+    const device = resolvedClientDevice()
+    const params = new URLSearchParams({
+      sessionId,
+      name: file.name,
+      ...(device === undefined ? {} : { device }),
+    })
     const response = await fetch(`${listing.uploadRoute}?${params.toString()}`, {
       method: 'POST',
       body: file,

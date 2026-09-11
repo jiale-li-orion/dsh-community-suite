@@ -17,7 +17,8 @@ import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { contentHasImage, createUserMessage, freezeMessage, isTokenDelta, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { errorChain } from '@deepseek-ai/dsh-llm'
-import type { ClientDevice, ContentBlock, MessageSource } from '@deepseek-ai/dsh-llm'
+import { CLIENT_DEVICES } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, MessageSource } from '@deepseek-ai/dsh-llm'
 import { SessionEventFold, isAppendSurfaceEvent, isJsonValue, packChunkRuns } from '@deepseek-ai/dsh-session'
 import type { ChunkRow, JsonValue, Session, SessionEvent, SessionEventMap, SessionEventType, SessionHeader, SessionId, SessionLogCut, UserMessage } from '@deepseek-ai/dsh-session'
 import type { SessionInspection, SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
@@ -295,9 +296,6 @@ function referencedImage(log: SessionLogCut, attachmentId: string): Promise<Imag
 const IANA_TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+.-]*(?:\/[A-Za-z0-9_+.-]+)+$/
 
 /** Validate and canonicalize one browser-supplied IANA zone at the wire boundary. */
-/** The client classes a prompt may declare; anything else is refused. */
-const CLIENT_DEVICES: readonly ClientDevice[] = ['mobile-app', 'mobile-browser', 'desktop-browser']
-
 function canonicalClientTimeZone(value: string): string | undefined {
   if (value.length === 0 || value.trim() !== value
     || (value !== 'UTC' && !IANA_TIME_ZONE.test(value))) return undefined

@@ -231,3 +231,4 @@ export function apply(ctx: Context): void {
   })
   ctx.effect(() => () => { loop.stop() }, 'runtime: connection stream loop')
 }
+export { resolvedClientDevice } from './device.ts'

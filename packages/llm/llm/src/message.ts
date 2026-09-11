@@ -104,6 +104,12 @@ export type ContextFormed =
 export type ClientDevice = 'mobile-app' | 'mobile-browser' | 'desktop-browser'
 
 /**
+ * Every client class a caller may declare, for validators that need the set as
+ * a value rather than as a type.
+ */
+export const CLIENT_DEVICES: readonly ClientDevice[] = ['mobile-app', 'mobile-browser', 'desktop-browser']
+
+/**
  * Where a message (or injected content) came from.
  * Merge-extensible sum type — plugins add their own `kind`s.
  */

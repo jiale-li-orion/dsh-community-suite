@@ -701,6 +701,14 @@ machine can.
 1. **文件本身不带来源**：来源只记在**消息**上（`clientDevice`），上传的文件没有设备标注——而用户最初的要求正是"上传要区分手机和电脑"。做法：上传路由接收并记录设备类别（例如落到 `uploads/<class>/` 或写 sidecar），或让客户端在文件名前缀里带上。
 2. **草稿里的引用是否出现**：用户那条消息文本里没有「已上传文件：…」，需要确认是**他删掉了**还是**插入没发生**（若是后者，是我组件里的 bug，要查）。
 
+### 21:10–21:30 · 上传带上来源（用户最初的要求闭合）+ 用户实测第二例
+
+- **用户实测**：从手机上传了一份 **51 页 PDF**（`uploads/DeepSeek_V41_Tech_Report.pdf`，1,809,802 字节，PDF 1.5）并问"可以看见么"。**我读到了正文**（`pypdf` 抽文本：标题 *DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression*、作者 DeepSeek-AI、pdfTeX 生成、51 页）→ **agent 能直接消费人从手机传来的文档**，E2 的形态成立。另外用户确认草稿里的「已上传文件：…」引用**确实出现过**（是他自己删掉的），所以组件无 bug。
+- **上传带来源**：上传路由接受 `device=` 参数（按 `CLIENT_DEVICES` 闭集校验，越界 400），文件落到 **`uploads/<device>/<name>`**；未声明的调用方落到 **`uploads/unknown/`**（**从不把"未声明"混进根目录冒充来源**）。同一文件名来自两台设备**互不覆盖**。
+- **为什么放路径里**：来源随消息里的文件路径一起**进日志** ✓ 满足"模型可见 ⟺ 已记录"，不需要无人读的 sidecar 文件。
+- **顺手清理**：闭集常量原先在 `host/apiproxy` 里**重复定义**一份——现在统一为 `dsh-llm` 导出的 `CLIENT_DEVICES`，prompt 校验与上传校验共用一份，不会再漂移。
+- **验证**：`workbench-bytes` 39 测试、`client/ui-workbench + client/runtime + host/apiproxy` 共 **841 测试**通过；lint 0；全仓 typecheck 通过；两面产物已重建（**需重启生效**）。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）

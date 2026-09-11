@@ -20,6 +20,8 @@ import type {} from '@deepseek-ai/dsh-fs'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-session'
 import { SessionId } from '@deepseek-ai/dsh-session'
+import { CLIENT_DEVICES } from '@deepseek-ai/dsh-llm'
+import type { ClientDevice } from '@deepseek-ai/dsh-llm'
 import { contentTypeForPath, fenceSessionPath, WORKBENCH_FILE_PATH, WORKBENCH_UPLOAD_PATH, WorkbenchFenceError } from '@deepseek-ai/dsh-workbench'
 import { parseRange } from './range.ts'
 
@@ -30,6 +32,12 @@ export const inject = ['webServer', 'fs', 'sessions', 'connection']
 
 /** Directory uploads land in, relative to the session workspace. */
 const UPLOAD_DIR = 'uploads'
+
+/**
+ * Bucket for an upload that declared no client class. Its own name rather than
+ * the root, so a file's origin is never implied by where it happens to sit.
+ */
+const UNKNOWN_DEVICE = 'unknown'
 
 /**
  * Largest body the upload route accepts when the deployment configures nothing.
@@ -167,6 +175,14 @@ export async function receiveWorkbenchUpload(
     refuse(res, 400, 'sessionId and name are required')
     return
   }
+  // Which device sent this file is part of what the person handed over, so it
+  // rides the path the message will name rather than a sidecar nothing reads.
+  const declared = url.searchParams.get('device')
+  if (declared !== null && !CLIENT_DEVICES.includes(declared as ClientDevice)) {
+    refuse(res, 400, `device must be one of ${CLIENT_DEVICES.join(', ')}`)
+    return
+  }
+  const device = declared ?? UNKNOWN_DEVICE
   const name = plainFileName(requested)
   if (name === undefined) {
     refuse(res, 400, 'name must be a plain file name')
@@ -174,7 +190,7 @@ export async function receiveWorkbenchUpload(
   }
   let target
   try {
-    ({ target } = await fenceSessionPath(ctx, SessionId(sessionId), `${UPLOAD_DIR}/${name}`))
+    ({ target } = await fenceSessionPath(ctx, SessionId(sessionId), `${UPLOAD_DIR}/${device}/${name}`))
   } catch (error) {
     if (error instanceof WorkbenchFenceError) {
       refuse(res, 403, error.message)
@@ -191,7 +207,7 @@ export async function receiveWorkbenchUpload(
     return
   }
   res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-  res.end(JSON.stringify({ path: `${UPLOAD_DIR}/${path.slice(dir.length + 1)}`, bytes }))
+  res.end(JSON.stringify({ path: `${UPLOAD_DIR}/${device}/${path.slice(dir.length + 1)}`, bytes }))
 }
 
 /** Answer one request with a plain-text status and no body. */

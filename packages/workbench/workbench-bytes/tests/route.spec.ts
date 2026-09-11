@@ -276,9 +276,9 @@ describe('workbench-bytes invariant companion', () => {
   })
 })
 
-/** Build one upload URL for a named file. */
-function uploadUrl(base: string, name: string, sessionId = SESSION): string {
-  const params = new URLSearchParams({ sessionId, name })
+/** Build one upload URL for a named file, optionally declaring the sender. */
+function uploadUrl(base: string, name: string, sessionId = SESSION, device?: string): string {
+  const params = new URLSearchParams({ sessionId, name, ...(device === undefined ? {} : { device }) })
   return `${base}${WORKBENCH_UPLOAD_PATH}?${params.toString()}`
 }
 
@@ -290,9 +290,9 @@ describe('workbench upload route', () => {
       body: 'picked on the phone\n',
     })
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ path: 'uploads/note from phone.txt', bytes: 20 })
+    expect(await response.json()).toEqual({ path: 'uploads/unknown/note from phone.txt', bytes: 20 })
     // The bytes are where the agent's own tools will look for them.
-    expect(await readFile(join(root, 'uploads', 'note from phone.txt'), 'utf8'))
+    expect(await readFile(join(root, 'uploads', 'unknown', 'note from phone.txt'), 'utf8'))
       .toBe('picked on the phone\n')
   })
 
@@ -300,9 +300,9 @@ describe('workbench upload route', () => {
     const { base, root } = await bench()
     const first = await fetch(uploadUrl(base, 'shot.png'), { method: 'POST', body: 'one' })
     const second = await fetch(uploadUrl(base, 'shot.png'), { method: 'POST', body: 'two' })
-    expect((await first.json() as { path: string }).path).toBe('uploads/shot.png')
-    expect((await second.json() as { path: string }).path).toBe('uploads/shot-2.png')
-    expect(await readFile(join(root, 'uploads', 'shot.png'), 'utf8')).toBe('one')
+    expect((await first.json() as { path: string }).path).toBe('uploads/unknown/shot.png')
+    expect((await second.json() as { path: string }).path).toBe('uploads/unknown/shot-2.png')
+    expect(await readFile(join(root, 'uploads', 'unknown', 'shot.png'), 'utf8')).toBe('one')
   })
 
   it('refuses an untrusted caller before reading the body', async () => {
@@ -330,7 +330,7 @@ describe('workbench upload route', () => {
     const { base, root } = await bench(true, 8)
     const response = await fetch(uploadUrl(base, 'big.bin'), { method: 'POST', body: 'way past the limit' })
     expect(response.status).toBe(413)
-    expect(existsSync(join(root, 'uploads', 'big.bin'))).toBe(false)
+    expect(existsSync(join(root, 'uploads', 'unknown', 'big.bin'))).toBe(false)
   })
 })
 
@@ -357,14 +357,14 @@ describe('workbench upload route — refusals and edge cases', () => {
     await fetch(uploadUrl(base, 'shot.png'), { method: 'POST', body: 'one' })
     await fetch(uploadUrl(base, 'shot.png'), { method: 'POST', body: 'two' })
     const third = await fetch(uploadUrl(base, 'shot.png'), { method: 'POST', body: 'three' })
-    expect((await third.json() as { path: string }).path).toBe('uploads/shot-3.png')
+    expect((await third.json() as { path: string }).path).toBe('uploads/unknown/shot-3.png')
   })
 
   it('numbers a collision even when the name carries no extension', async () => {
     const { base } = await bench()
     await fetch(uploadUrl(base, 'LICENSE'), { method: 'POST', body: 'one' })
     const second = await fetch(uploadUrl(base, 'LICENSE'), { method: 'POST', body: 'two' })
-    expect((await second.json() as { path: string }).path).toBe('uploads/LICENSE-2')
+    expect((await second.json() as { path: string }).path).toBe('uploads/unknown/LICENSE-2')
   })
 
   it('writes a body large enough to need backpressure', async () => {
@@ -373,7 +373,7 @@ describe('workbench upload route — refusals and edge cases', () => {
     const response = await fetch(uploadUrl(base, 'frame.bin'), { method: 'POST', body })
     expect(response.status).toBe(200)
     expect((await response.json() as { bytes: number }).bytes).toBe(body.length)
-    expect(existsSync(join(root, 'uploads', 'frame.bin'))).toBe(true)
+    expect(existsSync(join(root, 'uploads', 'unknown', 'frame.bin'))).toBe(true)
   })
 
   it('leaves no partial file when the request dies mid-body', async () => {
@@ -393,7 +393,7 @@ describe('workbench upload route — refusals and edge cases', () => {
     } as RequestInit & { duplex: 'half' })
     await expect(pending).rejects.toThrow()
     await new Promise((resolve) => { setTimeout(resolve, 50) })
-    expect(existsSync(join(root, 'uploads', 'interrupted.bin'))).toBe(false)
+    expect(existsSync(join(root, 'uploads', 'unknown', 'interrupted.bin'))).toBe(false)
   })
 
   it('fails plugin load on an upload limit that cannot bound a body', async () => {
@@ -409,6 +409,33 @@ describe('workbench upload route — backend failure', () => {
     const response = await fetch(uploadUrl(base, 'note.txt'), { method: 'POST', body: 'x' })
     // Not 403: a store failure is the server's to report, and the route only has
     // to avoid passing it off as a refused path.
+    expect(response.status).toBe(400)
+  })
+})
+
+describe('workbench upload route — which device sent the file', () => {
+  it('files the upload under the class that declared it', async () => {
+    const { base, root } = await bench()
+    const response = await fetch(uploadUrl(base, 'photo.jpg', SESSION, 'mobile-app'), {
+      method: 'POST',
+      body: 'jpeg bytes',
+    })
+    expect((await response.json() as { path: string }).path).toBe('uploads/mobile-app/photo.jpg')
+    expect(await readFile(join(root, 'uploads', 'mobile-app', 'photo.jpg'), 'utf8')).toBe('jpeg bytes')
+  })
+
+  it('keeps the same name from two devices apart', async () => {
+    const { base, root } = await bench()
+    await fetch(uploadUrl(base, 'notes.txt', SESSION, 'mobile-app'), { method: 'POST', body: 'phone' })
+    await fetch(uploadUrl(base, 'notes.txt', SESSION, 'desktop-browser'), { method: 'POST', body: 'desktop' })
+    // Neither device overwrites the other, and each file says where it came from.
+    expect(await readFile(join(root, 'uploads', 'mobile-app', 'notes.txt'), 'utf8')).toBe('phone')
+    expect(await readFile(join(root, 'uploads', 'desktop-browser', 'notes.txt'), 'utf8')).toBe('desktop')
+  })
+
+  it('refuses a class outside the closed set', async () => {
+    const { base } = await bench()
+    const response = await fetch(uploadUrl(base, 'x.txt', SESSION, 'tablet'), { method: 'POST', body: 'x' })
     expect(response.status).toBe(400)
   })
 })
