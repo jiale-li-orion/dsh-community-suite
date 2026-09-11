@@ -52,9 +52,18 @@ describe('deriveClientOriginContext', () => {
 })
 
 describe('renderClientOriginContext', () => {
-  it('states the class and what follows from it', () => {
+  it('states the class and only what follows from that class', () => {
+    const desktop = renderClientOriginContext({ kind: 'resolved', device: 'desktop-browser' })
+    expect(desktop).toContain('desktop-browser')
+    // Guidance written for a phone must not follow a desktop client: a reader
+    // that is told about a small screen when the screen is large is misled.
+    expect(desktop).not.toContain('small screen')
+    expect(desktop).toContain('long answer')
+
     expect(renderClientOriginContext({ kind: 'resolved', device: 'mobile-app' }))
-      .toContain('mobile-app')
+      .toContain('small screen')
+    expect(renderClientOriginContext({ kind: 'resolved', device: 'mobile-browser' }))
+      .toContain('browser on a phone')
   })
 
   it('names every class when a turn disagrees', () => {

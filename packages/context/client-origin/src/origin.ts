@@ -56,6 +56,28 @@ export function deriveClientOriginContext(messages: readonly UserMessage[]): Cli
 }
 
 /**
+ * What follows from one class, for the model.
+ * @param device - the class that sent the request.
+ * @returns the guidance that class implies, and nothing a different class implies.
+ */
+function guidanceFor(device: ClientDevice): string {
+  switch (device) {
+    case 'mobile-app':
+      return 'It is the phone app: a small screen, and the paths it names are the ones it can '
+        + 'reach, not the ones this machine can.'
+    case 'mobile-browser':
+      return 'It is a browser on a phone: a small screen, and neither this machine\'s paths nor '
+        + 'its clipboard are the ones the person is holding.'
+    case 'desktop-browser':
+      return 'It is a browser on a computer: it can take a long answer, and the paths it names '
+        + 'may be this machine\'s own.'
+    /* v8 ignore next 2 -- the closed ClientDevice union is exhausted above. */
+    default:
+      return assertNever(device, 'ClientDevice')
+  }
+}
+
+/**
  * Render the client class for the model request.
  * @param context - the derived class.
  * @returns the model-facing statement, including what to do when it is unknown.
@@ -63,9 +85,7 @@ export function deriveClientOriginContext(messages: readonly UserMessage[]): Cli
 export function renderClientOriginContext(context: ClientOriginContext): string {
   switch (context.kind) {
     case 'resolved':
-      return `Client that sent this request: ${context.device}. `
-        + 'Answer for that client: a phone app has a small screen, and the paths it names are the '
-        + 'ones it can reach, not the ones this machine can.'
+      return `Client that sent this request: ${context.device}. ${guidanceFor(context.device)}`
     case 'mixed':
       return `Client that sent this request: mixed ${JSON.stringify(context.devices)}. `
         + 'This turn\'s messages did not all come from the same client; say which one an instruction is for.'
