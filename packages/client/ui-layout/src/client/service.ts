@@ -23,9 +23,9 @@ export type PanelActions = BoundActions<ReturnType<typeof createLayoutStore>>
 export interface ILayout {
   /**
    * Show one page in a narrow frame.
-   * @param page - `list` for the session list, `main` for the conversation.
+   * @param page - the page a narrow frame should show.
    */
-  setMobilePage(page: 'main' | 'list'): void
+  setMobilePage(page: 'conversation' | 'list' | 'workbench'): void
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void
   /** Open the workbench column (no-op when already open). */
@@ -57,14 +57,14 @@ export class LayoutController implements ILayout {
 
   /**
    * Show one page in a narrow frame.
-   * @param page - `list` for the session list, `main` for the conversation.
+   * @param page - the page a narrow frame should show.
    */
-  setMobilePage(page: 'main' | 'list'): void
+  setMobilePage(page: 'conversation' | 'list' | 'workbench'): void
   /**
    * Show one page in a narrow frame.
-   * @param page - `list` for the session list, `main` for the conversation.
+   * @param page - the page a narrow frame should show.
    */
-  setMobilePage(page: 'main' | 'list'): void {
+  setMobilePage(page: 'conversation' | 'list' | 'workbench'): void {
     this.#require().setMobilePage(page)
   }
 

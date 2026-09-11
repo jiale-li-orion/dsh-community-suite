@@ -28,13 +28,17 @@ type LayoutState = {
   narrow: boolean
   narrowExpanded: boolean
   /**
-   * Which page a narrow frame shows. `main` is the conversation, or the
-   * workbench while the shared view is open; `list` is the full-height session
-   * list. A phone shows one page at a time, so this is navigation, not layout —
-   * and it stays local, because which page one client is looking at is not
-   * something another client should be made to follow.
+   * Which page a narrow frame shows. A phone shows one page at a time, so this
+   * is navigation, not layout — and it is decided here, locally, from this
+   * client's own gestures.
+   *
+   * It deliberately does not follow the shared workbench view. That view is one
+   * value for every client, so tying this page to it means the desktop opening
+   * its workbench column yanks a phone off the conversation it was reading.
+   * The reverse direction is fine and intended: pressing the page action here
+   * commits the shared view, so the desktop follows this client.
    */
-  mobilePage: 'main' | 'list'
+  mobilePage: 'conversation' | 'list' | 'workbench'
 }
 
 /**
@@ -47,7 +51,7 @@ type LayoutActions = {
   setDetails: (draft: LayoutState, px: number) => void
   toggleSidebar: (draft: LayoutState) => void
   setNarrow: (draft: LayoutState, narrow: boolean) => void
-  setMobilePage: (draft: LayoutState, page: 'main' | 'list') => void
+  setMobilePage: (draft: LayoutState, page: 'conversation' | 'list' | 'workbench') => void
   openWorkbench: (draft: LayoutState) => void
   closeWorkbench: (draft: LayoutState) => void
   toggleWorkbench: (draft: LayoutState) => void
@@ -73,7 +77,7 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       details: 0,
       narrow: false,
       narrowExpanded: false,
-      mobilePage: 'main',
+      mobilePage: 'conversation',
     }),
     actions: {
       setSidebar: (d, px: number) => { d.sidebar = clampWidth(px, SIDEBAR_MIN, SIDEBAR_MAX) },
@@ -93,9 +97,9 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.narrowExpanded = false
         // Re-widening returns every client to the conversation: the four-column
         // frame has no pages, so a stored page would be a state nothing shows.
-        if (!narrow) d.mobilePage = 'main'
+        if (!narrow) d.mobilePage = 'conversation'
       },
-      setMobilePage: (d, page: 'main' | 'list') => { d.mobilePage = page },
+      setMobilePage: (d, page: 'conversation' | 'list' | 'workbench') => { d.mobilePage = page },
       openWorkbench: (d) => { if (d.workbench === 0) d.workbench = WORKBENCH_DEFAULT },
       closeWorkbench: (d) => { d.workbench = 0 },
       toggleWorkbench: (d) => { d.workbench = d.workbench === 0 ? WORKBENCH_DEFAULT : 0 },

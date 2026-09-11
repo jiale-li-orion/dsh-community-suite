@@ -40,7 +40,9 @@ function headerEntryIds(ctx: Context): (string | undefined)[] {
 
 /** The layout face the workbench delegates to; recorded so transitions are assertable. */
 function fakeLayout() {
-  return { openWorkbench: vi.fn(), closeWorkbench: vi.fn(), toggleWorkbench: vi.fn() }
+  // setMobilePage is part of the face because the page bar's action moves this
+  // client's page as well as committing the shared view.
+  return { openWorkbench: vi.fn(), closeWorkbench: vi.fn(), toggleWorkbench: vi.fn(), setMobilePage: vi.fn() }
 }
 
 /**
@@ -204,6 +206,10 @@ describe('ui-workbench browser half', () => {
     // the page the phone opens the same one the desktop shows.
     injected.toggle()
     await Promise.resolve()
+    // The page moved locally, and the shared view was committed so the desktop
+    // follows this gesture.
+    const layout = ctx.layout as unknown as { setMobilePage: ReturnType<typeof vi.fn> }
+    expect(layout.setMobilePage).toHaveBeenCalledWith('workbench')
     await fiber.dispose()
     expect(ctx.slots.entries('shell.mobile.bar')).toHaveLength(0)
   })

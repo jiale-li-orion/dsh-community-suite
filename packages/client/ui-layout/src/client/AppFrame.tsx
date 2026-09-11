@@ -173,11 +173,13 @@ export function AppFrame({
   // writes it, so a viewport change (rotation, window resize) cannot close,
   // open or reselect the workbench another client is showing. Only a human
   // gesture commits, and that still goes through the host service.
-  const singlePanel = narrow && panels.workbench > 0
-  const workbenchCollapsed = singlePanel ? false : cols.workbench === 0
+  const singlePanel = narrow && panels.mobilePage === 'workbench'
+  // In a narrow frame the column is the workbench page or it is nothing: the
+  // shared preference decides what the desktop draws, not what this page is.
+  const workbenchCollapsed = narrow ? !singlePanel : cols.workbench === 0
   // A narrow frame shows no sidebar rail, so the workbench page owns the whole
   // width it is given.
-  const workbenchWidth = singlePanel ? viewport : cols.workbench
+  const workbenchWidth = narrow ? (singlePanel ? viewport : 0) : cols.workbench
 
   // The drag base is the rendered width captured at drag start (grabbing a
   // concession-clamped panel must not jump back to the stored preference);
@@ -203,7 +205,9 @@ export function AppFrame({
   }, [actions])
 
   if (narrow) {
-    const onList = panels.mobilePage === 'list'
+    // One control, two meanings: from the conversation it opens the list, from
+    // any other page it goes back. Both directions stay one tap.
+    const backToConversation = panels.mobilePage !== 'conversation'
     return (
       <div
         ref={frameRef}
@@ -219,10 +223,10 @@ export function AppFrame({
           <button
             type='button'
             className={css.mobileNav}
-            aria-label={onList ? t('mobile.back') : t('mobile.openList')}
-            onClick={() => { actions.setMobilePage(onList ? 'main' : 'list') }}
+            aria-label={backToConversation ? t('mobile.back') : t('mobile.openList')}
+            onClick={() => { actions.setMobilePage(backToConversation ? 'conversation' : 'list') }}
           >
-            {onList ? '←' : '☰'}
+            {backToConversation ? '←' : '☰'}
           </button>
           <span className={css.mobileTitle} title={sessionTitle}>{sessionTitle ?? t('mobile.untitled')}</span>
           <div className={css.mobileActions}>{renderSlot('shell.mobile.bar', {})}</div>

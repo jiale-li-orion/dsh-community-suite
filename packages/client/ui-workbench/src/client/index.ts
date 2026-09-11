@@ -258,7 +258,14 @@ export function apply(ctx: ClientContext): void {
     name: 'shell.mobile.bar',
     id: 'workbench-toggle',
     locale: NS,
-    inject: () => ({ toggle: () => { void controller.toggle() } }),
+    // Opening the page also commits the shared view, so the desktop follows —
+    // but a desktop gesture never moves this page (ui-layout owns that).
+    inject: () => ({
+      toggle: () => {
+        ctx.layout.setMobilePage('workbench')
+        void controller.open()
+      },
+    }),
   }, WorkbenchBarAction))
 
   ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({

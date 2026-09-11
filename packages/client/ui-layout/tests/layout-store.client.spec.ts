@@ -26,7 +26,7 @@ describe('createLayoutStore', () => {
       details: 0,
       narrow: false,
       narrowExpanded: false,
-      mobilePage: 'main',
+      mobilePage: 'conversation',
     })
   })
 
@@ -67,7 +67,7 @@ describe('createLayoutStore', () => {
     actions.setSidebar(400)
     actions.setNarrow(true)
     actions.toggleSidebar()
-    expect(store.getSnapshot()).toEqual({ sidebar: 400, workbench: 0, details: 0, narrow: true, narrowExpanded: true, mobilePage: 'main' })
+    expect(store.getSnapshot()).toEqual({ sidebar: 400, workbench: 0, details: 0, narrow: true, narrowExpanded: true, mobilePage: 'conversation' })
     actions.toggleSidebar()
     expect(store.getSnapshot().narrowExpanded).toBe(false)
     expect(store.getSnapshot().sidebar).toBe(400)
@@ -135,7 +135,7 @@ describe('createLayoutStore', () => {
       details: 0,
       narrow: false,
       narrowExpanded: false,
-      mobilePage: 'main',
+      mobilePage: 'conversation',
     })
   })
 })

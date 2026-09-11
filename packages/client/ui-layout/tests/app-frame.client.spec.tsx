@@ -340,7 +340,7 @@ describe('AppFrame — narrow frame pages', () => {
     frameWidth = 390
     const { frame, getByTestId } = mountFrame()
     expect(frame.hasAttribute('data-mobile')).toBe(true)
-    expect(frame.getAttribute('data-mobile-page')).toBe('main')
+    expect(frame.getAttribute('data-mobile-page')).toBe('conversation')
     const bar = frame.querySelector('[class*="mobileBar"]')!
     expect(bar.textContent).toContain('Test')
     // The switch is a control with a name, not a bare glyph.
@@ -358,18 +358,29 @@ describe('AppFrame — narrow frame pages', () => {
     // and the frame decides what is visible.
     expect(getByTestId('center-content')).toBeTruthy()
     expect(getByTestId('sidebar-content')).toBeTruthy()
-    act(() => { instance.actions.setMobilePage('main') })
-    expect(frame.getAttribute('data-mobile-page')).toBe('main')
+    act(() => { instance.actions.setMobilePage('conversation') })
+    expect(frame.getAttribute('data-mobile-page')).toBe('conversation')
   })
 
-  it('makes the open workbench the main page and keeps its own width', () => {
+  it('keeps the conversation when the shared workbench view is open elsewhere', () => {
+    frameWidth = 390
+    const { frame, instance, slotCalls } = mountFrame()
+    // The desktop opening its workbench column is not a gesture on this phone:
+    // following it would pull the reader off the conversation.
+    act(() => { instance.actions.openWorkbench() })
+    expect(frame.getAttribute('data-mobile-page')).toBe('conversation')
+    expect(slotCalls.filter(call => call.key === 'workbench').at(-1)!.props)
+      .toEqual({ collapsed: true, width: 0 })
+  })
+
+  it('shows the workbench page on its own gesture, at the frame width', () => {
     frameWidth = 390
     const { frame, instance, slotCalls, getByTestId } = mountFrame()
-    act(() => { instance.actions.openWorkbench() })
-    expect(frame.getAttribute('data-mobile-page')).toBe('main')
+    act(() => { instance.actions.setMobilePage('workbench') })
+    expect(frame.getAttribute('data-mobile-page')).toBe('workbench')
     expect(frame.hasAttribute('data-workbench-collapsed')).toBe(false)
-    const workbench = slotCalls.filter(call => call.key === 'workbench').at(-1)!
-    expect(workbench.props).toEqual({ collapsed: false, width: 390 })
+    expect(slotCalls.filter(call => call.key === 'workbench').at(-1)!.props)
+      .toEqual({ collapsed: false, width: 390 })
     expect(getByTestId('workbench-content')).toBeTruthy()
   })
 
@@ -382,7 +393,7 @@ describe('AppFrame — narrow frame pages', () => {
     expect(frame.hasAttribute('data-mobile')).toBe(false)
     expect(tracks(frame)).toEqual([SIDEBAR_DEFAULT, 0, 0])
     // A page is a narrow-frame idea; widening forgets it.
-    expect(instance.getSnapshot().mobilePage).toBe('main')
+    expect(instance.getSnapshot().mobilePage).toBe('conversation')
   })
 
   it('keeps the four-column chain for wide frames', () => {
