@@ -43,3 +43,6 @@ apps/web/dist/
 worktrees/
 .agents/worktrees/
 .typert-*/
+
+# The shell installer is a local build artifact, served but never committed.
+apps/web/public/*.apk

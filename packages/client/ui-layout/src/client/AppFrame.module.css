@@ -242,11 +242,24 @@
   background: var(--dsw-specific-sidebar-fill);
 }
 
-.frame[data-mobile-page='main'] .mobileSidebar {
-  display: none;
+/* A narrow page is the whole screen, so it owns its background: without one, a
+   skin that paints the body shows through whatever the page renders — a file
+   tree over a photograph is a file tree nobody reads. The surface token, not
+   the base one: a skin may define the base as fully transparent (the maid skin
+   does), which leaves this rule with nothing to paint. Desktop keeps the
+   column's transparent treatment. */
+.frame[data-mobile] .workbenchCol {
+  background: var(--dsw-alias-bg-layer-2);
 }
 
+/* Exactly one page is visible. The selectors name every hidden pair rather
+   than relying on paint order: all three pages share one grid cell, so a page
+   the rules forget is a page painted on top of another. */
+.frame[data-mobile-page='conversation'] .mobileSidebar,
+.frame[data-mobile-page='conversation'] .workbenchCol,
 .frame[data-mobile-page='list'] .centerCol,
-.frame[data-mobile-page='list'] .workbenchCol {
+.frame[data-mobile-page='list'] .workbenchCol,
+.frame[data-mobile-page='workbench'] .mobileSidebar,
+.frame[data-mobile-page='workbench'] .centerCol {
   display: none;
 }

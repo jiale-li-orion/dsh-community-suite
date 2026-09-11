@@ -363,3 +363,12 @@
 .root[data-phase='settling'] .composerSeat {
   visibility: hidden;
 }
+
+/* A narrow frame names the session in its own page bar, so the in-session
+   breadcrumb would be the same title twice, in two rows, on the smallest
+   screen. The row's other controls stay: they are not duplicates. */
+@media (max-width: 1023px) {
+  .crumbs {
+    display: none;
+  }
+}

@@ -112,6 +112,19 @@ export function AppFrame({
   const frameRef = useRef<HTMLDivElement | null>(null)
   const [viewport, setViewport] = useState(() => window.innerWidth)
 
+  // Choosing a session is a request to read it: a narrow frame leaves the list
+  // page for the conversation, whether the choice came from this client or from
+  // another one that started or switched a session.
+  const currentSession = useSessions(state => state.current)
+  const lastCurrentSession = useRef(currentSession)
+  useEffect(() => {
+    if (currentSession === undefined) return
+    if (lastCurrentSession.current !== currentSession && panels.mobilePage === 'list') {
+      actions.setMobilePage('conversation')
+    }
+    lastCurrentSession.current = currentSession
+  }, [actions, currentSession, panels.mobilePage])
+
   const lastSession = useRef(detailsSession)
   useLayoutEffect(() => {
     if (detailsSession === undefined) return

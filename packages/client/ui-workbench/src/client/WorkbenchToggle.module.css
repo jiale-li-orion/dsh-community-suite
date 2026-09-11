@@ -25,3 +25,12 @@
   font-size: 13px;
   cursor: pointer;
 }
+
+/* The page bar carries this action on a narrow frame; the session header would
+   be the same control twice in two adjacent rows. The bar's chip keeps its own
+   class, so this hides only the header copy. */
+@media (max-width: 1023px) {
+  .toggle {
+    display: none;
+  }
+}

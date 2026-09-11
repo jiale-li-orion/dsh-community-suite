@@ -384,6 +384,18 @@ describe('AppFrame — narrow frame pages', () => {
     expect(getByTestId('workbench-content')).toBeTruthy()
   })
 
+  it('leaves the list page once a session is chosen', () => {
+    frameWidth = 390
+    const { frame, instance, rerenderFrame } = mountFrame()
+    act(() => { instance.actions.setMobilePage('list') })
+    expect(frame.getAttribute('data-mobile-page')).toBe('list')
+    // Choosing a session — here or on another client — is a request to read it,
+    // so the list is not where the reader ends up.
+    selectedSession.current = 's-chosen' as SessionId
+    act(() => { rerenderFrame() })
+    expect(frame.getAttribute('data-mobile-page')).toBe('conversation')
+  })
+
   it('returns to the four-column frame when the viewport widens', () => {
     frameWidth = 390
     const { frame, instance } = mountFrame()
