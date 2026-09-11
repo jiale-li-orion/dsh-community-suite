@@ -372,3 +372,12 @@
     display: none;
   }
 }
+
+/* A narrow frame rests the hero's composer on the bottom edge. Centred, it
+   floats wherever the artwork happens to end — a dialog dropped in the middle
+   of the screen. The wide frame keeps the designed centring. */
+@media (max-width: 1023px) {
+  .root[data-phase='hero'] .scrollBody {
+    justify-content: flex-end;
+  }
+}
