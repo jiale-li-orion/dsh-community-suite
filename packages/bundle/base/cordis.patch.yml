@@ -234,6 +234,11 @@
       config:
         maxBytes: 65536
 
+    # States which kind of client sent the turn's prompt, read from the durable
+    # user message. A deployment whose clients declare no class injects nothing.
+    - id: client-origin
+      name: '@deepseek-ai/dsh-client-origin'
+
     - id: skill
       name: '@deepseek-ai/dsh-skill'
 

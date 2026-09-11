@@ -1,0 +1,79 @@
+/**
+ * Which client sent the prompt of one open turn, derived from the client class
+ * recorded on its durable user messages.
+ *
+ * The class is three coarse buckets, so a reader can tell a phone app from a
+ * desktop browser and nothing finer. A turn whose messages disagree is reported
+ * as mixed rather than collapsed into the last writer's value.
+ * @module @deepseek-ai/dsh-client-origin/origin
+ */
+
+import { assertNever } from '@deepseek-ai/dsh-llm'
+import type { ClientDevice, UserMessage } from '@deepseek-ai/dsh-llm'
+
+/** The client classes a prompt may declare; anything else is a producer bug. */
+const CLIENT_DEVICES: readonly ClientDevice[] = ['mobile-app', 'mobile-browser', 'desktop-browser']
+
+/** Client classes derived from the user messages of one open turn. */
+export type ClientOriginContext =
+  | { readonly kind: 'resolved'; readonly device: ClientDevice }
+  | { readonly kind: 'mixed'; readonly devices: readonly ClientDevice[] }
+  | { readonly kind: 'missing' }
+
+/**
+ * Read and validate the client class of one ordinary user-rpc message.
+ * @param message - a message of the open turn.
+ * @returns the declared class, or undefined when the message declares none.
+ */
+function clientDevice(message: UserMessage): ClientDevice | undefined {
+  const source = message.source
+  if (source.kind !== 'user' || !('rpcId' in source)) return undefined
+  const declared: unknown = 'clientDevice' in source ? source.clientDevice : undefined
+  if (declared === undefined) return undefined
+  if (typeof declared !== 'string' || !CLIENT_DEVICES.includes(declared as ClientDevice)) {
+    throw new TypeError(
+      `client device must be one of ${CLIENT_DEVICES.join(', ')}: ${JSON.stringify(declared)}`,
+    )
+  }
+  return declared as ClientDevice
+}
+
+/**
+ * Derive the client classes of one open turn.
+ * @param messages - the turn's user messages, in order.
+ * @returns the single class, the disagreeing set, or nothing when none declared it.
+ */
+export function deriveClientOriginContext(messages: readonly UserMessage[]): ClientOriginContext {
+  const devices: ClientDevice[] = []
+  for (const message of messages) {
+    const device = clientDevice(message)
+    if (device !== undefined && !devices.includes(device)) devices.push(device)
+  }
+  const [first, second] = devices
+  if (first === undefined) return { kind: 'missing' }
+  if (second === undefined) return { kind: 'resolved', device: first }
+  return { kind: 'mixed', devices }
+}
+
+/**
+ * Render the client class for the model request.
+ * @param context - the derived class.
+ * @returns the model-facing statement, including what to do when it is unknown.
+ */
+export function renderClientOriginContext(context: ClientOriginContext): string {
+  switch (context.kind) {
+    case 'resolved':
+      return `Client that sent this request: ${context.device}. `
+        + 'Answer for that client: a phone app has a small screen, and the paths it names are the '
+        + 'ones it can reach, not the ones this machine can.'
+    case 'mixed':
+      return `Client that sent this request: mixed ${JSON.stringify(context.devices)}. `
+        + 'This turn\'s messages did not all come from the same client; say which one an instruction is for.'
+    case 'missing':
+      return 'Client that sent this request: unavailable. '
+        + 'Do not assume which device the person is using.'
+    /* v8 ignore next 2 -- the closed ClientOriginContext union is exhausted above. */
+    default:
+      return assertNever(context, 'ClientOriginContext')
+  }
+}
