@@ -100,16 +100,29 @@ public class MainActivity extends Activity {
      * happens to work, at the cost of the secure context the loopback origin
      * provides.
      */
+    /**
+     * The page URL this shell loads.
+     *
+     * The shell is the only client that can know it is an app, so it says so on
+     * the URL: the page samples that once and reports the class with every
+     * prompt, which is how the model learns a message came from a phone app
+     * rather than a phone browser. The query survives a reload of this URL and
+     * nothing else depends on it.
+     */
+    private static String shellOrigin(String origin) {
+        return origin + "?dsh-shell=android";
+    }
+
     private String startOrigin() {
         try {
             proxy = new LoopbackProxy(0, UPSTREAM_HOST, UPSTREAM_ADDRESS, UPSTREAM_PORT,
                     new GatewayCache(new java.io.File(getFilesDir(), "gateway-cache")));
             proxy.start();
             Log.i(TAG, "gateway " + proxy.origin() + " -> " + UPSTREAM_HOST + " (" + UPSTREAM_ADDRESS + ":" + UPSTREAM_PORT + ")");
-            return proxy.origin();
+            return shellOrigin(proxy.origin());
         } catch (IOException error) {
             Log.w(TAG, "gateway unavailable, loading the named origin: " + error.getMessage());
-            return "https://" + UPSTREAM_HOST + "/";
+            return shellOrigin("https://" + UPSTREAM_HOST + "/");
         }
     }
 
