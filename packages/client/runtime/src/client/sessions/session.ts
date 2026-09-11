@@ -27,6 +27,7 @@ import type { SessionRemotes } from './remotes.ts'
 import { ProjectionValueStore } from './projection-store.ts'
 import type { ProjectionsBaseline } from './projection-store.ts'
 import { resolvedClientTimeZone } from '../time-zone.ts'
+import { resolvedClientDevice } from '../device.ts'
 import { SessionQueueMirror } from './queue-mirror.ts'
 
 /** Messages requested per history page. */
@@ -201,11 +202,13 @@ export class Session implements SessionFace {
     let result: RpcResult<{ accepted: true }>
     try {
       if (this.address === undefined) {
+        const clientDevice = resolvedClientDevice()
         result = (await this.api.sessions.prompt({
           sessionId: this.sessionId,
           mode,
           content,
           clientTimeZone: resolvedClientTimeZone(),
+          ...(clientDevice === undefined ? {} : { clientDevice }),
         })).result
       } else if (this.address.mode === 'one-shot') {
         result = {

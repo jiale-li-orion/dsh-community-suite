@@ -7,6 +7,7 @@
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { AttachmentIdType, ImageAttachmentLimits, ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
+import type { ClientDevice } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent, SessionId } from '@deepseek-ai/dsh-session/types'
 // The pure-type outlet: api/ is browser-importable, and the package root's
 // cordis Context merge (via dsh-agent) must not enter client aggregates.
@@ -49,10 +50,12 @@ declare module '@deepseek-ai/dsh-llm' {
      * The prompt's rpcId is passed through MessageSource into the `user/message` event
      * (the client uses it to reconcile the optimistically
      * echoed provisional message with the event stream). kind stays `'user'` — the model face
-     * carries no transport vocabulary; rpcId and the optional Host-validated browser zone are
-     * durable JSON fields passed back to the client with the event.
+     * carries no transport vocabulary; rpcId, the optional Host-validated browser zone, and the
+     * optional client device class are durable JSON fields passed back to the client with the
+     * event. The device class is what lets a consumer tell the model the message came from a
+     * phone app rather than a desktop browser.
      */
-    'user-rpc': { kind: 'user'; rpcId: RpcId; clientTimeZone?: string }
+    'user-rpc': { kind: 'user'; rpcId: RpcId; clientTimeZone?: string; clientDevice?: ClientDevice }
   }
 }
 
@@ -357,6 +360,12 @@ export interface SessionsApi {
     mode: 'queue' | 'steer'
     content: PromptContentPart[]
     clientTimeZone?: string
+    /**
+     * Which kind of client is prompting. The Host validates it against the closed
+     * set and records it on the user message; omission stays valid for callers
+     * that cannot know, and is never guessed into a value.
+     */
+    clientDevice?: ClientDevice
   }>):
   Promise<RpcResponse<{ accepted: true; command?: { kind: 'success'; text?: string } }>>
 

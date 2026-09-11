@@ -885,3 +885,66 @@ describe('sessions.prompt synchronous rejection', () => {
     }
   })
 })
+
+describe('client device class on the exact prompt', () => {
+  it('records the declared class on the durable user message', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(UserQuestionService)
+    const session = ctx.sessions.create(sid('session-client-device'), { meta: { cwd: '/proj' } })
+    const followup = vi.fn()
+    const agent = { id: session.id, session, status: 'idle', ctx, followup } as unknown as Agent
+    ctx.agents.register(agent)
+    const api = createApiProxy(ctx, {
+      defaultModelSelection: () => ({ provider: 'p', model: 'm' }),
+      cwd: '/tmp',
+    })
+
+    const fromPhone = request({
+      sessionId: agent.id,
+      mode: 'queue' as const,
+      content: [{ type: 'text' as const, text: 'from the app' }],
+      clientDevice: 'mobile-app' as const,
+    })
+    await expect(api.sessions.prompt(fromPhone)).resolves.toMatchObject({ result: { ok: true } })
+    // The class rides the same durable source the browser zone does, so the
+    // model-visible record is reconstructable from the log.
+    expect(followup).toHaveBeenCalledWith(expect.objectContaining({
+      source: { kind: 'user', rpcId: fromPhone.rpcId, clientDevice: 'mobile-app' },
+    }))
+  })
+
+  it('refuses a class outside the closed set before any turn starts', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(AgentRegistry)
+    await ctx.plugin(UserQuestionService)
+    const session = ctx.sessions.create(sid('session-client-device-invalid'), { meta: { cwd: '/proj' } })
+    const followup = vi.fn()
+    const agent = { id: session.id, session, status: 'idle', ctx, followup } as unknown as Agent
+    ctx.agents.register(agent)
+    const api = createApiProxy(ctx, {
+      defaultModelSelection: () => ({ provider: 'p', model: 'm' }),
+      cwd: '/tmp',
+    })
+
+    // A fourth bucket nothing consumes is a caller bug, not a client class, so
+    // the wire value is deliberately outside the type the caller is offered.
+    const invalid = await api.sessions.prompt(request({
+      sessionId: agent.id,
+      mode: 'queue' as const,
+      content: [{ type: 'text' as const, text: 'from nowhere' }],
+      clientDevice: 'tablet' as never,
+    }))
+    expect(invalid.result).toEqual({
+      ok: false,
+      error: {
+        code: 'invalid-client-device',
+        message: 'clientDevice must be one of mobile-app, mobile-browser, desktop-browser',
+        details: { value: 'tablet' },
+      },
+    })
+    expect(followup).not.toHaveBeenCalled()
+  })
+})

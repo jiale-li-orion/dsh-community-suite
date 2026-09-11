@@ -17,7 +17,7 @@ import { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { contentHasImage, createUserMessage, freezeMessage, isTokenDelta, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { errorChain } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, MessageSource } from '@deepseek-ai/dsh-llm'
+import type { ClientDevice, ContentBlock, MessageSource } from '@deepseek-ai/dsh-llm'
 import { SessionEventFold, isAppendSurfaceEvent, isJsonValue, packChunkRuns } from '@deepseek-ai/dsh-session'
 import type { ChunkRow, JsonValue, Session, SessionEvent, SessionEventMap, SessionEventType, SessionHeader, SessionId, SessionLogCut, UserMessage } from '@deepseek-ai/dsh-session'
 import type { SessionInspection, SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
@@ -295,6 +295,9 @@ function referencedImage(log: SessionLogCut, attachmentId: string): Promise<Imag
 const IANA_TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+.-]*(?:\/[A-Za-z0-9_+.-]+)+$/
 
 /** Validate and canonicalize one browser-supplied IANA zone at the wire boundary. */
+/** The client classes a prompt may declare; anything else is refused. */
+const CLIENT_DEVICES: readonly ClientDevice[] = ['mobile-app', 'mobile-browser', 'desktop-browser']
+
 function canonicalClientTimeZone(value: string): string | undefined {
   if (value.length === 0 || value.trim() !== value
     || (value !== 'UTC' && !IANA_TIME_ZONE.test(value))) return undefined
@@ -2674,7 +2677,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
       },
 
       async prompt(request) {
-        const { sessionId, mode, content, clientTimeZone } = request.payload
+        const { sessionId, mode, content, clientTimeZone, clientDevice } = request.payload
         const canonicalTimeZone = clientTimeZone === undefined
           ? undefined
           : canonicalClientTimeZone(clientTimeZone)
@@ -2685,6 +2688,15 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
             details: { value: clientTimeZone },
           })
         }
+        // A value outside the closed set is a caller bug, not a client class: refuse it
+        // rather than record a fourth bucket nothing consumes.
+        if (clientDevice !== undefined && !CLIENT_DEVICES.includes(clientDevice)) {
+          return err(request, {
+            code: 'invalid-client-device',
+            message: `clientDevice must be one of ${CLIENT_DEVICES.join(', ')}`,
+            details: { value: clientDevice },
+          })
+        }
         const resolved = await turnAgentFor<{ accepted: true }>(request, sessionId)
         if ('refused' in resolved) return resolved.refused
         const agent = resolved.agent
@@ -2693,6 +2705,7 @@ export function createApiProxy(ctx: Context, defaults: ApiProxyDefaults): ApiPro
           kind: 'user',
           rpcId: request.rpcId,
           ...(canonicalTimeZone === undefined ? {} : { clientTimeZone: canonicalTimeZone }),
+          ...(clientDevice === undefined ? {} : { clientDevice }),
         }
         const hasImage = content.some(part => part.type === 'image')
         const admit = async (): Promise<RpcResponse<{ accepted: true }>> => {

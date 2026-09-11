@@ -570,6 +570,16 @@
 - **本会话的事实**：**当前我看不到消息的客户端来源**——上下文里只有消息文本与附件引用，没有设备/连接信息。所以这是一个真实缺口，需要：① 客户端在上行消息里带上来源标识（哪个客户端/哪种设备）；② host 把该标识写进**会话事件**（模型可见 ⟺ 已记录）；③ 提示词侧呈现（例如用户消息带"来自手机/来自电脑"），并且**心跳之类的非消息不逐条进上下文**。
 - **设计约束（来自计划 §2）**：`human 在手机选择图片上传可在 E2 完成；PC 主动调用手机能力需要 E3 的设备身份与调用语义`。所以本轮只做**人发内容 + 设备来源标注**，不做 PC 反向调用手机。
 
+### 15:20–16:00 · E2 第一刀：设备来源进入"用户消息"这一条持久化记录
+
+**做法：照抄同一条链上已有的 `clientTimeZone`。** 它正是"客户端声明的事实经 prompt 上行 → host 校验并写进持久化用户消息 → 消费端讲给模型"的现成范例（host 那段注释写得很明确：这些字段随 `user/message` 事件持久化，"模型面不带传输术语"）。
+
+- **客户端**：新增 `client/runtime/src/client/device.ts`，三档 `mobile-app | mobile-browser | desktop-browser`。取样**每页一次并缓存**（中途会变的分类会让历史说谎）；App 由**薄壳在 URL 上自报**（`?dsh-shell`，只有我们自己的壳知道自己是 App，不靠推断）；浏览器用**粗粒度平台**（Chrome 的 `userAgentData.mobile`，否则 coarse pointer）。**取不到就返回 undefined**——不编造一个默认值。
+- **契约**：`ClientDevice` 类型放在 `dsh-llm` 的 message 词汇表里（与 `MessageSource` 同处）；`host/apiproxy` 的 prompt 负载与 `user-rpc` 来源变体各加一个可选字段。
+- **host**：非法值**在起 turn 之前拒绝**（新增错误码 `invalid-client-device`，按该文件注释"新错误码 = 表里一行 + schema 一个分支"照做）；合法值进 `source`，**与 rpcId、时区一起写进那条用户消息**。
+- **验证**：`client/runtime` + `host/apiproxy` + `llm` 共 **731 测试**通过（新增：设备分类 5 条含"无页面时返回 undefined"、host 侧合法入账与非法拒绝 2 条、错误码 schema 1 条）；lint 0；typecheck 通过。
+- **下一步（本特性的收尾）**：① 消费端插件——按 `time-context` 的 `agent/pre-step` 注入机制，把来源讲给模型（这是用户要的"模型可见"）；② 薄壳把 `?dsh-shell=1` 加到它加载的 URL 上并重出 APK（否则 App 仍被算作"手机浏览器"）。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）

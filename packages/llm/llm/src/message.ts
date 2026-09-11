@@ -94,6 +94,16 @@ export type ContextFormed =
   | { readonly form: 'recall' }
 
 /**
+ * Which kind of client sent one prompt.
+ *
+ * Deliberately three coarse buckets: a model that knows a message came from a
+ * phone app can answer for that screen, and nothing beyond that follows from the
+ * transport. No device name, model, or address belongs here — a wrong specific
+ * is worse than a coarse truth.
+ */
+export type ClientDevice = 'mobile-app' | 'mobile-browser' | 'desktop-browser'
+
+/**
  * Where a message (or injected content) came from.
  * Merge-extensible sum type — plugins add their own `kind`s.
  */
