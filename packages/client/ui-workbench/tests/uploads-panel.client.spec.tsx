@@ -134,6 +134,43 @@ describe('uploads panel', () => {
     expect(await screen.findByText(zh['uploads.empty'])).toBeTruthy()
   })
 
+  it('shows one bucket even when the others do not exist yet', async () => {
+    // The live failure this follows: listing a bucket that has never been
+    // created threw, and the whole panel fell back to its empty state.
+    const list = vi.fn((_sessionId: string, path: string | null) => {
+      if (path === 'uploads') {
+        return Promise.resolve({
+          root: '/w', path: '/w/uploads', fileRoute: '/workbench/file', uploadRoute: '/workbench/upload',
+          entries: [{ name: 'desktop-browser', type: 'directory', path: '/w/uploads/desktop-browser' }],
+        })
+      }
+      if (path === 'uploads/desktop-browser') {
+        return Promise.resolve({
+          root: '/w', path: '/w/uploads/desktop-browser', fileRoute: '/workbench/file', uploadRoute: '/workbench/upload',
+          entries: [{ name: 'shot.png', type: 'file', path: '/w/uploads/desktop-browser/shot.png', size: 2048, mediaType: 'image/png' }],
+        })
+      }
+      return Promise.reject(new Error('no such directory'))
+    }) as unknown as ReturnType<typeof reader>
+    render(<UploadsPanel {...props(list).props} />)
+    expect(await screen.findByText('shot.png')).toBeTruthy()
+    expect(screen.getByText(zh['uploads.desktopBrowser'])).toBeTruthy()
+    expect(screen.queryByText(zh['uploads.empty'])).toBeNull()
+  })
+
+  it('lists a file that sits directly under uploads as having no recorded sender', async () => {
+    const list = reader({
+      uploads: [
+        { name: 'mobile-app', type: 'directory' },
+        { name: 'EFCADFF53DCE39045C8669E8C8AF758B.jpg', size: 137932, mediaType: 'image/jpeg' },
+      ],
+    })
+    render(<UploadsPanel {...props(list).props} />)
+    expect(await screen.findByText('EFCADFF53DCE39045C8669E8C8AF758B.jpg')).toBeTruthy()
+    // Such a file predates the route filing uploads by sender.
+    expect(screen.getByText(zh['uploads.unknown'])).toBeTruthy()
+  })
+
   it('skips an entry that is not a file', async () => {
     const list = reader({
       uploads: [{ name: 'mobile-app', type: 'directory' }],
@@ -161,7 +198,7 @@ describe('uploads panel', () => {
 describe('uploads panel — rows the listing leaves thin', () => {
   it('shows a row whose entry carried neither size nor media type', async () => {
     const list = reader({
-      uploads: [{ name: 'unknown' }],
+      uploads: [{ name: 'unknown', type: 'directory' }],
       'uploads/unknown': [{ name: 'mystery.bin' }, { name: 'tiny.txt', size: 231 }],
     })
     const { container } = render(<UploadsPanel {...props(list).props} />)

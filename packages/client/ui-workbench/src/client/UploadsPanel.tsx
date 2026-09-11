@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { WorkbenchListing } from '@deepseek-ai/dsh-workbench/types'
 import type { FilePanelInjected } from './FilePanel.tsx'
 import type { NS } from './locales.ts'
 import css from './UploadsPanel.module.css'
@@ -63,7 +64,7 @@ function formatSize(bytes: number | undefined): string {
  * @param list - the fenced listing reader.
  * @param sessionId - session whose workspace holds the uploads.
  * @returns the rows in bucket order, and the file route for their bytes.
- * @throws when the workspace rejects the read for a reason other than absence.
+ * @throws when the workspace cannot list the uploads directory at all.
  */
 async function readUploads(
   list: FilePanelInjected['list'],
@@ -71,12 +72,11 @@ async function readUploads(
 ): Promise<{ rows: UploadRow[]; fileRoute: string; sessionId: SessionId }> {
   const root = await list(sessionId, UPLOADS_DIR)
   const rows: UploadRow[] = []
-  for (const bucket of BUCKETS) {
-    const listing = await list(sessionId, `${UPLOADS_DIR}/${bucket.name}`)
+  const add = (bucket: BucketKey, listing: WorkbenchListing): void => {
     for (const entry of listing.entries) {
       if (entry.type !== 'file') continue
       rows.push({
-        bucket: bucket.label,
+        bucket,
         path: entry.path,
         name: entry.name,
         size: entry.size,
@@ -84,6 +84,18 @@ async function readUploads(
       })
     }
   }
+  // A bucket that does not exist yet is the ordinary case, not a failed read:
+  // reading one must not blank the files the other buckets hold.
+  for (const bucket of BUCKETS) {
+    try {
+      add(bucket.label, await list(sessionId, `${UPLOADS_DIR}/${bucket.name}`))
+    } catch {
+      continue
+    }
+  }
+  // Files sitting directly under uploads/ were received before the route filed
+  // them by sender, so their source was never recorded — unknown, not invented.
+  add('uploads.unknown', root)
   return { rows, fileRoute: root.fileRoute, sessionId }
 }
 
