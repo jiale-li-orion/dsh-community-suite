@@ -16,9 +16,13 @@ Below the breakpoint, an open workbench becomes **the single panel**: the frame 
 
 The presentation **reads the shared workbench preference and never writes it**. A viewport change — rotation, window resize — cannot open, close, or reselect the workbench another client is showing; only a human gesture commits, and that still goes through the host service. No new breakpoint was introduced: the narrow regime is the existing `SIDEBAR_AUTO_COLLAPSE` reading.
 
-Rejected alternatives: letting the solver grant the workbench a minimum width by pushing the center below its floor (breaks the concession contract and the wide layout); overlaying the workbench above the conversation (adds a second presentation channel beside the shell's geometry ownership); auto-closing the workbench when the viewport narrows (writes shared state from a local viewport change, which the single-authority rule forbids).
+## Alternatives considered
 
-The shared-view authority itself stays with [the workbench shared view](2026-09-09-workbench-shared-view.md); this note adds only the narrow presentation of a view that note already owns.
+- **Granting the workbench a minimum width in the solver, pushing the center below its floor** — breaks the concession contract and the wide layout.
+- **Overlaying the workbench above the conversation** — adds a second presentation channel beside the shell's geometry ownership.
+- **Auto-closing the workbench when the viewport narrows** — writes shared state from a local viewport change, which the single-authority rule forbids.
+
+The shared-view authority itself stays with [the workbench shared view](../feature/2026-09-09-workbench-shared-view.md); this note adds only the narrow presentation of a view that note already owns.
 
 ## Consequences
 

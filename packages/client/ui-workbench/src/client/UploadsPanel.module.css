@@ -45,7 +45,7 @@
 }
 
 .row:hover {
-  background: var(--dsw-alias-bg-layer-2);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .thumb {
@@ -54,7 +54,7 @@
   height: 36px;
   border-radius: 6px;
   object-fit: cover;
-  background: var(--dsw-alias-bg-layer-2);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .fileIcon {
@@ -64,7 +64,7 @@
   width: 36px;
   height: 36px;
   border-radius: 6px;
-  background: var(--dsw-alias-bg-layer-2);
+  background: var(--dsw-alias-interactive-bg-hover);
   color: var(--dsw-alias-label-tertiary);
 }
 

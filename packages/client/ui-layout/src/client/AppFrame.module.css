@@ -274,9 +274,14 @@
    tree over a photograph is a file tree nobody reads. The surface token, not
    the base one: a skin may define the base as fully transparent (the maid skin
    does), which leaves this rule with nothing to paint. Desktop keeps the
-   column's transparent treatment. */
+   column's transparent treatment. The workbench's panels scroll on this raised
+   surface, so the thumb takes the l2 pair and the custom properties inherit
+   down to the region that actually scrolls (see ui-theme styles/scrollbar.css
+   for the rebinding contract). */
 .frame[data-mobile] .workbenchCol {
   background: var(--dsw-alias-bg-layer-2);
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 /* Exactly one page is visible. The selectors name every hidden pair rather

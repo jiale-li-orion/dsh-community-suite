@@ -66,6 +66,12 @@ interface WorkbenchListing {
    * route's location has one home instead of a constant per plane.
    */
   fileRoute: string
+  /**
+   * Route a client POSTs an uploaded file to: `uploadRoute?sessionId=<id>&name=<name>`
+   * with the bytes as the body. The file lands in this workspace's `uploads/`
+   * directory and the response names the path it was written to.
+   */
+  uploadRoute: string
   /** Children in backend order. */
   entries: readonly WorkbenchDirEntry[]
 }

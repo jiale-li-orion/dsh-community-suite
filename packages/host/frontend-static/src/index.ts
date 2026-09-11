@@ -57,6 +57,7 @@ const MIME: Record<string, string> = {
 
 /**
  * Serve one GET/HEAD static request from the dist root.
+ * @param req - the incoming request, read for its method and accept-encoding.
  * @param pathname - decoded URL pathname of the request.
  * @param res - the node:http response to write.
  * @param distRoot - absolute dist root directory (resolved by the caller).

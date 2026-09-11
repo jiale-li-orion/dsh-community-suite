@@ -16,7 +16,7 @@ export type ListingReader = (sessionId: SessionId, path: string | null) => Promi
  * @param listDir - reads the workspace listing, which names the upload route.
  * @returns the action the composer control calls.
  */
-export function createUploadAction(listDir: ListingReader) {
+export function createUploadAction(listDir: ListingReader): (sessionId: SessionId, file: File, ingestId: string) => Promise<string> {
   return async (sessionId: SessionId, file: File, ingestId: string): Promise<string> => {
     const listing = await listDir(sessionId, null)
     // The class is this page's own, sampled once, and it is what tells a reader

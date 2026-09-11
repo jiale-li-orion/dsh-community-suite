@@ -20,7 +20,11 @@ The connection plugin now publishes the phase it already computes as `Connection
 
 The banner is presentation-only. Reconnecting has no auto-retry of anything a user asked for: no re-sent message, no re-approval, no plugin install. The runtime already owns what state must be dropped and rebuilt, and duplicating any of it here would create a second, weaker copy of that decision.
 
-Rejected alternatives: letting the banner call `ctx.connection.start()` itself (the loop stays single-consumer by design); folding the banner into `ui-layout` (the frame owner would gain a data-layer concern); inferring loss from a failed RPC or a stalled stream (a speculative signal that reports healthy hosts as broken).
+## Alternatives considered
+
+- **Letting the banner call `ctx.connection.start()` itself** — the loop stays single-consumer by design.
+- **Folding the banner into `ui-layout`** — the frame owner would gain a data-layer concern.
+- **Inferring loss from a failed RPC or a stalled stream** — a speculative signal that reports healthy hosts as broken.
 
 ## Consequences
 

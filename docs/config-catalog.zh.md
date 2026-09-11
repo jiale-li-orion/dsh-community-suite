@@ -3108,6 +3108,22 @@ export interface Config {
 
 来源：[`packages/web/web-search-perplexity/src/index.ts:32`](../packages/web/web-search-perplexity/src/index.ts)
 
+<a id="deepseek-aidsh-workbench-bytes"></a>
+
+## `@deepseek-ai/dsh-workbench-bytes`
+
+需要：`webServer` · `fs` · `sessions` · `connection`
+
+```ts config-catalog
+/** Upload intake. Out-of-range values fail plugin load. */
+export interface Config {
+  /** Largest upload body in bytes. Omit for {@link DEFAULT_MAX_UPLOAD_BYTES}. */
+  maxUploadBytes?: number
+}
+```
+
+来源：[`packages/workbench/workbench-bytes/src/index.ts:77`](../packages/workbench/workbench-bytes/src/index.ts)
+
 <a id="deepseek-aidsh-workflow-worker-thread"></a>
 
 ## `@deepseek-ai/dsh-workflow-worker-thread`
@@ -3147,9 +3163,11 @@ export interface Config {
 - `@deepseek-ai/dsh-api-remotes`（[`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts)）
 - `@deepseek-ai/dsh-client-locale`（[`packages/client/locale/src/index.ts`](../packages/client/locale/src/index.ts)）
 - `@deepseek-ai/dsh-client-modules` — 需要 `webServer` · `loader`（[`packages/client/modules/src/index.ts`](../packages/client/modules/src/index.ts)）
+- `@deepseek-ai/dsh-client-origin` — 需要 `agents`（[`packages/context/client-origin/src/index.ts`](../packages/context/client-origin/src/index.ts)）
 - `@deepseek-ai/dsh-client-runtime`（[`packages/client/runtime/src/index.ts`](../packages/client/runtime/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-agent-preset`（[`packages/client/ui-agent-preset/src/index.ts`](../packages/client/ui-agent-preset/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-commands`（[`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts)）
+- `@deepseek-ai/dsh-client-ui-connection-status`（[`packages/client/ui-connection-status/src/index.ts`](../packages/client/ui-connection-status/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-context`（[`packages/client/ui-context/src/index.ts`](../packages/client/ui-context/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-conversation`（[`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts)）
 - `@deepseek-ai/dsh-client-ui-cordis`（[`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts)）
@@ -3211,7 +3229,6 @@ export interface Config {
 - `@deepseek-ai/dsh-tool-workbench`——需要 `tools` · `workbench`（[`packages/workbench/tool-workbench/src/index.ts`](../packages/workbench/tool-workbench/src/index.ts)）
 - `@deepseek-ai/dsh-user-questions`（[`packages/interaction/user-questions/src/index.ts`](../packages/interaction/user-questions/src/index.ts)）
 - `@deepseek-ai/dsh-workbench`——需要 `fs` · `sessions`（[`packages/workbench/workbench/src/index.ts`](../packages/workbench/workbench/src/index.ts)）
-- `@deepseek-ai/dsh-workbench-bytes`——需要 `webServer` · `fs` · `sessions` · `connection`（[`packages/workbench/workbench-bytes/src/index.ts`](../packages/workbench/workbench-bytes/src/index.ts)）
 - `@deepseek-ai/dsh-workspace` — 需要 `storageDomain` · `sessionPersistence`（[`packages/workspace/workspace/src/index.ts`](../packages/workspace/workspace/src/index.ts)）
 
 ## Seam 包（不可直接加载）

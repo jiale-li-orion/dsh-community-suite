@@ -773,7 +773,7 @@ machine can.
 - 计划修正：原先“幂等完成”只证明已完成上传的顺序重试。并发相同 ID、共享工作区的会话隔离、文件与索引事务提交、索引损坏恢复、文件移动或修改后的重放仍有缺口。E2 改为 1 完成、4 部分、1 未做，不再折算百分比。MIME、过期策略、粘贴/分享入口继续待办；APK 分享尚未实现。
 - 全仓文档检查未通过：`doc-sync` 的 9 类失败来自交接已有文件，分别为 client catalog、export JSDoc、config catalog、doc graphs、Markdown links、README Model Experience、Agent Note format、type equivalence、README limitations。本次未把这些历史问题混入局部修复；后续先修文档基线，再完善上传恢复语义，之后补 MIME 与分享入口。
 
-### 23:40 · 合并 Codex 的 E2 分支并验证（含一条流程铁律）
+### 22:25 · 合并 Codex 的 E2 分支并验证（含一条流程铁律）
 
 **流程铁律（我这次理解错了，用户纠正）**：**Codex 自己提交到新分支，由我负责合并回唯一的 `main`** —— main 是唯一的主线，分支是它的临时上游。我这次把"尚未合并、推送"只读成"没推" ✗，于是把分支的提交留在了分支上、还去推了一个本来就同步的 main ✗。**正确动作：`git checkout main && git merge --ff-only <branch> && git push origin main`。**
 
@@ -787,6 +787,32 @@ machine can.
 **我发现并修掉的两个真问题（`96892f9`）**：① 新场景**两侧编译面都没登记** ✗ → 客户端面连带编译 `scaffold.ts` → **全仓 typecheck 9 个错误**、**推送被 pre-push 挡下** ✓；按既有约定补上（主机面收录、客户端面排除）✓。② 登记后立刻暴露**真实类型错误**（`exactOptionalPropertyTypes` 下不能显式传 `undefined` 给 `body`）✓ → 改为省略该属性 ✓（这也正是"重试不带请求体"的语义）。
 
 **顺带发现的仓库卫生问题**：`tsc -b tsconfig.host.json` 会给**若干包的 `src/` 里吐构建产物**（`packages/boot/cmdline/src/*.js`、`packages/session/session-persistence-jsonl/src/*` …），**且未被 gitignore** → `git status` 会长期显脏 ✗。我清掉了 **76 个**未跟踪产物 ✓（只删未跟踪文件，不碰源 ✓）。仓库自带的 `pnpm run typecheck` 没有这个副作用 ✓。
+
+### 22:50 · 重启后继续：文档基线九项清零，并修掉一盏我留下的红灯
+
+**先核实重启是否真的生效（实测，不靠推断）**：宿主进程刚起来；`POST /workbench/upload?…&ingestId=probe-1` 返回 `{"path":"uploads/mobile-app/probe-restart.txt","bytes":13}`，**同一 id 重复提交返回同一路径并带 `"repeat":true`**，`uploads/.dsh/ingest.json` 记下 `sha256/device/receivedAt` → **幂等与接入记录确实在线生效**。探针文件与索引条目已清理，工作区干净。另记一条环境陷阱：**在本机 curl 探测必须加 `--noproxy '*'`**，否则 Clash 代理回 502，看着像服务挂了。
+
+**上下文压缩**：一次压缩遮蔽 46.8 万 tokens（简报必须 <2000 字符；我第一次又超了 ✗，砍到只留"是什么 / 在哪 / 下一步"才过 ✓）。
+
+**文档基线：`doc-sync` 从 9 个失败闸门降到 0（28/28）**。逐条修的时候**更正我上一节的判断**：这 9 项**几乎全部是我自己几轮改动的产物**，不是"交接已有文件" ✗。
+
+- 生成物过期（client catalog / config catalog / doc graphs）：新增插件行、新事件消费者、新配置项所致 → 跑生成器即可。
+- export JSDoc 两条：我自己写的 `createUploadAction` 缺返回类型注解、`serveStatic` 缺 `@param req`。
+- Markdown 链接：我的跨目录链接指错了目录（目标在 `implemented/feature/`，我当成同目录）。
+- 三篇 Agent Note 缺 `## Alternatives considered`：按仓库格式补成正式章节，内容取自各篇本来就写着的"被否决方案"，**没有编造新理由**；中文侧统一成既有惯例标题 `## 考虑过的替代方案`（既有 204 处）。
+- `client-origin` README 缺模型体验与限制章节：验证器给两种形式，这里选**结构化形式**（它确实注入模型可见内容）；顺手改正 README 示例与代码不一致（`guidanceFor` 改过措辞、文档没跟）。
+- `ui-connection-status` 走**句子形式**，需要在审计白名单登记（浏览器侧一行状态，不注册任何模型面）。
+- `workbench.md` 的类型等价块缺 `uploadRoute` 字段；另修掉一处中文侧标题写成英文的问题。
+
+**配对纪律再次拦下我**：重新生成的 `config-catalog.md`、`event-producer-consumer.md` 中文对偶没跟上 → 配对闸门直接判 out of sync。把同样的机械变更镜像到中文侧（新增 workbench-bytes 配置节、加两行无配置条目、删掉一条、`types.ts:69→75`、`pre-step` 消费者加 `client-origin`）后重录 → **985 对全部一致**。
+
+**发现并修掉一盏真红灯（我自己早前 M1 改动留下的）**：`ui-theme` 的滚动条契约测试要求"任何在抬升表面上滚动的表都必须重绑定滚动条 token"，而 `AppFrame.module.css`（移动端把工作台列画在 `bg-layer-2` 上）与 `UploadsPanel.module.css` 都没做 → 手机端工作台的滚动条会画出低一档的样式。修法按仓库既有机制：在**承载表面的规则上**声明 `--dsh-scrollbar-thumb(-hover)` 指向 `…-l2`，靠自定义属性向下继承覆盖真正滚动的区域（与 `ApprovalPanel` 同一写法）；上传面板的缩略图/图标块则是**用错了 token 家族**（36px 占位块不是承载滚动条的表面），统一到同包 `FilePanel` 已在用的 `--dsw-alias-interactive-bg-hover`。
+
+**又一次假失败教训**：我**同时**跑 `doc-sync`（4 worker）+ `lint` + `test:gui` → GUI 套件报 11 项失败、单测耗时 45–50 秒，**全是超时**；`doc-sync` 也从 118s 涨到 342s。**独占重跑后 10 项自动消失，剩下 1 项才是真问题**。**今后重闸门串行跑，不并发。**
+
+**验证（均为独占运行）**：`pnpm run typecheck` EXIT=0；`doc-sync` 28/28 通过；`test:gui` 296 文件 / 3979 通过 / 1 跳过；`lint` 0 错 0 警。
+
+**仍未验（不假装已完成）**：E0 真机项（断网重连后再读回结果、停 PC 后手机显示不可达）、E1「添加到主屏幕」、连接横幅的真机触发；上传的并发幂等与崩溃恢复仍是缺口。
 
 ## 待办与注意
 
