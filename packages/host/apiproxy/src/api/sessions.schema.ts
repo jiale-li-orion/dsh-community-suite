@@ -293,6 +293,11 @@ export const sessionPromptRequestSchema = z.object({
   mode: z.union([z.literal('queue'), z.literal('steer')]),
   content: z.array(promptContentPartSchema),
   clientTimeZone: z.string().optional(),
+  // A plain string here, exactly like the zone above: the closed set is enforced
+  // by the handler, which refuses an unknown class with its own error code
+  // rather than a schema complaint. Declared at all because a zod object drops
+  // keys it does not know, so an undeclared field never leaves the client.
+  clientDevice: z.string().optional(),
 }) as unknown as z.ZodType<RequestPayload<'session.prompt'>>
 
 /** session.prompt response value (the command slot appears only when the prompt dispatched a slash command). */

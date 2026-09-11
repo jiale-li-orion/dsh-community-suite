@@ -613,6 +613,17 @@
 - **修后核对**：产物里已有 `clientDevice`/`dsh-shell`；服务端广播的 rev 与产物 sha1 一致（`fb72e2d03582`）→ 手机重载即可拿到新 bundle。
 - **教训归类**：这次的沉默**不是 bug 而是契约**——插件只说它知道的事实。真正的问题在我的构建步骤，而不是在逻辑里。
 
+### 17:30–18:00 · 真凶：zod schema 静默丢字段（我的疏漏）
+
+用户第三次实测仍无来源。我改用**干净的对照实验**（自己的浏览器新建会话发探针、并**先读回输入框确认文字真的进去了**——前一次"已发送"是假阳性），得出**决定性证据**：
+
+- 探针消息的来源是 `{"kind":"user","rpcId":...,"clientTimeZone":"Asia/Shanghai"}`——**同样没有 `clientDevice`**。所以**不是手机的问题，是客户端一侧根本没把它发出去**。
+- 而客户端产物里**确实有我的代码**（`client/runtime/lib/client.js` 里能找到 `clientDevice` 与 `dsh-shell`）。
+- 继续追到**客户端连接的 wire schema**（内联在 `client/connection/lib/client.js`），它逐字段枚举了 prompt 负载且**没有我的字段**；源码里却搜不到——因为它是**运行时 schema**：`packages/host/apiproxy/src/api/sessions.schema.ts:295` 的 **zod 对象**。**我只改了 TypeScript 接口，没改这份 zod schema**，而 **zod 默认丢弃未声明的键**，所以字段在边界上被静默吃掉。
+- **修法**：按同一文件的既有先例（`clientTimeZone: z.string().optional()`）在其后加 `clientDevice: z.string().optional()`——schema 只表达类型，**闭集校验仍由 host 显式做**（这样非法值得到的是 `invalid-client-device` 而不是 schema 报错）。重建后客户端 bundle 里已含该字段。
+- **教训（第三条同源）**：这几十行改动里我犯了**同一类错误三次**——改了 TypeScript 契约却没改运行时的那一半（① 漏建客户端产物 ② 漏建宿主面 ③ 漏改 zod schema）。**契约有两半：类型与运行时校验，改一半等于没改。**
+- **还需一步**：宿主需要重启一次（运行中的进程持有旧的 schema）。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）
