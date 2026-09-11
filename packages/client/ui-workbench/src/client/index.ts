@@ -42,6 +42,7 @@ import type { IWorkbench } from './service.ts'
 import { WorkbenchShell } from './WorkbenchShell.tsx'
 import { WorkbenchBarAction, WorkbenchToggle } from './WorkbenchToggle.tsx'
 import { createUploadEntry } from './UploadButton.tsx'
+import { UploadsPanel } from './UploadsPanel.tsx'
 import { createUploadAction } from './upload-action.ts'
 
 export type { IWorkbench } from './service.ts'
@@ -57,6 +58,7 @@ export type { MarketplaceInjected, MarketplacePanelProps } from './MarketplacePa
 export type { WorkbenchShellInjected, WorkbenchShellProps } from './WorkbenchShell.tsx'
 export type { WorkbenchBarActionProps, WorkbenchToggleInjected, WorkbenchToggleProps } from './WorkbenchToggle.tsx'
 export type { UploadButtonProps, UploadInjected } from './UploadButton.tsx'
+export type { UploadsPanelProps } from './UploadsPanel.tsx'
 export { createUploadAction } from './upload-action.ts'
 export type { ListingReader } from './upload-action.ts'
 
@@ -176,6 +178,15 @@ export function apply(ctx: ClientContext): void {
     store: createFilePanelStore,
     inject: () => ({ list: listDir, preview: (file: WorkbenchFileRef) => { controller.preview(file) } }),
   }, FilePanel))
+
+  ctx.slots.inject('workbench.panel', () => ctx.slots.register({
+    name: 'workbench.panel',
+    id: 'uploads',
+    order: 20,
+    label: () => zh['uploads.tab'],
+    locale: NS,
+    inject: () => ({ list: listDir, preview: (file: WorkbenchFileRef) => { controller.preview(file) } }),
+  }, UploadsPanel))
 
   ctx.slots.inject('workbench.panel', () => ctx.slots.register({
     name: 'workbench.panel',

@@ -316,6 +316,7 @@ describe('ui-workbench browser half', () => {
     // The built-in file panel is registered by this plugin itself.
     expect(panels.getSnapshot()).toEqual([
       { id: 'files', label: '文件', order: 10 },
+      { id: 'uploads', label: '上传', order: 20 },
       { id: 'marketplace', label: '插件市场', order: 20 },
       { id: 'theme', label: '主题', order: 30 },
     ])
@@ -336,6 +337,7 @@ describe('ui-workbench browser half', () => {
     expect(panels.getSnapshot()).toEqual([
       { id: 'git', label: 'Git', order: 5 },
       { id: 'files', label: '文件', order: 10 },
+      { id: 'uploads', label: '上传', order: 20 },
       { id: 'marketplace', label: '插件市场', order: 20 },
       { id: 'terminal', label: '终端', order: 20 },
       { id: 'theme', label: '主题', order: 30 },
@@ -362,6 +364,7 @@ describe('ui-workbench browser half', () => {
       { id: 'bare', label: 'bare', order: 0 },
       { id: 'files', label: '文件', order: 10 },
       { id: 'tied', label: '并列', order: 10 },
+      { id: 'uploads', label: '上传', order: 20 },
       { id: 'marketplace', label: '插件市场', order: 20 },
       { id: 'theme', label: '主题', order: 30 },
     ])
