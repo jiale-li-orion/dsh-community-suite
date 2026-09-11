@@ -14,6 +14,8 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 
 本套件固定采用官方 `dsh-v0.1.0-rc.7` 基线，并保留仓库的 `pnpm@11.22.0` 工具链选择。DeepSeek Harness 仍处于开发者预览阶段，可能出现破坏兼容性的变更；此快照中的社区模块仅支持已记录的基线。
 
+**今天就能跑的**：PC 上的 Web UI、从手机操作**同一个会话**、把手机上的文件接入会话工作区、带文件预览的共享工作台，以及承载浏览器那一层的 Android 薄壳。**尚未实现**：设备能力协议——已配对的手机发布诸如 `device.info` 的能力，由 agent 在**逐次确认**下调用，这正是名字所指的方向。
+
 ## 近期更新
 
 - **2026-09-11 — 手机与 PC 操作同一个会话。** 窄屏客户端呈现三页（会话／会话列表／工作台），同一时刻只显示其中一页；文字与控件按小屏缩放；流连接代际死亡时显示一行"连接中断"。手机上选中的文件落在会话工作区的 `uploads/<来源>/`，用的是输入框当场生成的接入 id；工作台里有一个按发送方分组的「上传」面板；Markdown、源码、PDF、图片、音频与视频都能就地预览。发出提示的客户端类别（`mobile-app`、`mobile-browser`、`desktop-browser`）记在那条持久化用户消息上，并在每轮向模型陈述一次。见[窄屏单面板 note](.agents/notes/implemented/architecture/2026-09-10-narrow-single-panel-workbench.md)与[客户端来源 note](.agents/notes/implemented/feature/2026-09-11-model-visible-client-origin.md)。
@@ -70,6 +72,16 @@ pnpm dsh web
 安装器只把归档会话 bundle 添加到 `web` profile，并在 `.agent-presets` 下安装以下 preset id：`anchored-standard`、`prefab-anchored-standard`、`combo-anchored-standard`、`eternal-minimal`、`whoami-standard`、`wire-think-standard` 与 `zero-anchored-standard`。安装器会拒绝覆盖不属于本套件的目标，在使用 `--update` 更新自有安装项前创建备份，并且不会访问会话目录。
 
 Web UI 默认地址为 `http://127.0.0.1:3080`。使用 DSH 时请保持该终端运行。
+
+### Android 薄壳 App（可选）
+
+手机可以用普通浏览器标签页打开 Web UI。薄壳 App 只是为了做那些**手机自带浏览器无法被配置成**的事——本地插件资源、launcher 图标、前台服务保活，以及一个既保留 host 证书有效、又绕开手机 DNS 解析层的回环源：
+
+```text
+https://github.com/jiale-li-orion/meshfin/releases/download/android-shell/dsh-shell.apk
+```
+
+在手机上下载并打开即可，App 不申请任何权限。它是 debug 签名，并把一个 host 地址编进了包里，因此它指向构建它的那台 host；该地址的文件会在薄壳更新时**原地替换**。
 
 ### 后续启动与更新
 

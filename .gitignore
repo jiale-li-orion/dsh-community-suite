@@ -52,3 +52,9 @@ uploads/
 # Agent workflow scratch (plans and implementation specs written while working on
 # this repository): local working material, never part of the published tree.
 docs/superpowers/
+
+# Personal working material: the evolution journal and the 进化/ planning, design,
+# and deployment records stay on disk for the person who runs this deployment,
+# not in the published tree.
+DSH进化日志.md
+进化/
