@@ -656,6 +656,23 @@ machine can.
 
 测试里加了一条**否定断言**（"desktop 的文案里不得出现 small screen"）——这类"串味"错误只能靠断言反向锁住。19 测试通过、覆盖率 100%、lint 0，宿主面已重建（**需重启生效**）。
 
+### 19:00–20:00 · E2 文件上传（阶段 1）：宿主上传路由
+
+**用户要求**：电脑与手机都要能上传文件（走系统文件选择器），图标放输入框左下角、`+` 与权限 chip 的右侧。用户又充了 ¥10。
+
+- **现状核对**：图片是**内联在 prompt 负载里**（base64 内容块）传的，宿主再入附件库；`dsh-attachment` 是**图片专用**（`saveImages`/`readImage`），没有通用文件能力。所以任意文件**不能照抄内联**（大文件不可行）。
+- **设计决定**：**上传落到会话工作区的 `uploads/`，消息里带文件路径**——agent 用自己的文件工具就能读（这正是"内容接入闭环"的本意），且文件在工作台文件面板里**看得见**（非点目录）。不泛化图片专用的附件缝，不内联大文件。
+- **实现（阶段 1，宿主侧）**：
+  - `WORKBENCH_UPLOAD_PATH = '/workbench/upload'`（与文件路由并列的协议常量）；
+  - `POST /workbench/upload?sessionId=&name=`，**原始字节作 body、一次一个文件**（无 multipart，直接流式落盘）；
+  - **两道栅栏照抄文件路由**：`connection.isTrustedRequest`（浏览器信任）+ `fenceSessionPath`（工作区围栏）；
+  - 文件名收敛为**纯文件名**（拒分隔符/NUL/`.`/`..`/超长），重名**自动避让**（`-2`、`-3`…），**超限拒绝且不留半截文件**（等流关闭再删）；
+  - 体积上限是 **Config 字段 `maxUploadBytes`**（默认 64 MiB），非法值**加载即失败**；
+  - `WorkbenchListing` 增加 `uploadRoute`（与 `fileRoute` 并列，客户端读一次列表就知道两个路由）。
+- **验证**：`workbench-bytes` **36 测试**通过、**index.ts 覆盖率 100%**（含背压、请求中断不留残片、未知会话 403、后端故障不伪装成"路径被拒"、三次重名避让）；lint 0；**全仓 typecheck 通过**；`gen-cordis-api` 重新生成了 3 个产物（含 `docs/subsystems/workbench.md` 双语）。
+- **阶段 2（下一步）**：客户端插件——输入框左下角的上传按钮（`conversation.input.left` 座位）、调系统文件选择器、上传后把引用写进草稿；手机端复用 APK 已接好的系统选择器。
+- **需要重启**：宿主侧路由与 listing 字段要重启后生效。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）

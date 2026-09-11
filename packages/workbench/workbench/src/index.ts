@@ -15,13 +15,13 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { contentTypeForPath } from './content-type.ts'
 import { fenceSessionPath } from './fence.ts'
-import { WORKBENCH_FILE_PATH } from './protocol.ts'
+import { WORKBENCH_FILE_PATH, WORKBENCH_UPLOAD_PATH } from './protocol.ts'
 import type { WorkbenchDirEntry, WorkbenchListing, WorkbenchView } from './types.ts'
 
 export type * from './types.ts'
 export { contentTypeForPath, DEFAULT_CONTENT_TYPE } from './content-type.ts'
 export { fenceSessionPath, WorkbenchFenceError } from './fence.ts'
-export { WORKBENCH_FILE_PATH } from './protocol.ts'
+export { WORKBENCH_FILE_PATH, WORKBENCH_UPLOAD_PATH } from './protocol.ts'
 export type { FencedSessionPath } from './fence.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -114,6 +114,7 @@ export class WorkbenchService extends TypertRemoteService {
       root: root.displayPath,
       path: target.displayPath,
       fileRoute: WORKBENCH_FILE_PATH,
+      uploadRoute: WORKBENCH_UPLOAD_PATH,
       entries: entries.map(entry => ({
         name: entry.name,
         type: entry.type,

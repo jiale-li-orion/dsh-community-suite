@@ -165,5 +165,5 @@ The shared workbench view changed. Emitted on every commit — a browser gesture
 'workbench/changed'(view: WorkbenchView): void
 ```
 
-Source: [`packages/workbench/workbench/src/types.ts:69`](../../packages/workbench/workbench/src/types.ts)
+Source: [`packages/workbench/workbench/src/types.ts:75`](../../packages/workbench/workbench/src/types.ts)
 <!-- END GENERATED cordis-surface -->
