@@ -282,3 +282,11 @@
     animation: none;
   }
 }
+
+/* The narrow frame's page bar owns navigation: collapsing a sidebar that is
+   itself the page duplicates the bar's control and has nothing to collapse. */
+@media (max-width: 1023px) {
+  .toggle {
+    display: none;
+  }
+}

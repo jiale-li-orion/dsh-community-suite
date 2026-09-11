@@ -171,3 +171,37 @@
   line-height: 1;
   cursor: pointer;
 }
+
+.shell[data-pushed] .close {
+  display: none;
+}
+
+/* A pushed preview is the page, so every step of its height chain has to be
+   definite: a pane that only sizes to its content strands the rest of the
+   screen, which is what a document cut off halfway down looks like. */
+.shell[data-pushed],
+.shell[data-pushed] .panes,
+.shell[data-pushed] .viewer,
+.shell[data-pushed] .viewerBody {
+  min-height: 0;
+}
+
+.shell[data-pushed] {
+  height: 100%;
+}
+
+.shell[data-pushed] .panes {
+  flex: 1;
+}
+
+.shell[data-pushed] .viewer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell[data-pushed] .viewerBody {
+  flex: 1;
+  align-items: stretch;
+  justify-content: flex-start;
+}

@@ -3,6 +3,10 @@
 .panel {
   display: flex;
   flex-direction: column;
+  /* The viewer body centres what it holds, which suits a picture and strands a
+     document: a page of text has to own the whole pane, not float in it. */
+  align-self: stretch;
+  width: 100%;
   min-height: 0;
   height: 100%;
   overflow: hidden;
