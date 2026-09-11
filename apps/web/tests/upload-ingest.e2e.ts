@@ -20,7 +20,12 @@ it('uploads opaque ids and recovers invalid metadata without duplicating valid c
     const transcript: unknown[] = []
     const upload = async (id: string, name: string, body?: string): Promise<void> => {
       const query = new URLSearchParams({ sessionId, name, device: 'mobile-app', ingestId: id })
-      const response = await fetch(`${scaffold.baseUrl}${WORKBENCH_UPLOAD_PATH}?${query}`, { method: 'POST', body })
+      // A retry carries no body at all: the optional property is omitted rather
+      // than set to undefined, which exactOptionalPropertyTypes refuses.
+      const response = await fetch(`${scaffold.baseUrl}${WORKBENCH_UPLOAD_PATH}?${query}`, {
+        method: 'POST',
+        ...(body === undefined ? {} : { body }),
+      })
       const result: unknown = await response.json()
       transcript.push({ id, status: response.status, result })
     }
