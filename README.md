@@ -1,8 +1,10 @@
-# DeepSeek Harness Community Suite
+# Meshfin
 
 English | [中文](README.zh.md)
 
-DSH Community Suite is a community-maintained distribution of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It combines the official `dsh-v0.1.0-rc.7` runtime with session-context improvements, an archived-session Web bundle, seven anchored agent presets, and a mobile personal workbench in one repository.
+**One agent across many devices.** Meshfin is a multi-device capability runtime and personal workbench for persistent agents.
+
+Meshfin is a community-maintained distribution of [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It combines the official `dsh-v0.1.0-rc.7` runtime with session-context improvements, an archived-session Web bundle, seven anchored agent presets, and a mobile personal workbench in one repository.
 
 DeepSeek Harness (`dsh`) uses an architecture where **everything is a plugin**. It is powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper).
 
@@ -50,8 +52,8 @@ npm install --global pnpm@11.22.0
 Clone the repository, install dependencies, run the keyless community checks, and build the Harness:
 
 ```sh
-git clone https://github.com/jiale-li-orion/dsh-community-suite.git
-cd dsh-community-suite
+git clone https://github.com/jiale-li-orion/meshfin.git
+cd meshfin
 pnpm install --frozen-lockfile
 pnpm run community:check
 pnpm run build
@@ -74,7 +76,7 @@ The Web UI is served at `http://127.0.0.1:3080` by default. Keep this terminal o
 Start an installed checkout again with the same DSH home:
 
 ```sh
-cd dsh-community-suite
+cd meshfin
 export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 pnpm dsh web
 ```
@@ -117,7 +119,7 @@ COMMUNITY_SOURCES.md
 
 ## Community and support
 
-- Report suite integration problems in this repository's [issue tracker](https://github.com/jiale-li-orion/dsh-community-suite/issues).
+- Report suite integration problems in this repository's [issue tracker](https://github.com/jiale-li-orion/meshfin/issues).
 - Report upstream Harness problems through the official [DeepSeek Harness Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
 - Add the [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic to a plugin repository for discoverability.
 

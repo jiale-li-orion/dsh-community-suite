@@ -48,3 +48,7 @@ worktrees/
 apps/web/public/*.apk
 # Session uploads are workspace data, not repository content.
 uploads/
+
+# Agent workflow scratch (plans and implementation specs written while working on
+# this repository): local working material, never part of the published tree.
+docs/superpowers/

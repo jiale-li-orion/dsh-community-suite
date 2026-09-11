@@ -1,8 +1,10 @@
-# DeepSeek Harness Community Suite
+# Meshfin
 
 [English](README.md) | 中文
 
-DSH Community Suite 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的社区维护发行版。本仓库以官方 `dsh-v0.1.0-rc.7` 为基础，将会话上下文增强、归档会话 Web bundle、7 个锚定 agent 预设和一套移动端个人工作台整理在同一个仓库中。
+**一个 agent，横跨多台设备。** Meshfin 是面向常驻 agent 的多设备能力运行时与个人工作台。
+
+Meshfin 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的社区维护发行版。本仓库以官方 `dsh-v0.1.0-rc.7` 为基础，将会话上下文增强、归档会话 Web bundle、7 个锚定 agent 预设和一套移动端个人工作台整理在同一个仓库中。
 
 DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper)。
 
@@ -50,8 +52,8 @@ npm install --global pnpm@11.22.0
 克隆仓库、安装依赖、运行不使用真实 API 的社区检查，并构建 Harness：
 
 ```sh
-git clone https://github.com/jiale-li-orion/dsh-community-suite.git
-cd dsh-community-suite
+git clone https://github.com/jiale-li-orion/meshfin.git
+cd meshfin
 pnpm install --frozen-lockfile
 pnpm run community:check
 pnpm run build
@@ -74,7 +76,7 @@ Web UI 默认地址为 `http://127.0.0.1:3080`。使用 DSH 时请保持该终�
 使用同一个 DSH home 再次启动已经安装的 checkout：
 
 ```sh
-cd dsh-community-suite
+cd meshfin
 export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 pnpm dsh web
 ```
@@ -117,7 +119,7 @@ COMMUNITY_SOURCES.md
 
 ## 社区与支持
 
-- 本套件的整合问题请提交到当前仓库的 [issue tracker](https://github.com/jiale-li-orion/dsh-community-suite/issues)。
+- 本套件的整合问题请提交到当前仓库的 [issue tracker](https://github.com/jiale-li-orion/meshfin/issues)。
 - Harness 上游问题请通过官方 [DeepSeek Harness Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)反馈。
 - 为插件仓库添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin) 话题，便于被发现。
 
