@@ -765,6 +765,14 @@ machine can.
 - 诊断环境注意：本次工具 shell 默认 Node 20.20.2，不满足仓库的 Node 要求；启动尝试出现缺少 Zstandard、`Promise.withResolvers` 等错误。改用已安装的 Node 22.23.2 后，重试因现有服务占用 3080 而退出。该诊断尝试的错误不归因到用户原始故障。
 - 状态：当前服务恢复可用；未实施产品代码修复。若再次复现，保留完整访问地址、浏览器首条控制台错误和 WSL 同期事件，再定位原因。
 
+### 22:12 · 接手 E2：修复接入 ID 与磁盘记录验证
+
+- 交接基线为 `cfb8434`，在 `codex/e2-ingest-record-validation` 分支继续；局部修复已本地提交为 `1ca30bf`，未合并或推送。此前 39 项 pending 的日志由本会话编写；当前没有再次复现，不列为已定位的插件缺陷。
+- 新增真实 HTTP 回归证明：普通对象索引会把 `constructor`、`__proto__`、`toString` 误当成已完成上传；数组索引会丢掉新记录；无效字段可能返回虚假的完成结果。旧实现新增 12 个用例全部失败。改为 Map 存取，并验证持久化路径、来源、字节数、摘要与时间；坏条目独立忽略，有效条目保留。
+- 验证：`workbench-bytes` 2 个文件、56 项测试通过；`tsc -b packages/workbench/workbench-bytes` 与该包 host 构建通过；真实 Web 组合新增 `upload-ingest.e2e.ts` 及 HTTP 响应快照，记录与只读回放各通过 1 项，零模型调用；3 个改动 TypeScript 文件 oxlint 通过。测试在临时目录与随机端口运行，未重启日常宿主。
+- 计划修正：原先“幂等完成”只证明已完成上传的顺序重试。并发相同 ID、共享工作区的会话隔离、文件与索引事务提交、索引损坏恢复、文件移动或修改后的重放仍有缺口。E2 改为 1 完成、4 部分、1 未做，不再折算百分比。MIME、过期策略、粘贴/分享入口继续待办；APK 分享尚未实现。
+- 全仓文档检查未通过：`doc-sync` 的 9 类失败来自交接已有文件，分别为 client catalog、export JSDoc、config catalog、doc graphs、Markdown links、README Model Experience、Agent Note format、type equivalence、README limitations。本次未把这些历史问题混入局部修复；后续先修文档基线，再完善上传恢复语义，之后补 MIME 与分享入口。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）
