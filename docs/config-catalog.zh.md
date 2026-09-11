@@ -3122,7 +3122,7 @@ export interface Config {
 }
 ```
 
-来源：[`packages/workbench/workbench-bytes/src/index.ts:77`](../packages/workbench/workbench-bytes/src/index.ts)
+来源：[`packages/workbench/workbench-bytes/src/index.ts:105`](../packages/workbench/workbench-bytes/src/index.ts)
 
 <a id="deepseek-aidsh-workflow-worker-thread"></a>
 

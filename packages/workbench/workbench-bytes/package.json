@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-workbench-bytes",
-  "description": "Fenced HTTP byte route for the workbench file viewer: streams workspace files with Range/206/416 support through the fs capability and the browser trust fence",
+  "description": "Fenced HTTP routes for the workbench file viewer and upload intake: streams workspace files with Range/206/416 support and receives one upload per ingest id through the fs capability and the browser trust fence",
   "version": "0.1.0-rc.7",
   "publishConfig": {
     "access": "public"

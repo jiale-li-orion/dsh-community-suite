@@ -7,12 +7,18 @@
  * the workspace fence ({@link fenceSessionPath}, the same one the panel's
  * listing uses), then the bytes are streamed from the resolved target's
  * process path.
+ *
+ * The same pair of prefixes receives uploads: one request body becomes one file
+ * under the session's `uploads/` directory, and the ingest id a client names is
+ * what makes a retry answer with the first attempt instead of storing the same
+ * bytes twice.
  * @module @deepseek-ai/dsh-workbench-bytes
  */
 
 import { createHash } from 'node:crypto'
-import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { closeSync, createReadStream, createWriteStream, mkdirSync, openSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import z from '@deepseek-ai/schemastery'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
@@ -62,9 +68,31 @@ interface IngestRecord {
   sha256: string
   /** Client class that sent it, or the unknown bucket's name. */
   device: string
+  /**
+   * Media type the written name resolves to. Absent on records written before
+   * the type was recorded; a reader that needs it derives it from `path` rather
+   * than inventing one.
+   */
+  mediaType?: string
   /** Epoch milliseconds the host accepted it. */
   receivedAt: number
 }
+
+/**
+ * What one upload attempt answers with: the stored file, or the refusal its
+ * caller must be told. An attempt resolves this instead of throwing so a
+ * concurrent repeat of the same ingest can share the one outcome.
+ */
+type UploadOutcome =
+  | { readonly kind: 'stored'; readonly path: string; readonly bytes: number }
+  | { readonly kind: 'refused'; readonly status: number; readonly message: string }
+
+/**
+ * Attempts this plugin instance is running right now, keyed by session and
+ * ingest id. A second request naming an id that is already being written waits
+ * for that attempt instead of starting a second copy of the same bytes.
+ */
+type InFlightUploads = Map<string, Promise<UploadOutcome>>
 
 /**
  * Largest body the upload route accepts when the deployment configures nothing.
@@ -100,21 +128,34 @@ function plainFileName(name: string): string | undefined {
   return name
 }
 
+/** Whether an exclusive create failed because the path is already taken. */
+function isAlreadyThere(error: unknown): boolean {
+  return (error as NodeJS.ErrnoException | null)?.code === 'EEXIST'
+}
+
 /**
- * Pick a path that does not overwrite an earlier upload.
+ * Claim a path that does not overwrite an earlier upload, by creating it.
+ *
+ * The claim is the `wx` create, not an existence check followed by a write: two
+ * uploads arriving at once would both pass the check and then stream into the
+ * same file, interleaving their bytes. The claim leaves an empty file, and the
+ * body is written into that path.
  * @param dir - the uploads directory.
  * @param name - the plain file name to keep.
- * @returns the absolute path to write.
+ * @returns the absolute path this attempt owns.
  */
-function freePath(dir: string, name: string): string {
-  const first = join(dir, name)
-  if (!existsSync(first)) return first
+function reservePath(dir: string, name: string): string {
   const dot = name.lastIndexOf('.')
   const stem = dot <= 0 ? name : name.slice(0, dot)
   const suffix = dot <= 0 ? '' : name.slice(dot)
-  for (let n = 2; ; n += 1) {
-    const candidate = join(dir, `${stem}-${String(n)}${suffix}`)
-    if (!existsSync(candidate)) return candidate
+  for (let n = 1; ; n += 1) {
+    const candidate = join(dir, n === 1 ? name : `${stem}-${String(n)}${suffix}`)
+    try {
+      closeSync(openSync(candidate, 'wx'))
+      return candidate
+    } catch (error) {
+      if (!isAlreadyThere(error)) throw error
+    }
   }
 }
 
@@ -130,18 +171,22 @@ async function closeStream(stream: ReturnType<typeof createWriteStream>): Promis
 }
 
 /**
- * Stream a request body to a file, refusing a body past the limit.
+ * Stream a request body to a file, refusing a body past the limit. The digest is
+ * taken as the bytes go past, so recording what was accepted never reads the
+ * file back.
  * @param req - the incoming request.
  * @param path - the file to write.
  * @param maxBytes - the accepted body size.
- * @returns the bytes written, or undefined when the body exceeded the limit.
+ * @returns the bytes written and their SHA-256, or undefined when the body
+ * exceeded the limit. The file is removed on both the refusal and a failure.
  */
 async function writeBody(
   req: IncomingMessage,
   path: string,
   maxBytes: number,
-): Promise<number | undefined> {
+): Promise<{ bytes: number; sha256: string } | undefined> {
   const out = createWriteStream(path)
+  const digest = createHash('sha256')
   let written = 0
   try {
     for await (const chunk of req) {
@@ -155,6 +200,7 @@ async function writeBody(
         rmSync(path, { force: true })
         return undefined
       }
+      digest.update(buffer)
       if (!out.write(buffer)) {
         await new Promise<void>((resolve) => { out.once('drain', resolve) })
       }
@@ -163,7 +209,7 @@ async function writeBody(
       out.once('error', reject)
       out.end(resolve)
     })
-    return written
+    return { bytes: written, sha256: digest.digest('hex') }
   } catch (error) {
     await closeStream(out)
     rmSync(path, { force: true })
@@ -199,32 +245,104 @@ function isIngestRecord(value: unknown): value is IngestRecord {
   if (!record.path.startsWith(prefix) || plainFileName(record.path.slice(prefix.length)) === undefined) return false
   return typeof record.bytes === 'number' && Number.isSafeInteger(record.bytes) && record.bytes >= 0
     && typeof record.sha256 === 'string' && /^[a-f0-9]{64}$/.test(record.sha256)
+    && (record.mediaType === undefined
+      || (typeof record.mediaType === 'string' && record.mediaType.length > 0))
     && typeof record.receivedAt === 'number' && Number.isSafeInteger(record.receivedAt) && record.receivedAt >= 0
 }
 
 /**
- * Write accepted metadata. This write is not a crash-safe transaction with the uploaded file.
+ * Commit one accepted record to the index.
+ *
+ * The read-modify-write runs under the index's writer lock and the replacement
+ * is atomic, so two uploads accepted at the same moment cannot drop each
+ * other's record and no reader ever sees a half-written index. The uploaded file
+ * is already on disk by now, and this order is deliberate: a crash between the
+ * two leaves an orphan file rather than a record naming a file that does not
+ * exist.
  * @param dir - the uploads directory.
- * @param index - the index to write.
+ * @param id - the ingest id the record answers.
+ * @param record - the accepted metadata.
  */
-function writeIndex(dir: string, index: Map<string, IngestRecord>): void {
-  mkdirSync(join(dir, INGEST_DIR), { recursive: true })
-  writeFileSync(join(dir, INGEST_DIR, INGEST_INDEX), `${JSON.stringify(Object.fromEntries(index), null, 2)}\n`)
+async function recordIngest(dir: string, id: string, record: IngestRecord): Promise<void> {
+  const indexDir = join(dir, INGEST_DIR)
+  mkdirSync(indexDir, { recursive: true })
+  const file = join(indexDir, INGEST_INDEX)
+  await withFileLock(file, async () => {
+    const index = readIndex(dir)
+    index.set(id, record)
+    await writeFileAtomic(file, `${JSON.stringify(Object.fromEntries(index), null, 2)}\n`, { mode: 0o600 })
+  })
+}
+
+/**
+ * Stream one request body into a session's uploads directory and record it.
+ * @param req - the incoming request; its body is the file.
+ * @param dir - the bucket directory the bytes land in.
+ * @param indexDir - the uploads directory holding the ingest index.
+ * @param device - the declaring client class, or the unknown bucket's name.
+ * @param name - the plain file name to keep.
+ * @param ingestId - the attempt the client named, or null when it named none.
+ * @param maxBytes - the accepted body size.
+ * @returns what this attempt stored, or the refusal its caller must be told.
+ */
+async function storeUpload(
+  req: IncomingMessage,
+  dir: string,
+  indexDir: string,
+  device: string,
+  name: string,
+  ingestId: string | null,
+  maxBytes: number,
+): Promise<UploadOutcome> {
+  const path = reservePath(dir, name)
+  const body = await writeBody(req, path, maxBytes)
+  if (body === undefined) {
+    return { kind: 'refused', status: 413, message: `body exceeds ${String(maxBytes)} bytes` }
+  }
+  const written = `${UPLOAD_DIR}/${device}/${path.slice(dir.length + 1)}`
+  if (ingestId !== null) {
+    await recordIngest(indexDir, ingestId, {
+      path: written,
+      bytes: body.bytes,
+      sha256: body.sha256,
+      device,
+      mediaType: contentTypeForPath(written),
+      receivedAt: Date.now(),
+    })
+  }
+  return { kind: 'stored', path: written, bytes: body.bytes }
+}
+
+/**
+ * Answer one attempt outcome. `repeat` reports that the bytes were already
+ * received, which is what tells a client its retry did not store a second copy.
+ * @param res - the response the route owns.
+ * @param outcome - what the attempt stored or refused.
+ * @param repeat - whether this answer replays an earlier attempt.
+ */
+function answerOutcome(res: ServerResponse, outcome: UploadOutcome, repeat: boolean): void {
+  if (outcome.kind === 'refused') {
+    refuse(res, outcome.status, outcome.message)
+    return
+  }
+  res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+  res.end(JSON.stringify({ path: outcome.path, bytes: outcome.bytes, ...repeat ? { repeat: true } : {} }))
 }
 
 /**
  * Accept one uploaded file into the session workspace's uploads directory.
- * Exported for the route test, which drives it through the real server.
  * @param ctx - context carrying the services named by {@link inject}.
  * @param req - the incoming request; its body is the file.
  * @param res - the response the route owns.
  * @param maxBytes - the accepted body size.
+ * @param inFlight - attempts this plugin instance is still writing.
  */
-export async function receiveWorkbenchUpload(
+async function receiveWorkbenchUpload(
   ctx: Context,
   req: IncomingMessage,
   res: ServerResponse,
   maxBytes: number,
+  inFlight: InFlightUploads,
 ): Promise<void> {
   if (!ctx.connection.isTrustedRequest(req)) {
     refuse(res, 403, 'forbidden')
@@ -283,31 +401,27 @@ export async function receiveWorkbenchUpload(
     if (recorded !== undefined) {
       // The repeat may carry no body at all, so the answer is sent before the
       // request stream is read: same bytes in, same result out.
-      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-      res.end(JSON.stringify({ path: recorded.path, bytes: recorded.bytes, repeat: true }))
+      answerOutcome(res, { kind: 'stored', path: recorded.path, bytes: recorded.bytes }, true)
       return
     }
   }
-  const path = freePath(dir, name)
-  const bytes = await writeBody(req, path, maxBytes)
-  if (bytes === undefined) {
-    refuse(res, 413, `body exceeds ${String(maxBytes)} bytes`)
+  // A retry that arrives while the first attempt is still writing waits for that
+  // attempt instead of starting a second copy of the same bytes. Two clients
+  // naming one id are duplicates by definition, so the later one is answered
+  // from the earlier one's outcome, refusal included.
+  const key = ingestId === null ? undefined : `${sessionId}\n${ingestId}`
+  const pending = key === undefined ? undefined : inFlight.get(key)
+  if (pending !== undefined) {
+    answerOutcome(res, await pending, true)
     return
   }
-  const written = `${UPLOAD_DIR}/${device}/${path.slice(dir.length + 1)}`
-  if (ingestId !== null) {
-    const index = readIndex(indexDir)
-    index.set(ingestId, {
-      path: written,
-      bytes,
-      sha256: createHash('sha256').update(readFileSync(path)).digest('hex'),
-      device,
-      receivedAt: Date.now(),
-    })
-    writeIndex(indexDir, index)
+  const attempt = storeUpload(req, dir, indexDir, device, name, ingestId, maxBytes)
+  if (key !== undefined) inFlight.set(key, attempt)
+  try {
+    answerOutcome(res, await attempt, false)
+  } finally {
+    if (key !== undefined) inFlight.delete(key)
   }
-  res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
-  res.end(JSON.stringify({ path: written, bytes }))
 }
 
 /** Answer one request with a plain-text status and no body. */
@@ -427,6 +541,9 @@ export function apply(ctx: Context, config: Config = {}): void {
   if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
     throw new Error(`workbench-bytes: maxUploadBytes must be a positive integer, got ${String(config.maxUploadBytes)}`)
   }
+  // One intake per plugin instance: an in-flight attempt is this instance's own
+  // state, so it lives no longer than the registration that can answer with it.
+  const inFlight: InFlightUploads = new Map()
   ctx.effect(
     () => ctx.webServer.register({
       kind: 'prefix',
@@ -439,7 +556,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     () => ctx.webServer.register({
       kind: 'prefix',
       path: WORKBENCH_UPLOAD_PATH,
-      handler: (req, res) => receiveWorkbenchUpload(ctx, req, res, maxBytes),
+      handler: (req, res) => receiveWorkbenchUpload(ctx, req, res, maxBytes, inFlight),
     }),
     'workbench-bytes: upload route',
   )

@@ -5,7 +5,7 @@
  */
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile, chmod } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ServerResponse } from 'node:http'
@@ -293,6 +293,53 @@ function uploadUrl(
   return `${base}${WORKBENCH_UPLOAD_PATH}?${params.toString()}`
 }
 
+/**
+ * Wait until an upload has reached the state a test needs to observe. Waiting on
+ * the fact itself keeps a race out of the test: an attempt claims its file
+ * before it can be in flight, so the claim is what says the next request will
+ * find it running.
+ * @param condition - the fact to wait for.
+ */
+async function waitFor(condition: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (condition()) return
+    await new Promise((resolve) => { setTimeout(resolve, 5) })
+  }
+  throw new Error('timed out waiting for the upload route')
+}
+
+/**
+ * Start one upload whose body stays open until the caller ends it, so a second
+ * request can arrive while the first is still being written.
+ * @param url - the upload route URL.
+ * @param first - the first chunk of the body.
+ * @returns the response promise and the gate that ends the body.
+ */
+function gatedUpload(url: string, first: string): { response: Promise<Response>; end: (last?: string) => void } {
+  const encoder = new TextEncoder()
+  let open: ReadableStreamDefaultController<Uint8Array> | undefined
+  const response = fetch(url, {
+    method: 'POST',
+    body: new ReadableStream<Uint8Array>({
+      start(stream) {
+        // `start` runs synchronously, so the gate is usable as soon as this
+        // function returns.
+        open = stream
+        stream.enqueue(encoder.encode(first))
+      },
+    }),
+    duplex: 'half',
+  } as RequestInit & { duplex: 'half' })
+  return {
+    response,
+    end: (last = '') => {
+      if (open === undefined) throw new Error('the body never started')
+      if (last !== '') open.enqueue(encoder.encode(last))
+      open.close()
+    },
+  }
+}
+
 describe('workbench upload route', () => {
   it('writes the body into the workspace uploads directory and names the path', async () => {
     const { base, root } = await bench()
@@ -412,6 +459,24 @@ describe('workbench upload route — refusals and edge cases', () => {
     expect(() => { applyBytes(ctx, { maxUploadBytes: 0 }) }).toThrow(/maxUploadBytes/)
     expect(() => { applyBytes(ctx, { maxUploadBytes: 1.5 }) }).toThrow(/maxUploadBytes/)
   })
+
+  it('reports a write failure that is not a name collision', async () => {
+    const { base, root } = await bench()
+    const bucket = join(root, 'uploads', 'unknown')
+    await mkdir(bucket, { recursive: true })
+    // Windows has no read-only directory bit to set here, so it asks only that a
+    // successful write is not mistaken for a taken name.
+    const posix = process.platform !== 'win32'
+    if (posix) await chmod(bucket, 0o500)
+    try {
+      const response = await fetch(uploadUrl(base, 'note.txt'), { method: 'POST', body: 'x' })
+      // The failure is the server's to report; the route only has to avoid
+      // numbering the name and claiming the body was stored.
+      expect(response.status).toBe(posix ? 400 : 200)
+    } finally {
+      if (posix) await chmod(bucket, 0o755)
+    }
+  })
 })
 
 describe('workbench upload route — backend failure', () => {
@@ -487,12 +552,16 @@ describe('workbench upload route — one ingest, one file', () => {
       bytes: number
       sha256: string
       device: string
+      mediaType?: string
       receivedAt: number
     }>
     const record = index['pick-2']!
     expect(record.path).toBe('uploads/desktop-browser/notes.txt')
     expect(record.bytes).toBe(5)
     expect(record.device).toBe('desktop-browser')
+    // The type the byte route would serve it as, so a reader of the record does
+    // not have to re-derive it from the name.
+    expect(record.mediaType).toBe('text/plain; charset=utf-8')
     expect(record.sha256).toBe('2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824')
     expect(record.receivedAt).toBeGreaterThan(0)
   })
@@ -520,10 +589,13 @@ describe('workbench upload route — an index that says nothing usable', () => {
     null,
     42,
     { path: '../../outside.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'mobile-app', receivedAt: 1 },
+    { path: 'uploads/mobile-app/nested/old.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'mobile-app', receivedAt: 1 },
     { path: 'uploads/mobile-app/old.txt', bytes: -1, sha256: 'a'.repeat(64), device: 'mobile-app', receivedAt: 1 },
     { path: 'uploads/mobile-app/old.txt', bytes: 5, sha256: 'invalid', device: 'mobile-app', receivedAt: 1 },
     { path: 'uploads/mobile-app/old.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'desktop-browser', receivedAt: 1 },
+    { path: 'uploads/tablet/old.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'tablet', receivedAt: 1 },
     { path: 'uploads/mobile-app/old.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'mobile-app', receivedAt: 'yesterday' },
+    { path: 'uploads/mobile-app/old.txt', bytes: 5, sha256: 'a'.repeat(64), device: 'mobile-app', mediaType: '', receivedAt: 1 },
   ])('does not report an invalid disk record as a completed upload: %j', async (record) => {
     const { base, root } = await bench()
     await mkdir(join(root, 'uploads/.dsh'), { recursive: true })
@@ -557,5 +629,56 @@ describe('workbench upload route — an index that says nothing usable', () => {
     expect((await response.json() as { path: string }).path).toBe('uploads/mobile-app/notes.txt')
     const index = JSON.parse(await readFile(join(unreadable, 'ingest.json'), 'utf8')) as Record<string, unknown>
     expect(Object.keys(index)).toEqual(['pick-3'])
+  })
+})
+
+describe('workbench upload route — two requests, one pick', () => {
+  it('answers a retry that names the pick being written right now', async () => {
+    const { base, root } = await bench(true, 8 * 1024 * 1024)
+    const url = uploadUrl(base, 'photo.jpg', SESSION, 'mobile-app', 'pick-live')
+    const held = gatedUpload(url, 'jpeg bytes')
+    await waitFor(() => existsSync(join(root, 'uploads', 'mobile-app', 'photo.jpg')))
+    const retry = fetch(url, { method: 'POST' })
+    // Long enough for the server to dispatch the retry while the first attempt is
+    // still writing: the point of the case is the wait, not the record.
+    await new Promise((resolve) => { setTimeout(resolve, 50) })
+    held.end()
+    expect(await (await held.response).json()).toEqual({ path: 'uploads/mobile-app/photo.jpg', bytes: 10 })
+    expect(await (await retry).json()).toEqual({ path: 'uploads/mobile-app/photo.jpg', bytes: 10, repeat: true })
+    expect(existsSync(join(root, 'uploads', 'mobile-app', 'photo-2.jpg'))).toBe(false)
+    expect(await readFile(join(root, 'uploads', 'mobile-app', 'photo.jpg'), 'utf8')).toBe('jpeg bytes')
+  })
+
+  it('leaves no record for a refused attempt, so its retry is a fresh attempt', async () => {
+    const { base, root } = await bench(true, 1024)
+    const url = uploadUrl(base, 'big.bin', SESSION, 'mobile-app', 'pick-refused')
+    const refused = await fetch(url, { method: 'POST', body: 'x'.repeat(4096) })
+    expect(refused.status).toBe(413)
+    // A refusal is not an outcome worth replaying: the index holds what was
+    // received, and nothing was.
+    expect(existsSync(join(root, 'uploads', '.dsh', 'ingest.json'))).toBe(false)
+    expect(existsSync(join(root, 'uploads', 'mobile-app', 'big.bin'))).toBe(false)
+  })
+
+  it('never lets two uploads arriving at once write one file', async () => {
+    const { base, root } = await bench(true, 8 * 1024 * 1024)
+    const one = gatedUpload(uploadUrl(base, 'shot.png', SESSION, 'mobile-app', 'pick-one'), 'first')
+    const two = gatedUpload(uploadUrl(base, 'shot.png', SESSION, 'mobile-app', 'pick-two'), 'second')
+    await waitFor(() => existsSync(join(root, 'uploads', 'mobile-app', 'shot.png')))
+    await waitFor(() => existsSync(join(root, 'uploads', 'mobile-app', 'shot-2.png')))
+    one.end()
+    two.end()
+    await one.response
+    await two.response
+    const written = await Promise.all(['shot.png', 'shot-2.png'].map(
+      name => readFile(join(root, 'uploads', 'mobile-app', name), 'utf8'),
+    ))
+    // Neither file holds a mix of the two bodies, which is what one path shared
+    // by both uploads would produce.
+    expect([...written].sort()).toEqual(['first', 'second'])
+    const index = JSON.parse(await readFile(join(root, 'uploads', '.dsh', 'ingest.json'), 'utf8')) as Record<string, unknown>
+    // Both records survive: an index written without the lock would keep only
+    // the one whose read-modify-write ran last.
+    expect(Object.keys(index).sort()).toEqual(['pick-one', 'pick-two'])
   })
 })

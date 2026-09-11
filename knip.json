@@ -235,6 +235,16 @@
         "tests/**/*.tsx"
       ]
     },
+    "packages/client/ui-connection-status": {
+      "entry": [
+        "tests/**/*.spec.tsx"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "tests/**/*.tsx"
+      ]
+    },
     "website": {
       "project": [
         "**/*.ts"

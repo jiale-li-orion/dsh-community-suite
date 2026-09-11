@@ -21,6 +21,12 @@
       "path": "../../core/session"
     },
     {
+      "path": "../../llm/llm"
+    },
+    {
+      "path": "../../util/atomic-write"
+    },
+    {
       "path": "../../host/webserver"
     },
     {

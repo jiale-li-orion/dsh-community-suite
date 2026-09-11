@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { apply, inject, name } from '../src/index.ts'
+import * as OriginInvariant from '../src/invariant.ts'
 
 /** Capture the registered pre-step handler without standing up the registry. */
 function handlerOf(): (input: {
@@ -122,5 +123,12 @@ describe('client-origin pre-step', () => {
     const on = vi.fn()
     apply({ on } as never)
     expect(on).toHaveBeenCalledWith('agent/pre-step', expect.any(Function), { prepend: true })
+  })
+})
+
+describe('client-origin invariant companion', () => {
+  it('declares its companion identity and explained empty invariant', () => {
+    expect(OriginInvariant.name).toBe('client-origin-invariant')
+    expect(OriginInvariant.inject).toEqual(['invariants'])
   })
 })
