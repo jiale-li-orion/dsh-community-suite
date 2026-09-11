@@ -62,12 +62,23 @@ final class GatewayCache implements Closeable {
         }
     }
 
-    /** @return the stored entry for one URL, or null when it is absent. */
+    /** @return the stored entry for one URL, or null when it is absent or unverifiable. */
     synchronized Entry lookup(String url) {
         File body = bodyFile(url);
         if (!body.isFile()) return null;
         try {
             byte[] bytes = readAll(body, body.length());
+            // A bundle URL names its own content hash. An entry that no longer
+            // hashes to it was written from an interrupted or mis-framed
+            // response, and replaying it would hand the page a truncated script
+            // — the failure surfaces as a bundle that never registers itself.
+            String expected = revisionOf(url);
+            if (expected != null && !expected.equals(shortHash(bytes))) {
+                Log.w(TAG, "cache entry failed its revision check, refetching: " + url);
+                body.delete();
+                typeFile(url).delete();
+                return null;
+            }
             String type = readType(url);
             // Touching the entry keeps the eviction order honest about use.
             body.setLastModified(System.currentTimeMillis());
@@ -79,8 +90,19 @@ final class GatewayCache implements Closeable {
         }
     }
 
-    /** @return true when the entry was stored. */
+    /**
+     * @param url - the requested URL; its revision, when it carries one, is the
+     *   content hash the body must have.
+     * @param body - the decoded response body.
+     * @param contentType - the type to replay the body with.
+     * @return true when the entry was stored.
+     */
     synchronized boolean store(String url, byte[] body, String contentType) {
+        String expected = revisionOf(url);
+        if (expected != null && (body.length == 0 || !expected.equals(shortHash(body)))) {
+            Log.w(TAG, "not caching a body that does not match its revision: " + url);
+            return false;
+        }
         File target = bodyFile(url);
         File temp = new File(target.getPath() + ".tmp");
         try (FileOutputStream out = new FileOutputStream(temp)) {
@@ -161,6 +183,28 @@ final class GatewayCache implements Closeable {
             while ((read = in.read(buffer)) >= 0) out.write(buffer, 0, read);
         }
         return out.toByteArray();
+    }
+
+    /** @return the revision a URL names, or null when it carries none. */
+    private static String revisionOf(String url) {
+        int at = url.indexOf("rev=");
+        if (at < 0) return null;
+        int end = url.indexOf('&', at);
+        String value = end < 0 ? url.substring(at + 4) : url.substring(at + 4, end);
+        return value.isEmpty() ? null : value;
+    }
+
+    /** @return the same short content hash the host names bundles with. */
+    private static String shortHash(byte[] body) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-1").digest(body);
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte value : hash) hex.append(String.format("%02x", value));
+            return hex.substring(0, 12);
+        } catch (NoSuchAlgorithmException error) {
+            /* v8 ignore next -- SHA-1 is required of every Android runtime */
+            return "";
+        }
     }
 
     /** @return a filesystem-safe stable key for one URL. */

@@ -203,6 +203,7 @@ final class LoopbackProxy implements Closeable {
                 // is forwarded without being kept rather than stored compressed.
                 && (encoding == null || encoding.toLowerCase(java.util.Locale.ROOT).contains("gzip"));
         ByteArrayOutputStream decoded = store ? new ByteArrayOutputStream(1 << 20) : null;
+        boolean complete = false;
         Inflater inflater = decoded != null && encoding != null ? new Inflater(true) : null;
         byte[] buffer = new byte[COPY_BUFFER];
         byte[] inflated = new byte[COPY_BUFFER];
@@ -227,8 +228,19 @@ final class LoopbackProxy implements Closeable {
                 inflater = null;
             }
         }
+        // Reaching this line means the upstream ended the body on its own terms:
+        // a read that failed mid-stream leaves through the exception above.
+        complete = true;
         toClient.flush();
-        if (decoded != null) cache.store(cacheKey, decoded.toByteArray(), contentType);
+        if (decoded == null || !complete) return;
+        // Without a revision in the URL there is no content hash to check, so an
+        // identity response is held to the length it declared for itself.
+        String declared = header(headLines, "Content-Length");
+        if (encoding == null && declared != null && decoded.size() != parseLength(declared)) {
+            Log.w(TAG, "not caching a body whose length does not match its header: " + cacheKey);
+            return;
+        }
+        cache.store(cacheKey, decoded.toByteArray(), contentType);
     }
 
     /** Answer one request from the on-disk cache, decoded and length-delimited. */
@@ -243,6 +255,15 @@ final class LoopbackProxy implements Closeable {
         toClient.write(head.toString().getBytes(StandardCharsets.ISO_8859_1));
         toClient.write(entry.body);
         toClient.flush();
+    }
+
+    /** @return a declared length, or -1 when it is absent or unparsable. */
+    private static long parseLength(String value) {
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException error) {
+            return -1;
+        }
     }
 
     /** @return the request target (path plus query) of one request line. */
