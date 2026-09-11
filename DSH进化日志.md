@@ -709,6 +709,14 @@ machine can.
 - **顺手清理**：闭集常量原先在 `host/apiproxy` 里**重复定义**一份——现在统一为 `dsh-llm` 导出的 `CLIENT_DEVICES`，prompt 校验与上传校验共用一份，不会再漂移。
 - **验证**：`workbench-bytes` 39 测试、`client/ui-workbench + client/runtime + host/apiproxy` 共 **841 测试**通过；lint 0；全仓 typecheck 通过；两面产物已重建（**需重启生效**）。
 
+### 21:35 · ✅ 上传来源分桶实测通过（电脑侧）
+
+用户重启后从**电脑浏览器**上传 `4-box.png`，文件落在 **`uploads/desktop-browser/4-box.png`**（1086×1356 PNG，1,127,235 字节）——**与那条消息自身的 `desktop-browser` 完全一致** ✓，说明：
+
+- 重启后**路由的新行为生效**（来源成为路径的一部分）；来源随消息里的路径一起进日志，满足"模型可见 ⟺ 已记录"；
+- 客户端与宿主对**同一页的类别判断一致**（prompt 与上传共用 `resolvedClientDevice()` 与同一闭集）；
+- 我**读到了图**：蓝发女仆（鲸鱼尾）缩在雨中纸箱里，抱着牌子「没钱养大肥鱼了，求好心人收留」——手机上传的两例（证件照、51 页 PDF）与电脑这一例，三次实测全部通过。
+
 ## 待办与注意
 
 ### 提交账目（全部已推送；`main` = `02c8791`，`codex/e0-mobile-baseline` 已并入 main 并删除）
