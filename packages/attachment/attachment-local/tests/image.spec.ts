@@ -1,6 +1,6 @@
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
-import { detectImage, probeImage } from '../src/image.ts'
+import { detectImage, fitImageEdge, probeImage } from '../src/image.ts'
 
 async function raster(format: 'png' | 'jpeg' | 'webp' | 'gif'): Promise<Uint8Array> {
   const image = sharp({
@@ -47,5 +47,36 @@ describe('raster decoding', () => {
       create: { width: 1, height: 1, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } },
     }).tiff().toBuffer()
     await expect(probeImage(unsupported)).rejects.toMatchObject({ code: 'INVALID_IMAGE' })
+  })
+})
+
+describe('admission downscaling', () => {
+  it('returns the original bytes when the longest side already fits', async () => {
+    const png = await raster('png')
+    await expect(fitImageEdge(png, 'image/png', 16)).resolves.toEqual(png)
+  })
+
+  it('downscales to the edge cap in the declared format and keeps the ratio', async () => {
+    const wide = new Uint8Array(await sharp({
+      create: { width: 100, height: 40, channels: 3, background: { r: 9, g: 8, b: 7 } },
+    }).png().toBuffer())
+    const fitted = await fitImageEdge(wide, 'image/png', 10)
+    await expect(detectImage(fitted)).resolves.toEqual({ mediaType: 'image/png', width: 10, height: 4 })
+    // The fitted bytes are a new encoding, not the original payload.
+    expect(fitted.byteLength).not.toBe(wide.byteLength)
+  })
+
+  it('keeps an animated format resizable and refuses a mismatched declaration', async () => {
+    const gif = new Uint8Array(await sharp({
+      create: { width: 40, height: 20, channels: 4, background: { r: 1, g: 2, b: 3, alpha: 1 } },
+    }).gif().toBuffer())
+    const fitted = await fitImageEdge(gif, 'image/gif', 8)
+    await expect(detectImage(fitted)).resolves.toEqual({ mediaType: 'image/gif', width: 8, height: 4 })
+    await expect(fitImageEdge(gif, 'image/png', 8)).rejects.toMatchObject({ code: 'IMAGE_TYPE_MISMATCH' })
+  })
+
+  it('still refuses an image beyond the decoded-pixel cap', async () => {
+    const png = await raster('png')
+    await expect(fitImageEdge(png, 'image/png', 4096, 5)).rejects.toMatchObject({ code: 'IMAGE_TOO_MANY_PIXELS' })
   })
 })

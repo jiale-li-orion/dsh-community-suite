@@ -42,6 +42,16 @@ interface ImageAttachmentLimits {
   maxImagesPerMessage: number
   maxMessageImageBytes: number
   maxImagePixels: number
+  /**
+   * Longest accepted side in pixels. A larger image is downscaled to this edge
+   * at admission rather than refused: vision routes reject an image whose width
+   * or height exceeds their per-request dimension limit (the DeepSeek vision
+   * guide documents 8192 px, dropping to 4096 px once a request carries 15 or
+   * more images, and answers `invalid_request_error`). Refusing would make long
+   * screenshots unreadable, and the route downsizes every image to roughly an
+   * 800x800 pixel budget before inference, so the fitted edge costs no fidelity.
+   */
+  maxImageEdgePixels: number
   mediaTypes: readonly ImageMediaType[]
 }
 ```

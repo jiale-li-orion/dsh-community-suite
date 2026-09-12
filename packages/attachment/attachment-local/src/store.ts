@@ -14,7 +14,7 @@ import type {
   SaveImageAttachment,
   StoredImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
-import { detectImage, probeImage } from './image.ts'
+import { detectImage, fitImageEdge, probeImage } from './image.ts'
 
 const ID_PATTERN = /^sha256:([a-f0-9]{64})$/
 const durableHomes = new Set<string>()
@@ -46,12 +46,12 @@ function ensureReference(ref: ImageAttachmentRef): string {
 async function inspectMetadata(
   data: Uint8Array,
   declaredMediaType: ImageAttachmentRef['mediaType'],
-  maxPixels?: number,
-): Promise<Omit<ImageAttachmentRef, 'attachmentId' | 'name'>> {
+  limits: ImageAttachmentLimits,
+): Promise<Omit<ImageAttachmentRef, 'attachmentId' | 'name'> & { data: Uint8Array }> {
   if (data.byteLength === 0) throw new AttachmentError('Image is empty.', 'INVALID_IMAGE')
-  const detected = await detectImage(data, maxPixels)
-  if (detected.mediaType !== declaredMediaType) throw new AttachmentError('Declared image type does not match its bytes.', 'IMAGE_TYPE_MISMATCH')
-  return { ...detected, bytes: data.byteLength }
+  const fitted = await fitImageEdge(data, declaredMediaType, limits.maxImageEdgePixels, limits.maxImagePixels)
+  const detected = await detectImage(fitted, limits.maxImagePixels)
+  return { ...detected, bytes: fitted.byteLength, data: fitted }
 }
 
 /**
@@ -64,7 +64,7 @@ export async function validateImageFile(input: SaveImageAttachment, limits: Imag
   if (input.data.byteLength > limits.maxImageBytes) {
     throw new AttachmentError('Image exceeds the configured byte limit.', 'IMAGE_TOO_LARGE')
   }
-  await inspectMetadata(input.data, input.mediaType, limits.maxImagePixels)
+  await inspectMetadata(input.data, input.mediaType, limits)
 }
 
 /**
@@ -135,8 +135,12 @@ async function ensureDurableHome(path: string): Promise<string> {
  */
 export async function saveImageFile(root: string, input: SaveImageAttachment, limits: ImageAttachmentLimits): Promise<ImageAttachmentRef> {
   if (input.data.byteLength > limits.maxImageBytes) throw new AttachmentError('Image exceeds the configured byte limit.', 'IMAGE_TOO_LARGE')
-  const metadata = await inspectMetadata(input.data, input.mediaType, limits.maxImagePixels)
-  const sha256 = digest(input.data)
+  const metadata = await inspectMetadata(input.data, input.mediaType, limits)
+  // `inspectMetadata` may have downscaled the image to the deployment's edge
+  // cap; the stored object is the fitted one, so its digest and dimensions
+  // describe exactly the bytes a reader gets back.
+  const { data } = metadata
+  const sha256 = digest(data)
   const bucket = join(root, 'objects', sha256.slice(0, 2))
   const staging = join(root, 'tmp')
   // Establish DSH_HOME itself against the filesystem root once per process.
@@ -150,7 +154,7 @@ export async function saveImageFile(root: string, input: SaveImageAttachment, li
   let handle
   try {
     handle = await open(temporary, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, 0o600)
-    await handle.writeFile(input.data)
+    await handle.writeFile(data)
     await handle.sync()
     await handle.close()
     handle = undefined
@@ -186,9 +190,12 @@ export async function saveImageFile(root: string, input: SaveImageAttachment, li
     throw new AttachmentError('Unable to persist image attachment.', 'ATTACHMENT_WRITE_FAILED', { cause: error })
   }
   const name = displayName(input.name)
+  // The reference describes the stored bytes only; the fitted payload stays
+  // internal to this call.
+  const { data: _fitted, ...fields } = metadata
   return {
     attachmentId: AttachmentId(`sha256:${sha256}`),
-    ...metadata,
+    ...fields,
     ...(name !== undefined ? { name } : {}),
   }
 }

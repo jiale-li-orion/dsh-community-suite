@@ -45,6 +45,7 @@ class FakeAttachments extends AttachmentStore {
     maxImagesPerMessage: 4,
     maxMessageImageBytes: 4_000_000,
     maxImagePixels: 4_000_000,
+    maxImageEdgePixels: 8192,
     mediaTypes: ['image/png'],
   }
 

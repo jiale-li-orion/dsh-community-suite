@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import LocalAttachmentStore, {
   DEFAULT_MAX_IMAGE_BYTES,
+  DEFAULT_MAX_IMAGE_EDGE_PIXELS,
   DEFAULT_MAX_IMAGE_PIXELS,
   DEFAULT_MAX_IMAGES_PER_MESSAGE,
   DEFAULT_MAX_MESSAGE_IMAGE_BYTES,
@@ -20,6 +21,7 @@ describe('local attachment service', () => {
       maxImagesPerMessage: DEFAULT_MAX_IMAGES_PER_MESSAGE,
       maxMessageImageBytes: DEFAULT_MAX_MESSAGE_IMAGE_BYTES,
       maxImagePixels: DEFAULT_MAX_IMAGE_PIXELS,
+      maxImageEdgePixels: DEFAULT_MAX_IMAGE_EDGE_PIXELS,
       mediaTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
     })
   })

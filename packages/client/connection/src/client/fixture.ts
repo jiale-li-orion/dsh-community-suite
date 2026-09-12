@@ -1077,6 +1077,7 @@ function projectionValuesOf(log: readonly SessionEvent[]): Record<string, unknow
     maxImagesPerMessage: 20,
     maxMessageImageBytes: 100 * 1024 * 1024,
     maxImagePixels: 40_000_000,
+    maxImageEdgePixels: 4096,
     mediaTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
   }
   return values

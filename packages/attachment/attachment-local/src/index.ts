@@ -19,6 +19,15 @@ export const DEFAULT_MAX_IMAGES_PER_MESSAGE = 20
 export const DEFAULT_MAX_MESSAGE_IMAGE_BYTES = 100 * 1024 * 1024
 /** Default maximum intrinsic pixels for one image. */
 export const DEFAULT_MAX_IMAGE_PIXELS = 40_000_000
+/**
+ * Default longest side for one stored image; larger images are downscaled to it.
+ * The vision route documents `8192 px per side`, dropping to `4096 px per side`
+ * once a request carries 15 or more images, and this harness admits up to 20
+ * images per message — so 4096 is the bound that always holds. It also costs
+ * nothing in fidelity: the route resizes every image to roughly an 800x800
+ * pixel budget before inference anyway.
+ */
+export const DEFAULT_MAX_IMAGE_EDGE_PIXELS = 4096
 
 /** Local attachment backend configuration. */
 export interface Config {
@@ -32,6 +41,8 @@ export interface Config {
   maxMessageImageBytes?: number
   /** Maximum intrinsic width multiplied by height accepted for one image. */
   maxImagePixels?: number
+  /** Longest side kept for one stored image; a longer image is downscaled. */
+  maxImageEdgePixels?: number
 }
 
 /** Persistent content-addressed local attachment store. */
@@ -42,6 +53,7 @@ export class LocalAttachmentStore extends AttachmentStore {
     maxImagesPerMessage: z.number().step(1).min(1).default(DEFAULT_MAX_IMAGES_PER_MESSAGE),
     maxMessageImageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_MESSAGE_IMAGE_BYTES),
     maxImagePixels: z.number().step(1).min(1).default(DEFAULT_MAX_IMAGE_PIXELS),
+    maxImageEdgePixels: z.number().step(1).min(1).default(DEFAULT_MAX_IMAGE_EDGE_PIXELS),
   })
 
   /** Absolute versioned storage root. */
@@ -56,6 +68,7 @@ export class LocalAttachmentStore extends AttachmentStore {
       maxImagesPerMessage: config.maxImagesPerMessage ?? DEFAULT_MAX_IMAGES_PER_MESSAGE,
       maxMessageImageBytes: config.maxMessageImageBytes ?? DEFAULT_MAX_MESSAGE_IMAGE_BYTES,
       maxImagePixels: config.maxImagePixels ?? DEFAULT_MAX_IMAGE_PIXELS,
+      maxImageEdgePixels: config.maxImageEdgePixels ?? DEFAULT_MAX_IMAGE_EDGE_PIXELS,
       mediaTypes: Object.freeze(['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const),
     })
   }

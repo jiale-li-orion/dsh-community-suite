@@ -43,6 +43,9 @@ const LIMITS: ImageAttachmentLimits = {
   maxImagesPerMessage: 2,
   maxMessageImageBytes: 2048,
   maxImagePixels: 16,
+  // Generous here so the size-independent cases below store their bytes as-is;
+  // the downscale case builds its own limits.
+  maxImageEdgePixels: 4096,
   mediaTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
 }
 
@@ -70,6 +73,23 @@ afterEach(async () => {
 })
 
 describe('local attachment store', () => {
+  it('stores the downscaled bytes when an image exceeds the edge cap', async () => {
+    const storageRoot = await root()
+    const wide = new Uint8Array(await sharp({
+      create: { width: 64, height: 16, channels: 3, background: { r: 4, g: 5, b: 6 } },
+    }).png().toBuffer())
+    const tight: ImageAttachmentLimits = { ...LIMITS, maxImageBytes: 1024 * 1024, maxImageEdgePixels: 8, maxImagePixels: 1_000_000 }
+    const ref = await saveImageFile(storageRoot, { data: wide, mediaType: 'image/png' }, tight)
+
+    // The reference describes the bytes that were stored, not the input.
+    expect(ref.width).toBe(8)
+    expect(ref.height).toBe(2)
+    const stored = new Uint8Array(await readFile(join(storageRoot, 'objects', ref.attachmentId.slice('sha256:'.length, 'sha256:'.length + 2), ref.attachmentId.slice('sha256:'.length))))
+    expect(stored.byteLength).toBe(ref.bytes)
+    expect(stored.byteLength).not.toBe(wide.byteLength)
+    await expect(readImageFile(storageRoot, ref)).resolves.toMatchObject({ ref: { width: 8, height: 2 } })
+  })
+
   it.skipIf(process.platform === 'win32')('syncs every object ancestor up to the durable boundary before returning', async () => {
     const storageRoot = await root()
     const base = join(storageRoot, '..', '..')

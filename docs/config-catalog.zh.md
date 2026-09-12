@@ -337,6 +337,8 @@ export interface Config {
   maxMessageImageBytes?: number
   /** Maximum intrinsic width multiplied by height accepted for one image. */
   maxImagePixels?: number
+  /** Longest side kept for one stored image; a longer image is downscaled. */
+  maxImageEdgePixels?: number
 }
 ```
 
