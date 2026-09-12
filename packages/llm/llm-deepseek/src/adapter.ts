@@ -326,7 +326,24 @@ export class DeepSeekAdapter extends LlmAdapter {
     userId: AnonymousUserId,
     onComment: () => void,
   ): AsyncIterable<StreamChunk> {
-    const body = await serializeRequest(options, connection.defaults, this.imageReader(connection, options.model, signal))
+    // Assembling the body reads every referenced attachment, so a failure here
+    // is local: an unreadable object, a reference whose metadata disagrees with
+    // its bytes, a content position this protocol cannot carry. It is reported
+    // as such — the stream loop below would otherwise label a non-LlmError from
+    // this step a transport failure and retry a request that cannot succeed.
+    const body = await serializeRequest(
+      options,
+      connection.defaults,
+      this.imageReader(connection, options.model, signal),
+    ).catch((error: unknown) => {
+      if (error instanceof LlmError) throw error
+      throw new LlmError(
+        `DeepSeek request for model "${options.model}" could not be assembled: `
+        + (error instanceof Error ? error.message : String(error)),
+        'REQUEST_ASSEMBLY_FAILED',
+        { cause: error },
+      )
+    })
     // Prepared outside the try so the TRANSPORT label below covers exactly the
     // transport boundary, never a serialization failure.
     const payload = JSON.stringify(body)

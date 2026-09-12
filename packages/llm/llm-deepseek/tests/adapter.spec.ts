@@ -62,6 +62,16 @@ class FakeAttachments extends AttachmentStore {
   }
 }
 
+/** The same service with an unreadable object, as a corrupt reference produces. */
+class CorruptAttachments extends FakeAttachments {
+  override readImage(): Promise<StoredImageAttachment> {
+    return Promise.reject(Object.assign(
+      new Error('Stored attachment metadata does not match its reference.'),
+      { code: 'ATTACHMENT_CORRUPT' },
+    ))
+  }
+}
+
 const IMAGE_MESSAGE = createUserMessage({
   content: [{ type: 'image', attachment: IMAGE_REF }],
   source: { kind: 'plugin', plugin: 'test' },
@@ -883,6 +893,25 @@ describe('plugin registration and config', () => {
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'UNSUPPORTED_CONTENT' } })
     if (result.finish.kind !== 'error') throw new Error('expected an error finish')
     expect(result.finish.failure.message).toMatch(/no attachment service is mounted/)
+    expect(server.requests).toHaveLength(0)
+  })
+
+  it('labels an unreadable attachment as an assembly failure, not a transport one', async () => {
+    const server = await mockServer([{ kind: 'sse', events: textEvents }])
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(CorruptAttachments)
+    await ctx.plugin(LlmDeepSeek, {
+      baseURL: server.url,
+      models: [{ id: 'vision-model', inputModalities: ['text', 'image'] }],
+    })
+    const result = await assemble(ctx, { model: 'vision-model', messages: [IMAGE_MESSAGE] })
+
+    expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'REQUEST_ASSEMBLY_FAILED' } })
+    if (result.finish.kind !== 'error') throw new Error('expected an error finish')
+    expect(result.finish.failure.message).toMatch(/Stored attachment metadata does not match its reference/)
+    // Nothing reached the endpoint, and the code is outside the retryable set.
     expect(server.requests).toHaveLength(0)
   })
 
