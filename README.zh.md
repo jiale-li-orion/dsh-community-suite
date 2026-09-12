@@ -10,6 +10,17 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 
 本仓库不是 DeepSeek AI 官方发行版。上游的精确版本、许可证与适配补丁记录在[社区源码记录](COMMUNITY_SOURCES.md)中。
 
+## 本仓库包含什么
+
+两半，分别安装、分别更新：
+
+| 半边 | 是什么 | 在哪 |
+| --- | --- | --- |
+| **本地 DSH** | 跑在你自己电脑上的 harness：Web UI、社区模块、共享工作台，以及同一个会话的移动端呈现。这是你要运行的那一半。 | [`packages/`](packages/README.md)、[`community/`](community/)、[`apps/cli`](apps/cli/README.md)、[`apps/web`](apps/web) |
+| **Android App** | 可选的手机薄壳。它只承载**手机自带浏览器无法被配置成**的那一层浏览器能力，是 host Web UI 的查看端，而不是第二个客户端。 | [`apps/android-shell/`](apps/android-shell/README.md) |
+
+本地那一半**不需要 App** 也能从手机浏览器使用；App 之所以存在，是因为本部署里这台手机的自带浏览器无法按 Web UI 需要的方式配置。
+
 ## 状态
 
 本套件固定采用官方 `dsh-v0.1.0-rc.7` 基线，并保留仓库的 `pnpm@11.22.0` 工具链选择。DeepSeek Harness 仍处于开发者预览阶段，可能出现破坏兼容性的变更；此快照中的社区模块仅支持已记录的基线。
@@ -26,13 +37,16 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 
 ## 已整合的优化
 
+### 导入的社区模块
+
 - **会话上下文与压缩**：有界长会话读取、packed retention、上下文检查与区间选择、历史召回、按模型容量规划压缩，以及可恢复的摘要审阅；来源为 [leavelet/deepseek-harness](https://github.com/leavelet/deepseek-harness)。
 - **归档会话**：在 Web 设置页列出、预览、释放、删除归档会话并统计容量的 bundle；来源为 [MuWinds/dsh-archived-sessions](https://github.com/MuWinds/dsh-archived-sessions)。
 - **锚定 agent**：7 个可独立安装的 agent 组合，提供受控的首轮工具面、上下文门控、wire-think 路由、压缩感知的阶段提升、默认会话 prefab 播种、跨平台 shell 路径与稳健的指令发现；来源为 [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
+### 自有实现
+
 - **DeepSeek 图片输入**：内置的 `llm-deepseek` 适配器按模型声明输入模态，并把用户上传的图片与工具产生的图片都以 `image_url` data URL 送到模型。
 - **Human-Agent 共享工作台**：一个可停靠的栏位，面板与文件查看器都经声明的槽位注册（`workbench.panel`、`workbench.viewer`）；浏览器与 agent 修改同一份 host 持有的视图（`ctx.workbench` 加转发的 `workbench/changed` 事件）；一条受围栏保护的字节路由以 `Range`／`206`／`416` 流式提供工作区文件。全部为 rc.7 seam 上的一手包；设计参考 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（面板与文件查看器注册表）、[kendu76/dsh-music-player](https://github.com/kendu76/dsh-music-player)（host 持有、两个平面共同修改的意图）、[tsonglew/dsh-media-preview](https://github.com/tsonglew/dsh-media-preview)（Range／流式处理器）。未搬运任何社区代码。
 - **移动端个人工作台**：手机是**同一个会话**的一等客户端，而不是第二个产品——一条顶栏下的三页结构、同一时刻只显示一页；为窄屏准备的界面缩放；输入框里的上传控件把文件经受围栏保护的 host 路由送进会话工作区；接入 id 让重复上传返回第一次的结果而不是存第二份；按发送方分组的「上传」面板；Markdown、源码、PDF、图片、音频与视频的就地预览。移动端呈现只**读**共享的工作台视图，从不写它。
-- **Android 薄壳**：`apps/android-shell/`，范围限定在手机浏览器无法被配置成的四件事——本地资源、launcher 图标、前台服务、回环代理。它存在的原因是这个目标手机的自带浏览器不遵守 `cache-control`、装不了 PWA、会回收长连接、并走自己的 DNS 解析层——这些都不是 Web API 的能力缺口。
 - **插件目录**：一个 `marketplace` 工作台面板，加上 `plugin_search` 与 `plugin_install` 两个工具，都建立在 CC0 的 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 索引之上。两条路径共用一份安装能力：面板里确认过的点击就是人的手势，工具则额外走 `ctx.approval`；无论哪条，条目自带的目标都要先校验、再以 argv 数组执行。安装目标校验与「搜索/安装」拆分参考 [DshMarketPlace/dsh-plugins-store](https://github.com/DshMarketPlace/dsh-plugins-store)；索引在运行时作为数据消费，绝不重新生成或镜像。
 
 已审计但有意未落地的部分：agent 自写工作台扩展（设计参考 [saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile)）、完整的 Android／桌面客户端（[ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android)、[ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui)，以及仅允许设计研究的 AGPL-3.0／GPL-3.0 项目），以及让 agent 调用手机自身摄像头、文件或位置的设备能力协议——上面的薄壳 App 只承载浏览器那一层，没有实现该协议。相关决策与每条已落地行的回滚方式记录在工作台 [Agent Notes](.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.md)。
@@ -54,8 +68,8 @@ npm install --global pnpm@11.22.0
 克隆仓库、安装依赖、运行不使用真实 API 的社区检查，并构建 Harness：
 
 ```sh
-git clone https://github.com/jiale-li-orion/meshfin.git
-cd meshfin
+git clone https://github.com/jiale-li-orion/dsh-meshfin.git
+cd dsh-meshfin
 pnpm install --frozen-lockfile
 pnpm run community:check
 pnpm run build
@@ -73,22 +87,22 @@ pnpm dsh web
 
 Web UI 默认地址为 `http://127.0.0.1:3080`。使用 DSH 时请保持该终端运行。
 
-### Android 薄壳 App（可选）
+### 从手机访问
 
-手机可以用普通浏览器标签页打开 Web UI。薄壳 App 只是为了做那些**手机自带浏览器无法被配置成**的事——本地插件资源、launcher 图标、前台服务保活，以及一个既保留 host 证书有效、又绕开手机 DNS 解析层的回环源：
+Web UI 绑定在 `127.0.0.1`，因此手机是**经私有网络**访问它，而不是经公网。[Tailscale](https://tailscale.com/) 就是本部署用的方式：把电脑和手机登进同一个 tailnet，然后在手机浏览器里打开电脑的 tailnet 地址。DSH 本身没有任何改动——tailnet 只是扩展了它的地址能被解析到的范围。
 
-```text
-https://github.com/jiale-li-orion/meshfin/releases/download/android-shell/dsh-shell.apk
-```
+手机侧不需要 Google Play 账号：Tailscale 提供**官方直下**的 Android 安装包，地址是 <https://pkgs.tailscale.com/stable/#android>。
 
-在手机上下载并打开即可，App 不申请任何权限。它是 debug 签名，并把一个 host 地址编进了包里，因此它指向构建它的那台 host；该地址的文件会在薄壳更新时**原地替换**。
+无论你用哪种私有网络，部署事实都一样：host 在一个固定的名字上应答，且只在该网络内部可达。我们自己的部署记录**不在本仓库里**，因为它指向一台具体的 host。
+
+Android 薄壳 App 是可选的、独立的另一半；当手机浏览器不够用时，见 [App 自己的 README](apps/android-shell/README.md)。
 
 ### 后续启动与更新
 
 使用同一个 DSH home 再次启动已经安装的 checkout：
 
 ```sh
-cd meshfin
+cd dsh-meshfin
 export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 pnpm dsh web
 ```
@@ -131,7 +145,7 @@ COMMUNITY_SOURCES.md
 
 ## 社区与支持
 
-- 本套件的整合问题请提交到当前仓库的 [issue tracker](https://github.com/jiale-li-orion/meshfin/issues)。
+- 本套件的整合问题请提交到当前仓库的 [issue tracker](https://github.com/jiale-li-orion/dsh-meshfin/issues)。
 - Harness 上游问题请通过官方 [DeepSeek Harness Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)反馈。
 - 为插件仓库添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin) 话题，便于被发现。
 

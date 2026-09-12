@@ -10,6 +10,17 @@ DeepSeek Harness (`dsh`) uses an architecture where **everything is a plugin**. 
 
 This repository is not an official DeepSeek AI release. The exact upstream revisions, licenses, and adaptation patches are recorded in [COMMUNITY_SOURCES.md](COMMUNITY_SOURCES.md).
 
+## What this repository contains
+
+Two halves, installed and updated separately:
+
+| Half | What it is | Where |
+| --- | --- | --- |
+| **Local DSH** | The harness on your own computer: the Web UI, the community modules, the shared workbench, and the mobile presentation of the same session. This is the half you run. | [`packages/`](packages/README.md), [`community/`](community/), [`apps/cli`](apps/cli/README.md), [`apps/web`](apps/web) |
+| **Android app** | An optional thin shell for the phone. It carries only the browser layer a stock phone browser cannot be configured to provide, and it views the host's Web UI rather than being a second client. | [`apps/android-shell/`](apps/android-shell/README.md) |
+
+The local half is usable from a phone's browser with no app at all. The app exists because the phone browser in this deployment cannot be configured the way the Web UI needs.
+
 ## Status
 
 The suite is fixed to the official `dsh-v0.1.0-rc.7` base and retains the repository's `pnpm@11.22.0` toolchain choice. DeepSeek Harness remains a developer preview and may introduce compatibility-breaking changes; community modules in this snapshot are supported only against the recorded base.
@@ -26,13 +37,16 @@ Runnable today: the Web UI on a PC, the same session driven from a phone, file i
 
 ## Included improvements
 
+### Imported community modules
+
 - **Session context and compaction** — bounded long-session reads, packed retention, context inspection and range selection, history recall, model-capacity-aware compaction planning, and recoverable summary review, adapted from [leavelet/deepseek-harness](https://github.com/leavelet/deepseek-harness).
 - **Archived sessions** — a Web settings bundle for listing, previewing, restoring, deleting, and measuring archived sessions, adapted from [MuWinds/dsh-archived-sessions](https://github.com/MuWinds/dsh-archived-sessions).
 - **Anchored agents** — seven self-contained agent compositions with controlled first-turn tool exposure, context gates, wire-think routing, compaction-aware promotion, default-session prefab seeding, cross-platform shell paths, and resilient instruction discovery, adapted from [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard).
+### First-party work
+
 - **DeepSeek image input** — the bundled `llm-deepseek` adapter declares per-model input modalities and carries both user-uploaded images and images produced by tools to the model as `image_url` data URLs.
 - **Human-Agent shared workbench** — a docked column whose panels and file viewers register through declared slots (`workbench.panel`, `workbench.viewer`), one host-owned view the browser and the agent both mutate (`ctx.workbench` plus the forwarded `workbench/changed` event), a fenced byte route that streams workspace files with `Range`/`206`/`416`. First-party packages on rc.7 seams; the design follows [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) (panel and file-viewer registry), [kendu76/dsh-music-player](https://github.com/kendu76/dsh-music-player) (host-owned intent both planes mutate), and [tsonglew/dsh-media-preview](https://github.com/tsonglew/dsh-media-preview) (Range/streaming handler). No community code was lifted.
 - **Mobile personal workbench** — the phone is a first-class client of the same session, not a second product: three pages under one bar with one visible at a time, an interface scale for narrow screens, a composer upload control whose files reach the session workspace through a fenced host route, ingest ids that make a repeated upload answer with the first result instead of storing the bytes twice, an uploads panel grouped by sender, and file viewers for Markdown, source, PDF, images, audio, and video. The mobile presentation reads the shared workbench view and never writes it.
-- **Android thin shell** — `apps/android-shell/`, scoped to four things a phone browser cannot be configured to do: local assets, launcher icon, foreground service, and a loopback proxy. It exists because the target phone's stock browser ignores `cache-control`, cannot install a PWA, reclaims long connections, and resolves through its own DNS layer — none of which is a Web API capability gap.
 - **Plugin catalog** — a `marketplace` workbench panel plus the `plugin_search` and `plugin_install` tools over the CC0 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) index. Both paths share one install capability: the panel's confirmed click is the human gesture, the tool adds `ctx.approval`, and either way the entry's own target is validated and run as an argv array. The install-target validator and the search/install split follow [DshMarketPlace/dsh-plugins-store](https://github.com/DshMarketPlace/dsh-plugins-store); the index is consumed as data at runtime, never re-generated or mirrored.
 
 Audited but deliberately not shipped: agent-authored workbench extensions (design from [saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile)), the full Android and desktop clients ([ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android), [ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui), and the AGPL-3.0/GPL-3.0 projects, which permit design study only), and the device-capability protocol that would let the agent call a phone's own camera, files, or location — the shell app above carries the browser layer only, and does not implement that protocol. Their decisions and the exact revert for every shipped row are recorded in the workbench [Agent Notes](.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.md).
@@ -54,8 +68,8 @@ npm install --global pnpm@11.22.0
 Clone the repository, install dependencies, run the keyless community checks, and build the Harness:
 
 ```sh
-git clone https://github.com/jiale-li-orion/meshfin.git
-cd meshfin
+git clone https://github.com/jiale-li-orion/dsh-meshfin.git
+cd dsh-meshfin
 pnpm install --frozen-lockfile
 pnpm run community:check
 pnpm run build
@@ -73,22 +87,22 @@ The installer adds the archived-session bundle only to the `web` profile and ins
 
 The Web UI is served at `http://127.0.0.1:3080` by default. Keep this terminal open while using DSH.
 
-### Android shell (optional)
+### Reaching it from a phone
 
-A phone can use the Web UI as an ordinary browser tab. The shell app exists only for what a stock phone browser cannot be configured to do — local plugin bundles, a launcher icon, a foreground service, and a loopback origin that keeps the host's certificate valid while avoiding the phone's DNS layer:
+The Web UI binds to `127.0.0.1`, so a phone reaches it over a private network, never the public internet. [Tailscale](https://tailscale.com/) is what this deployment uses: sign the computer and the phone into the same tailnet, then open the computer's tailnet address in the phone's browser. Nothing about DSH changes; the tailnet only extends where its address resolves.
 
-```text
-https://github.com/jiale-li-orion/meshfin/releases/download/android-shell/dsh-shell.apk
-```
+The phone needs no Google Play account for that — Tailscale publishes its Android build for direct download at <https://pkgs.tailscale.com/stable/#android>.
 
-Download it on the phone and open it; the app requests no permissions. It is debug-signed and built with one host address compiled in, so it points at the host it was built for, and that URL is replaced in place whenever the shell changes.
+Whatever private network you use, the deployment fact is the same: the host answers at one stable name and only from inside that network. Our own deployment record stays outside this repository, because it names a specific host.
+
+The thin Android app is optional and separate; when the phone browser is not enough, see [the app's README](apps/android-shell/README.md).
 
 ### Later launches and updates
 
 Start an installed checkout again with the same DSH home:
 
 ```sh
-cd meshfin
+cd dsh-meshfin
 export DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 pnpm dsh web
 ```
@@ -131,7 +145,7 @@ COMMUNITY_SOURCES.md
 
 ## Community and support
 
-- Report suite integration problems in this repository's [issue tracker](https://github.com/jiale-li-orion/meshfin/issues).
+- Report suite integration problems in this repository's [issue tracker](https://github.com/jiale-li-orion/dsh-meshfin/issues).
 - Report upstream Harness problems through the official [DeepSeek Harness Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
 - Add the [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic to a plugin repository for discoverability.
 
