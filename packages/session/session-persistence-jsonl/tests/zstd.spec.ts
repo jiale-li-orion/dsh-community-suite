@@ -700,6 +700,22 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       .rejects.toThrow(/first frame is not exactly one header line/)
   })
 
+  it('reads a legacy single-frame log that stores the header and events together', async () => {
+    const root = await freshRoot()
+    const header = meta('legacy-single-frame')
+    const legacy = await compressZstdFrame([
+      JSON.stringify(toHeaderLine(header)),
+      ...oneTurnLog().map(event => JSON.stringify(event)),
+      '',
+    ].join('\n'))
+    await mkdir(sessionDir(root, header.cwd, header.id), { recursive: true })
+    await writeFile(logPath(root, header.cwd, header.id, 'zstd'), legacy)
+    const ctx = await mount(root)
+
+    expect((await ctx.sessionPersistence.list()).map(item => item.id)).toEqual([header.id])
+    expect((await ctx.sessionPersistence.load(header.id)).events).toEqual(oneTurnLog())
+  })
+
   it('rejects missing, empty, and checksum-corrupt header frames on targeted reads', async () => {
     const root = await freshRoot()
     for (const id of ['partial-only', 'empty-header', 'bad-checksum']) {

@@ -70,11 +70,32 @@ async function scanJsonlSlices(
   }
 }
 
-/** Assert that the independently decodable first frame contains only the header record. */
-function assertZstdHeaderFrame(plaintext: Buffer): void {
-  if (plaintext.length === 0 || plaintext.indexOf(0x0A) !== plaintext.length - 1) {
+/**
+ * Split the first frame into its header and optional legacy event body.
+ * Current writers use a header-only frame; older writers put all initial event
+ * rows in the same frame. Legacy rows are accepted only when each line has the
+ * storage record coordinates needed by the scanner, so malformed two-line
+ * header frames remain rejected.
+ */
+function splitZstdHeaderFrame(plaintext: Buffer): { header: Buffer; body: Buffer } {
+  const headerEnd = plaintext.indexOf(0x0A)
+  if (headerEnd < 0) throw new Error('corrupt Zstandard session log: first frame is not exactly one header line')
+  const header = plaintext.subarray(0, headerEnd + 1)
+  const body = plaintext.subarray(headerEnd + 1)
+  if (body.length === 0) return { header, body }
+  const lines = body.toString('utf8').split('\n')
+  if (lines.at(-1) === '') lines.pop()
+  try {
+    for (const line of lines) {
+      const value: unknown = JSON.parse(line)
+      if (typeof value !== 'object' || value === null || typeof (value as { type?: unknown }).type !== 'string') throw new Error()
+      const record = value as { seq?: unknown; seq0?: unknown; start?: unknown }
+      if (typeof record.seq !== 'number' && typeof record.seq0 !== 'number' && typeof record.start !== 'number') throw new Error()
+    }
+  } catch {
     throw new Error('corrupt Zstandard session log: first frame is not exactly one header line')
   }
+  return { header, body }
 }
 
 /** Loader schema for the JSONL artifact's physical encoding. */
@@ -409,8 +430,9 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
       signal?.throwIfAborted()
       /* v8 ignore next -- a non-empty structural frame list makes the decoder yield its first frame or throw. */
       if (headerFrame.done) throw new Error('empty or header-less Zstandard session log')
-      assertZstdHeaderFrame(headerFrame.value)
-      const scanner = new SessionLogScanner(headerFrame.value)
+      const first = splitZstdHeaderFrame(headerFrame.value)
+      const scanner = new SessionLogScanner(first.header)
+      await scanJsonlSlices(scanner, first.body, schedule, frames.length > 1, signal)
 
       let remainingFrames = frames.length - 1
       for (const plaintext of decodedFrames) {
@@ -813,8 +835,7 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
           throw new Error('corrupt Zstandard session log: header frame failed validation', { cause: error })
         }
         signal?.throwIfAborted()
-        assertZstdHeaderFrame(plaintext)
-        return plaintext.subarray(0, -1).toString('utf8')
+        return splitZstdHeaderFrame(plaintext).header.subarray(0, -1).toString('utf8')
       }
     } finally {
       await handle.close()
