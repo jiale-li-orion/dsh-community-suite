@@ -25,6 +25,16 @@ https://github.com/jiale-li-orion/dsh-meshfin/releases/download/android-shell/ds
 
 在手机上下载并打开即可，App 不申请任何权限。该地址的文件会在本 App 更新时**原地替换**，所以这个链接始终指向当前构建。
 
+### 由你自己的 host 分发
+
+如果部署本身已经让手机经私有网络访问到 host，那 APK 也可以直接由 host 分发，省掉手机上跑一趟 GitHub。本仓库的部署就是从 Web host 的静态根提供它，因此发布一次重建只需一次拷贝：
+
+```sh
+cp apps/android-shell/app/build/outputs/apk/debug/app-debug.apk apps/web/dist/dsh-shell.apk
+```
+
+两份副本都被 git 忽略：APK 是构建产物，不是仓库内容。
+
 ## 构建
 
 需要 Gradle 9.1.0 与带 platform 35 的 Android SDK。本项目**不含** Gradle wrapper，因此用的就是你 `PATH` 上的 `gradle`。

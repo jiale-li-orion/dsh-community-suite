@@ -25,6 +25,16 @@ https://github.com/jiale-li-orion/dsh-meshfin/releases/download/android-shell/ds
 
 Download it on the phone and open it; the app requests no permissions. That asset is replaced in place whenever this app changes, so the URL always serves the current build.
 
+### Serving it from your own host
+
+A deployment that already reaches the phone over a private network can hand out the APK itself, which saves a trip to GitHub on the phone. This repository's deployment serves it from the web host's static root, so publishing a rebuild is one copy:
+
+```sh
+cp apps/android-shell/app/build/outputs/apk/debug/app-debug.apk apps/web/dist/dsh-shell.apk
+```
+
+Both copies are ignored by git, because an APK is a build artifact and not repository content.
+
 ## Build
 
 Gradle 9.1.0 and an Android SDK with platform 35. The project ships **no** Gradle wrapper, so the `gradle` on your `PATH` is the one used.
