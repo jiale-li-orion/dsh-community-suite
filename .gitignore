@@ -58,3 +58,6 @@ docs/superpowers/
 # not in the published tree.
 DSH进化日志.md
 进化/
+
+# Release output: packed tarballs and assembled portable distributions.
+dist/
