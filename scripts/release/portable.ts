@@ -124,6 +124,28 @@ function installHarness(root: string, tarballs: readonly string[], scripts: bool
 }
 
 /**
+ * Carry the desktop launcher into the distribution.
+ *
+ * The launcher is not part of the harness's packages: it is the Windows and
+ * Linux plumbing that turns "there is a server somewhere" into a double-click —
+ * a shortcut creator, a launcher that opens the browser only once the port
+ * answers, a WSL lifetime owner, and the optional desktop tile with its default
+ * skins.
+ * @param root - the distribution root.
+ * @param repository - the repository root holding `apps/desktop-launcher/`.
+ * @param platform - which platform's scripts need an executable bit.
+ */
+function installDesktop(root: string, repository: string, platform: Platform): void {
+  const source = join(repository, 'apps', 'desktop-launcher')
+  const target = join(root, 'desktop')
+  cpSync(source, target, { recursive: true })
+  if (platform !== 'posix') return
+  for (const script of ['wsl/meshfin-web.sh', 'linux/install-desktop-entry.sh']) {
+    chmodSync(join(target, script), 0o755)
+  }
+}
+
+/**
  * Copy the native addon's per-platform packages beside the extracted harness.
  *
  * `@deepseek-ai/dsh-sandbox-local` imports the Landlock launcher by name, and
@@ -241,6 +263,7 @@ function assemble(
   rmSync(out, { recursive: true, force: true })
   mkdirSync(out, { recursive: true })
   installHarness(out, options.tarballs.map(directory => resolve(root, directory)), options.scripts, options.platform)
+  installDesktop(out, root, options.platform)
   installNativePayloads(out, root, options.platform)
   installRuntime(out, resolve(root, options.runtime), options.platform)
   installCommunity(out, root)

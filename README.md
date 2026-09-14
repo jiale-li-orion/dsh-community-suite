@@ -105,6 +105,8 @@ Whatever private network you use, the deployment fact is the same: the host answ
 
 The thin Android app is optional and separate; when the phone browser is not enough, see [the app's README](apps/android-shell/README.md).
 
+On Windows, running `desktop\windows\setup.cmd` once from the extracted archive puts a **Meshfin Web** shortcut on the desktop, with the icon and the browser-opening launcher; `--tile` also builds the desktop tile. `desktop/linux/install-desktop-entry.sh` does the same for a Linux or WSL desktop application menu. The launcher is documented in the [desktop launcher README](apps/desktop-launcher/README.md).
+
 ### Later launches and updates
 
 Start an installed checkout again with the same DSH home:

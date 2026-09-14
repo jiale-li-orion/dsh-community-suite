@@ -105,6 +105,8 @@ Web UI 绑定在 `127.0.0.1`，因此手机是**经私有网络**访问它，而
 
 Android 薄壳 App 是可选的、独立的另一半；当手机浏览器不够用时，见 [App 自己的 README](apps/android-shell/README.md)。
 
+在 Windows 上，从解压出来的目录跑一次 `desktop\windows\setup.cmd` ✓，桌面就会出现 **Meshfin Web** 快捷方式（带图标 ✓、且会在端口就绪后才开浏览器 ✓）；加 `--tile` 还会编译桌面启动块 ✓。Linux／WSL 桌面则跑 `desktop/linux/install-desktop-entry.sh` ✓，它会把入口写进应用菜单 ✓。启动套件的说明见[桌面启动套件 README](apps/desktop-launcher/README.md) ✓。
+
 ### 后续启动与更新
 
 使用同一个 DSH home 再次启动已经安装的 checkout：
