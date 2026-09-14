@@ -47,7 +47,18 @@ Imported community modules and their exact provenance are audited in [Community 
 
 ### 1. The computer
 
-Install Node.js `^22.19.0` or `>=24.0.0`, install pnpm 11.22, clone the repository, run the keyless community checks, and build the Harness:
+**Download and run — nothing to build** (WSL and Linux x64; a PowerShell package is being assembled):
+
+```sh
+curl -L -o meshfin.tar.gz https://github.com/jiale-li-orion/dsh-meshfin/releases/download/pc-wsl/meshfin-linux-x64.tar.gz
+tar xzf meshfin.tar.gz
+cd meshfin-linux-x64
+./meshfin web
+```
+
+The archive carries the harness, its dependencies, a Node runtime, and the community modules already installed. `DSH_HOME` defaults to the distribution's own `data/` directory, so nothing is written outside the extracted folder unless you set it.
+
+**Or build the checkout yourself.** Install Node.js `^22.19.0` or `>=24.0.0`, install pnpm 11.22, clone the repository, run the keyless community checks, and build the Harness:
 
 ```sh
 npm install --global pnpm@11.22.0
