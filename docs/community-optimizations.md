@@ -4,6 +4,23 @@ English | [中文](community-optimizations.zh.md)
 
 This rc.7 community snapshot combines `leavelet/deepseek-harness` session-context work, the `MuWinds/dsh-archived-sessions` bundle, and `xiaobright/dsh-anchored-standard` runtime presets. Source revisions and adaptation limits are recorded in [COMMUNITY_SOURCES.md](../COMMUNITY_SOURCES.md).
 
+## Status
+
+The suite is fixed to the official `dsh-v0.1.0-rc.7` base and retains the repository's `pnpm@11.22.0` toolchain choice. DeepSeek Harness remains a developer preview and may introduce compatibility-breaking changes; community modules in this snapshot are supported only against the recorded base.
+
+Runnable today: the Web UI on a computer, the same session driven from a phone, file intake from the phone into the session workspace, the shared workbench with its file viewers, and the thin Android shell that carries the browser layer. Not implemented: the device-capability protocol — a paired phone publishing capabilities such as `device.info` that the agent may call with a confirmation per call — which is the direction the name refers to.
+
+## Recent updates
+
+- **2026-09-11 — The phone works the same session as the computer.** The narrow client presents three pages (conversation, sessions, workbench) with exactly one visible at a time, scales text and controls for a small screen, and shows a connection-loss line when its stream generation dies. A file picked on the phone lands in the session workspace's `uploads/<source>/` under the ingest id the composer minted, a workbench panel groups what each sender sent, and Markdown, source, PDF, image, audio, and video files preview there. The class of client that sent a prompt (`mobile-app`, `mobile-browser`, `desktop-browser`) is recorded on the durable user message and stated to the model once per turn. See the [narrow single-panel note](../.agents/notes/implemented/architecture/2026-09-10-narrow-single-panel-workbench.md) and the [client-origin note](../.agents/notes/implemented/feature/2026-09-11-model-visible-client-origin.md).
+- **2026-09-11 — Android thin shell** ([`apps/android-shell/`](../apps/android-shell/README.md)). Scoped to the browser layer a stock phone browser does not provide: host-addressed local caching keyed by the revision hash the host advertises, a launcher icon, a foreground service, and a loopback proxy that keeps the host's TLS identity while bypassing the system DNS layer.
+- **2026-09-09 — Tool-result images reach the model.** A tool result's images now follow its `role: tool` message as one user message, so `read_image` output and any history containing it keep working on the native route. See the [tool-result images note](../.agents/notes/implemented/feature/2026-09-09-llm-deepseek-tool-result-images.md).
+- **2026-09-08 — Per-model input modalities.** Each `llm-deepseek` catalog entry declares `inputModalities`; omission means `[text]`, and a user image reaches the wire only for an entry naming `image`. See the [input modalities note](../.agents/notes/implemented/feature/2026-09-08-llm-deepseek-catalog-input-modalities.md).
+
+## Deliberately not shipped
+
+Audited but deliberately not shipped: agent-authored workbench extensions (design from [saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile)), the full Android and desktop clients ([ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android), [ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui), and the AGPL-3.0/GPL-3.0 projects, which permit design study only), and the device-capability protocol that would let the agent call a phone's own camera, files, or location — the shell app carries the browser layer only and does not implement that protocol. Their decisions and the exact revert for every shipped row are recorded in the workbench [Agent Notes](../.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.md).
+
 ## Session context
 
 The leavelet integration reads long histories through bounded log cuts rather than expanding complete JSONL or packed logs. Packed retention remains a persistence implementation detail, while `SessionLogCut` supplies stable boundaries for incremental folds. History entries carry `firstSeq`, so paging, forks, rewrites, and compaction share one event-range meaning.

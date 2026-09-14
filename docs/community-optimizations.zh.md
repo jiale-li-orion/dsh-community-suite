@@ -4,6 +4,23 @@
 
 这个 rc.7 社区快照结合了 `leavelet/deepseek-harness` 的会话上下文工作、`MuWinds/dsh-archived-sessions` bundle 和 `xiaobright/dsh-anchored-standard` 运行时预设。源码修订与适配范围记录在 [COMMUNITY_SOURCES.md](../COMMUNITY_SOURCES.md) 中。
 
+## 状态
+
+本套件固定采用官方 `dsh-v0.1.0-rc.7` 基线，并保留仓库的 `pnpm@11.22.0` 工具链选择。DeepSeek Harness 仍处于开发者预览阶段，可能出现破坏兼容性的变更；此快照中的社区模块仅支持已记录的基线。
+
+**今天就能跑的**：电脑上的 Web UI、从手机操作**同一个会话**、把手机上的文件接入会话工作区、带文件预览的共享工作台，以及承载浏览器那一层的 Android 薄壳。**尚未实现**：设备能力协议——已配对的手机发布诸如 `device.info` 的能力，由 agent 在**逐次确认**下调用，这正是名字所指的方向。
+
+## 近期更新
+
+- **2026-09-11 — 手机与电脑操作同一个会话。** 窄屏客户端呈现三页（会话／会话列表／工作台），同一时刻只显示其中一页；文字与控件按小屏缩放；流连接代际死亡时显示一行"连接中断"。手机上选中的文件落在会话工作区的 `uploads/<来源>/`，用的是输入框当场生成的接入 id；工作台里有一个按发送方分组的「上传」面板；Markdown、源码、PDF、图片、音频与视频都能就地预览。发出提示的客户端类别（`mobile-app`、`mobile-browser`、`desktop-browser`）记在那条持久化用户消息上，并在每轮向模型陈述一次。见[窄屏单面板 note](../.agents/notes/implemented/architecture/2026-09-10-narrow-single-panel-workbench.md)与[客户端来源 note](../.agents/notes/implemented/feature/2026-09-11-model-visible-client-origin.md)。
+- **2026-09-11 — Android 薄壳**（[`apps/android-shell/`](../apps/android-shell/README.md)）。范围限定在手机自带浏览器给不了的那一层：按 host 广播的修订哈希做本地缓存、launcher 图标、前台服务保活，以及一个保留 host TLS 身份、绕开系统 DNS 解析层的回环代理。
+- **2026-09-09 — 工具结果的图片进入模型上下文。** 工具结果里的图片现在跟随其 `role: tool` 消息、由一条 user 消息承载，因此 `read_image` 的输出以及任何含有它的历史在原生路由上都能继续使用。见[工具结果图片 note](../.agents/notes/implemented/feature/2026-09-09-llm-deepseek-tool-result-images.md)。
+- **2026-09-08 — 按模型声明输入模态。** `llm-deepseek` 的每个 catalog 配置项自行声明 `inputModalities`；省略表示 `[text]`，只有声明了 `image` 的配置项才会把用户图片送到协议上。见[输入模态 note](../.agents/notes/implemented/feature/2026-09-08-llm-deepseek-catalog-input-modalities.md)。
+
+## 有意未落地
+
+已审计但有意未落地：agent 自写工作台扩展（设计参考 [saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile)）、完整的 Android／桌面客户端（[ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android)、[ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui)，以及仅允许设计研究的 AGPL-3.0／GPL-3.0 项目），以及让 agent 调用手机自身摄像头、文件或位置的设备能力协议——薄壳 App 只承载浏览器那一层，没有实现该协议。相关决策与每条已落地行的回滚方式记录在工作台 [Agent Notes](../.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.md)。
+
 ## 会话上下文
 
 leavelet 集成通过有界日志切片读取长历史，而不展开完整 JSONL 或 packed 日志。packed retention 保持为 persistence 的内部实现，`SessionLogCut` 则为增量 fold 提供稳定边界。历史条目携带 `firstSeq`，因此分页、分叉、重写与压缩共用一套事件范围语义。

@@ -21,53 +21,36 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 
 本地那一半**不需要 App** 也能从手机浏览器使用；App 之所以存在，是因为本部署里这台手机的自带浏览器无法按 Web UI 需要的方式配置。
 
-## 状态
+## 功能特色
 
-本套件固定采用官方 `dsh-v0.1.0-rc.7` 基线，并保留仓库的 `pnpm@11.22.0` 工具链选择。DeepSeek Harness 仍处于开发者预览阶段，可能出现破坏兼容性的变更；此快照中的社区模块仅支持已记录的基线。
+- **一个会话，跨设备延续。** 同一个对话在电脑和手机上继续；手机操作的是**同一个会话**，模型也会被告知每条提示来自哪一类客户端。
+- **手机能把东西交出去。** 手机上选中的文件经受围栏保护的 host 路由进入会话工作区 ✓，出现在按发送方分组的「上传」面板里 ✓，并能在工作台中就地预览 ✓。同一次选择重试时返回第一次的结果 ✓，不会存成两份 ✓。
+- **两边共用的工作台。** 面板与文件查看器经声明的槽位注册 ✓，浏览器与 agent 修改**同一份** host 持有的视图 ✓，一条受围栏保护的字节路由以 `Range`／`206`／`416` 流式提供工作区文件 ✓ —— 视频能拖进度 ✓，长 PDF 能预览 ✓。
+- **手机是一等的窄屏客户端**，而不是第二个产品：一条顶栏下三页、同一时刻只显示一页 ✓，为小屏准备界面缩放 ✓，流连接代际死亡时明确显示"连接中断" ✓。
+- **可选的 Android 薄壳**只承载手机自带浏览器给不了的那一层：本地资源缓存 ✓、launcher 身份 ✓、前台服务 ✓、回环代理 ✓ —— 不装 API 密钥 ✓、不复制会话存储 ✓、不改 Agent Loop ✓。
+- **会自己控节奏的 agent 预设。** 七个锚定组合：受控的首轮工具面 ✓、上下文门控 ✓、wire-think 路由 ✓、压缩感知的阶段提升 ✓。
+- **长会话依然划算**：有界日志读取 ✓、上下文检查与区间压缩 ✓、历史召回 ✓、按模型容量规划摘要 ✓。
+- **归档会话管理**，以及一个**插件目录**（搜索与安装共用同一份经校验的安装能力 ✓）。
 
-**今天就能跑的**：PC 上的 Web UI、从手机操作**同一个会话**、把手机上的文件接入会话工作区、带文件预览的共享工作台，以及承载浏览器那一层的 Android 薄壳。**尚未实现**：设备能力协议——已配对的手机发布诸如 `device.info` 的能力，由 agent 在**逐次确认**下调用，这正是名字所指的方向。
+导入的社区模块与其精确来源，审计在[社区优化](docs/community-optimizations.md)（[中文](docs/community-optimizations.zh.md)）；上游修订与许可证记录在[社区源码记录](COMMUNITY_SOURCES.md)。
 
-## 近期更新
+## 使用说明
 
-- **2026-09-11 — 手机与 PC 操作同一个会话。** 窄屏客户端呈现三页（会话／会话列表／工作台），同一时刻只显示其中一页；文字与控件按小屏缩放；流连接代际死亡时显示一行"连接中断"。手机上选中的文件落在会话工作区的 `uploads/<来源>/`，用的是输入框当场生成的接入 id；工作台里有一个按发送方分组的「上传」面板；Markdown、源码、PDF、图片、音频与视频都能就地预览。发出提示的客户端类别（`mobile-app`、`mobile-browser`、`desktop-browser`）记在那条持久化用户消息上，并在每轮向模型陈述一次。见[窄屏单面板 note](.agents/notes/implemented/architecture/2026-09-10-narrow-single-panel-workbench.md)与[客户端来源 note](.agents/notes/implemented/feature/2026-09-11-model-visible-client-origin.md)。
-- **2026-09-11 — Android 薄壳 App**（`apps/android-shell/`）。范围严格限定在**手机自带浏览器给不了的那一层**：按 host 广播的修订哈希做本地缓存、launcher 图标、前台服务保活，以及一个回环代理（保留 host 的 TLS 身份、绕开系统 DNS 解析层）。它不承载 LLM 密钥、不复制会话存储、不改 Agent Loop。
-- **2026-09-09 — 工具结果的图片进入模型上下文。** 工具结果里的图片现在跟随其 `role: tool` 消息、由一条 user 消息承载，因此 `read_image` 的输出以及任何含有它的历史在原生路由上都能继续使用。见[工具结果图片 note](.agents/notes/implemented/feature/2026-09-09-llm-deepseek-tool-result-images.md)。
-- **2026-09-08 — 按模型声明输入模态。** `llm-deepseek` 的每个 catalog 配置项自行声明 `inputModalities`；省略表示 `[text]`，只有声明了 `image` 的配置项才会把用户图片送到协议上。见[输入模态 note](.agents/notes/implemented/feature/2026-09-08-llm-deepseek-catalog-input-modalities.md)。
-- **2026-09-08 — 运行说明重构**为「环境要求 / 首次启动 / 后续启动与更新」三节。
+### 你需要什么
 
-## 已整合的优化
+| | |
+| --- | --- |
+| 电脑 | Windows + PowerShell，或 WSL／Linux |
+| 手机（可选） | Android；**只用浏览器也可以** —— [App](apps/android-shell/README.md) 只是补上浏览器无法被配置成的那一层 |
+| API 密钥 | 一个 DeepSeek API key |
+| 网络 | 把两者连起来的同一张私有网络；本部署用 [Tailscale](https://tailscale.com/) |
 
-### 导入的社区模块
+### 1. 电脑
 
-- **会话上下文与压缩**：有界长会话读取、packed retention、上下文检查与区间选择、历史召回、按模型容量规划压缩，以及可恢复的摘要审阅；来源为 [leavelet/deepseek-harness](https://github.com/leavelet/deepseek-harness)。
-- **归档会话**：在 Web 设置页列出、预览、释放、删除归档会话并统计容量的 bundle；来源为 [MuWinds/dsh-archived-sessions](https://github.com/MuWinds/dsh-archived-sessions)。
-- **锚定 agent**：7 个可独立安装的 agent 组合，提供受控的首轮工具面、上下文门控、wire-think 路由、压缩感知的阶段提升、默认会话 prefab 播种、跨平台 shell 路径与稳健的指令发现；来源为 [xiaobright/dsh-anchored-standard](https://github.com/xiaobright/dsh-anchored-standard)。
-### 自有实现
-
-- **DeepSeek 图片输入**：内置的 `llm-deepseek` 适配器按模型声明输入模态，并把用户上传的图片与工具产生的图片都以 `image_url` data URL 送到模型。
-- **Human-Agent 共享工作台**：一个可停靠的栏位，面板与文件查看器都经声明的槽位注册（`workbench.panel`、`workbench.viewer`）；浏览器与 agent 修改同一份 host 持有的视图（`ctx.workbench` 加转发的 `workbench/changed` 事件）；一条受围栏保护的字节路由以 `Range`／`206`／`416` 流式提供工作区文件。全部为 rc.7 seam 上的一手包；设计参考 [omdsh-dev/DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)（面板与文件查看器注册表）、[kendu76/dsh-music-player](https://github.com/kendu76/dsh-music-player)（host 持有、两个平面共同修改的意图）、[tsonglew/dsh-media-preview](https://github.com/tsonglew/dsh-media-preview)（Range／流式处理器）。未搬运任何社区代码。
-- **移动端个人工作台**：手机是**同一个会话**的一等客户端，而不是第二个产品——一条顶栏下的三页结构、同一时刻只显示一页；为窄屏准备的界面缩放；输入框里的上传控件把文件经受围栏保护的 host 路由送进会话工作区；接入 id 让重复上传返回第一次的结果而不是存第二份；按发送方分组的「上传」面板；Markdown、源码、PDF、图片、音频与视频的就地预览。移动端呈现只**读**共享的工作台视图，从不写它。
-- **插件目录**：一个 `marketplace` 工作台面板，加上 `plugin_search` 与 `plugin_install` 两个工具，都建立在 CC0 的 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 索引之上。两条路径共用一份安装能力：面板里确认过的点击就是人的手势，工具则额外走 `ctx.approval`；无论哪条，条目自带的目标都要先校验、再以 argv 数组执行。安装目标校验与「搜索/安装」拆分参考 [DshMarketPlace/dsh-plugins-store](https://github.com/DshMarketPlace/dsh-plugins-store)；索引在运行时作为数据消费，绝不重新生成或镜像。
-
-已审计但有意未落地的部分：agent 自写工作台扩展（设计参考 [saya-ch/dsh-mobile](https://github.com/saya-ch/dsh-mobile)）、完整的 Android／桌面客户端（[ZSeven-W/dsh-android](https://github.com/ZSeven-W/dsh-android)、[ZgblKylin/dsh-gui](https://github.com/ZgblKylin/dsh-gui)，以及仅允许设计研究的 AGPL-3.0／GPL-3.0 项目），以及让 agent 调用手机自身摄像头、文件或位置的设备能力协议——上面的薄壳 App 只承载浏览器那一层，没有实现该协议。相关决策与每条已落地行的回滚方式记录在工作台 [Agent Notes](.agents/notes/implemented/feature/2026-09-09-workbench-shared-view.md)。
-
-完整功能审计与兼容边界见[社区优化](docs/community-optimizations.md)（[中文](docs/community-optimizations.zh.md)）；精确的上游修订与许可证见[社区来源记录](COMMUNITY_SOURCES.md)。
-
-## 运行
-
-### 环境要求
-
-安装 Node.js `^22.19.0` 或 `>=24.0.0`，并安装 pnpm 11.22：
+安装 Node.js `^22.19.0` 或 `>=24.0.0`，安装 pnpm 11.22，克隆仓库、安装依赖、运行不使用真实 API 的社区检查，并构建 Harness：
 
 ```sh
 npm install --global pnpm@11.22.0
-```
-
-### 首次启动
-
-克隆仓库、安装依赖、运行不使用真实 API 的社区检查，并构建 Harness：
-
-```sh
 git clone https://github.com/jiale-li-orion/dsh-meshfin.git
 cd dsh-meshfin
 pnpm install --frozen-lockfile
@@ -87,7 +70,11 @@ pnpm dsh web
 
 Web UI 默认地址为 `http://127.0.0.1:3080`。使用 DSH 时请保持该终端运行。
 
-### 从手机访问
+### 2. API 密钥
+
+给 harness 一个 DeepSeek API key：导出 `DEEPSEEK_API_KEY` ✓、放进仓库根目录的 `.env` ✓，或在 Web UI 的设置里填 ✓。没有密钥时 Web UI 仍能启动 ✓，只是无法发起模型轮次 ✓。
+
+### 3. 手机
 
 Web UI 绑定在 `127.0.0.1`，因此手机是**经私有网络**访问它，而不是经公网。[Tailscale](https://tailscale.com/) 就是本部署用的方式：把电脑和手机登进同一个 tailnet，然后在手机浏览器里打开电脑的 tailnet 地址。DSH 本身没有任何改动——tailnet 只是扩展了它的地址能被解析到的范围。
 
