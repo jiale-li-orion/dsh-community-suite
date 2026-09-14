@@ -15,3 +15,10 @@ community/patches/*.patch -whitespace
 # Pairing records are generated from the three confirmed owner-blob pairs.
 # The worktree-local installer registers the fail-closed driver command.
 *.i18n.yaml merge=dsh-translation-pairing
+
+# The desktop launcher's Windows files are consumed by cmd.exe and by the tile,
+# not by a POSIX shell: a batch file's `^` continuations and its labels need the
+# CRLF endings they are written with.
+apps/desktop-launcher/**/*.cmd text eol=crlf
+apps/desktop-launcher/**/*.ps1 text eol=crlf
+apps/desktop-launcher/**/*.ico binary
