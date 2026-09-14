@@ -47,7 +47,9 @@ DeepSeek Harness（`dsh`）采用**一切皆插件**的架构，并由 [Cordis](
 
 ### 1. 电脑
 
-**下载即用 —— 不需要构建**（WSL 与 Linux x64 ✓；PowerShell 那个包正在装配 ✓）：
+下载即用 —— 不需要构建：
+
+**WSL / Linux x64**
 
 ```sh
 curl -L -o meshfin.tar.gz https://github.com/jiale-li-orion/dsh-meshfin/releases/download/pc-wsl/meshfin-linux-x64.tar.gz
@@ -56,7 +58,15 @@ cd meshfin-linux-x64
 ./meshfin web
 ```
 
-压缩包里已经有 harness、它的依赖、一份 Node 运行时，以及**已装好**的社区模块 ✓。`DSH_HOME` 默认指向分发包自己的 `data/` 目录 ✓ —— 除非你自己设 `DSH_HOME` ✓，否则不会往解压目录之外写任何东西 ✓。
+**Windows x64（PowerShell）** —— 先下载并解压 [meshfin-windows-x64.zip](https://github.com/jiale-li-orion/dsh-meshfin/releases/download/pc-windows/meshfin-windows-x64.zip)，然后：
+
+```powershell
+cd meshfin-windows-x64
+Set-ExecutionPolicy -Scope Process RemoteSigned
+.\meshfin.ps1 web
+```
+
+两个包都自带 harness、依赖、一份 Node 运行时，以及**已装好**的社区模块 ✓ —— 所以 `DSH_HOME` 默认指向分发包自己的 `data/` ✓，除非你自己设它 ✓，否则不会往解压目录之外写东西 ✓。WSL／Linux 那一版已经端到端冒烟实测 ✓；**Windows 那一版还没在 Windows 上跑过** ✗，请把第一次启动当作验收 ✓。
 
 **或者自己构建源码。** 安装 Node.js `^22.19.0` 或 `>=24.0.0`，安装 pnpm 11.22，克隆仓库、安装依赖、运行不使用真实 API 的社区检查，并构建 Harness：
 

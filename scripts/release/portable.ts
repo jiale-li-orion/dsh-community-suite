@@ -31,7 +31,7 @@ type Platform = 'posix' | 'windows'
 const CLI_PACKAGE = '@deepseek-ai/dsh'
 
 /** Where the CLI package keeps its entry inside an installed prefix. */
-const CLI_ENTRY = ['node_modules', ...CLI_PACKAGE.split('/'), 'lib/bin.js']
+const CLI_ENTRY = ['node_modules', ...CLI_PACKAGE.split('/'), 'lib', 'bin.js']
 
 /** The part of a packed tarball's manifest a distribution decides with. */
 interface PackedManifest {
@@ -64,7 +64,7 @@ function packedManifest(tarball: string): PackedManifest {
  * @param tarballs - every packed tarball directory.
  * @param scripts - whether dependency install scripts run (they need a toolchain).
  */
-function installHarness(root: string, tarballs: readonly string[], scripts: boolean): void {
+function installHarness(root: string, tarballs: readonly string[], scripts: boolean, platform: Platform): void {
   const app = join(root, 'app')
   const modules = join(app, 'node_modules')
   mkdirSync(modules, { recursive: true })
@@ -96,6 +96,10 @@ function installHarness(root: string, tarballs: readonly string[], scripts: bool
     // platform whose optional native package fails is simply missing that
     // capability, which is what optional means.
     'install', '--no-audit', '--no-fund', '--package-lock=false', '--legacy-peer-deps',
+    // A distribution is assembled on whatever machine the maintainer has, while
+    // a native dependent ships a per-platform binary: the install must ask for
+    // the platform being PACKAGED, not the platform doing the packaging.
+    ...platform === 'windows' ? ['--os=win32', '--cpu=x64'] : [],
     // A distribution ships JavaScript. Two packages in the closure (`koffi`,
     // `node-pty`) are native and want a prebuilt binary or a toolchain; a
     // consumer is not expected to have either, so their install scripts are
@@ -130,7 +134,9 @@ function installHarness(root: string, tarballs: readonly string[], scripts: bool
  * @param root - the distribution root.
  * @param repository - the repository root holding `native/`.
  */
-function installNativePayloads(root: string, repository: string): void {
+function installNativePayloads(root: string, repository: string, platform: Platform): void {
+  // The Landlock payloads are Linux launchers; a Windows package uses the ACL sandbox instead.
+  if (platform === 'windows') return
   const packages = join(repository, 'native', 'landlock-run', 'packages')
   let names: string[]
   try {
@@ -234,8 +240,8 @@ function assemble(
   const out = resolve(root, options.out)
   rmSync(out, { recursive: true, force: true })
   mkdirSync(out, { recursive: true })
-  installHarness(out, options.tarballs.map(directory => resolve(root, directory)), options.scripts)
-  installNativePayloads(out, root)
+  installHarness(out, options.tarballs.map(directory => resolve(root, directory)), options.scripts, options.platform)
+  installNativePayloads(out, root, options.platform)
   installRuntime(out, resolve(root, options.runtime), options.platform)
   installCommunity(out, root)
   writeLauncher(out, options.platform)

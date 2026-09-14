@@ -47,7 +47,9 @@ Imported community modules and their exact provenance are audited in [Community 
 
 ### 1. The computer
 
-**Download and run — nothing to build** (WSL and Linux x64; a PowerShell package is being assembled):
+Download and run — nothing to build:
+
+**WSL / Linux x64**
 
 ```sh
 curl -L -o meshfin.tar.gz https://github.com/jiale-li-orion/dsh-meshfin/releases/download/pc-wsl/meshfin-linux-x64.tar.gz
@@ -56,7 +58,15 @@ cd meshfin-linux-x64
 ./meshfin web
 ```
 
-The archive carries the harness, its dependencies, a Node runtime, and the community modules already installed. `DSH_HOME` defaults to the distribution's own `data/` directory, so nothing is written outside the extracted folder unless you set it.
+**Windows x64, in PowerShell** — download and expand [meshfin-windows-x64.zip](https://github.com/jiale-li-orion/dsh-meshfin/releases/download/pc-windows/meshfin-windows-x64.zip), then:
+
+```powershell
+cd meshfin-windows-x64
+Set-ExecutionPolicy -Scope Process RemoteSigned
+.\meshfin.ps1 web
+```
+
+Both archives carry the harness, its dependencies, a Node runtime, and the community modules already installed, so `DSH_HOME` defaults to the distribution's own `data/` directory and nothing is written outside the extracted folder unless you set it. The WSL/Linux build was smoke-tested end to end; the Windows build has **not** been run on Windows yet, so treat its first launch as the check.
 
 **Or build the checkout yourself.** Install Node.js `^22.19.0` or `>=24.0.0`, install pnpm 11.22, clone the repository, run the keyless community checks, and build the Harness:
 
