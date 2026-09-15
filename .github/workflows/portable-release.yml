@@ -192,7 +192,11 @@ jobs:
 
       - name: Read the built label back
         run: |
-          aapt2 dump badging apps/android-shell/app/build/outputs/apk/debug/app-debug.apk \
+          # aapt2 lives in the SDK's build-tools, not on PATH; the label is what
+          # the phone shows after installing, so the build is not trusted blind.
+          aapt2="$(find "${ANDROID_HOME}/build-tools" -name aapt2 -type f | sort | tail -1)"
+          test -n "$aapt2"
+          "$aapt2" dump badging apps/android-shell/app/build/outputs/apk/debug/app-debug.apk \
             | grep -E 'application-label|package: name'
 
       - uses: actions/upload-artifact@v4
